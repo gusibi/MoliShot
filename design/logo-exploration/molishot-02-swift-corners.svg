@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" role="img" aria-labelledby="title desc">
+  <title id="title">MoliShot logo variant 02</title>
+  <desc id="desc">Soft crop corners with a moving capsule and accent dot.</desc>
+  <g fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="8">
+    <path d="M34 22H22v12"/>
+    <path d="M66 22h12v12"/>
+    <path d="M22 66v12h12"/>
+    <path d="M78 66v12H66"/>
+  </g>
+  <rect x="35" y="44" width="24" height="12" rx="6" fill="currentColor"/>
+  <circle cx="68" cy="50" r="8" fill="var(--logo-accent, #FF6B4A)"/>
+</svg>

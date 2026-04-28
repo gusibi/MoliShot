@@ -1,0 +1,56 @@
+name: MoliShot
+options:
+  bundleIdPrefix: com.molishot
+  deploymentTarget:
+    macOS: "14.0"
+  createIntermediateGroups: true
+
+settings:
+  base:
+    SWIFT_VERSION: "5.9"
+    MACOSX_DEPLOYMENT_TARGET: "14.0"
+    DEVELOPMENT_TEAM: ""
+    CODE_SIGN_STYLE: Automatic
+    CODE_SIGN_IDENTITY: "-"
+    ENABLE_HARDENED_RUNTIME: NO
+    PRODUCT_BUNDLE_IDENTIFIER: com.molishot.app
+    MARKETING_VERSION: "0.2.0"
+    CURRENT_PROJECT_VERSION: "2"
+    INFOPLIST_KEY_LSUIElement: YES
+
+packages:
+  HotKey:
+    url: https://github.com/soffes/HotKey
+    from: "0.2.0"
+
+targets:
+  MoliShot:
+    type: application
+    platform: macOS
+    sources:
+      - path: Sources
+      - path: Resources
+        buildPhase: resources
+    info:
+      path: Resources/Info.plist
+      properties:
+        LSUIElement: true
+        CFBundleName: MoliShot
+        CFBundleDisplayName: MoliShot
+        CFBundleShortVersionString: "0.2.0"
+        CFBundleVersion: "2"
+        NSHumanReadableCopyright: "Copyright (c) 2026"
+        NSScreenCaptureUsageDescription: "MoliShot needs screen recording permission to capture screenshots."
+        NSAppleEventsUsageDescription: "MoliShot uses AppleEvents for window detection."
+    entitlements:
+      path: Resources/MoliShot.entitlements
+      properties:
+        com.apple.security.app-sandbox: false
+        com.apple.security.device.camera: true
+    dependencies:
+      - package: HotKey
+    settings:
+      base:
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        LD_RUNPATH_SEARCH_PATHS: "$(inherited) @executable_path/../Frameworks"
+        COMBINE_HIDPI_IMAGES: YES

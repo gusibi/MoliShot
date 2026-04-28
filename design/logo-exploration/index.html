@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MoliShot Logo Exploration</title>
+  <style>
+    :root {
+      --bg: #f5f1e8;
+      --card: rgba(255, 255, 255, 0.76);
+      --line: rgba(17, 24, 39, 0.08);
+      --text: #111827;
+      --muted: #5b6472;
+      --accent: #ff6b4a;
+      --shadow: 0 24px 60px rgba(17, 24, 39, 0.10);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: "SF Pro Display", "Segoe UI", sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at top left, rgba(255, 107, 74, 0.14), transparent 24rem),
+        radial-gradient(circle at bottom right, rgba(255, 193, 138, 0.24), transparent 28rem),
+        linear-gradient(180deg, #fcfaf5, var(--bg));
+    }
+
+    main {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 56px 24px 80px;
+    }
+
+    header {
+      max-width: 760px;
+      margin-bottom: 40px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(2.6rem, 6vw, 5rem);
+      line-height: 0.96;
+      letter-spacing: -0.05em;
+    }
+
+    .eyebrow,
+    .meta {
+      font-size: 0.76rem;
+      text-transform: uppercase;
+      letter-spacing: 0.2em;
+      color: var(--muted);
+    }
+
+    .eyebrow {
+      display: inline-block;
+      margin-bottom: 16px;
+    }
+
+    .intro {
+      margin: 16px 0 0;
+      max-width: 640px;
+      font-size: 1.05rem;
+      line-height: 1.7;
+      color: var(--muted);
+    }
+
+    .summary {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 12px;
+      margin: 32px 0 44px;
+    }
+
+    .chip {
+      padding: 14px 16px;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.5);
+      backdrop-filter: blur(10px);
+      font-size: 0.95rem;
+      color: var(--muted);
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 18px;
+    }
+
+    article {
+      padding: 22px;
+      border: 1px solid var(--line);
+      border-radius: 28px;
+      background: var(--card);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(18px);
+    }
+
+    .logo-box {
+      display: grid;
+      place-items: center;
+      min-height: 220px;
+      border-radius: 22px;
+      background:
+        radial-gradient(circle at 50% 35%, rgba(255, 107, 74, 0.14), transparent 6rem),
+        linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(255, 255, 255, 0.62));
+      border: 1px solid rgba(17, 24, 39, 0.05);
+      margin-bottom: 18px;
+      color: var(--text);
+      --logo-accent: var(--accent);
+    }
+
+    .logo-box svg {
+      width: 120px;
+      height: 120px;
+    }
+
+    h2 {
+      margin: 0;
+      font-size: 1.2rem;
+      letter-spacing: -0.03em;
+    }
+
+    p {
+      margin: 10px 0 0;
+      font-size: 0.96rem;
+      line-height: 1.65;
+      color: var(--muted);
+    }
+
+    .meta {
+      margin-top: 14px;
+      display: block;
+    }
+
+    .recommended {
+      margin-top: 44px;
+      padding: 24px;
+      border-radius: 28px;
+      background: #111827;
+      color: #fff7f4;
+    }
+
+    .recommended p,
+    .recommended .meta {
+      color: rgba(255, 247, 244, 0.76);
+    }
+
+    .recommended strong {
+      color: #ffffff;
+    }
+
+    code {
+      font-family: "SF Mono", "JetBrains Mono", monospace;
+      font-size: 0.9em;
+      background: rgba(17, 24, 39, 0.06);
+      padding: 0.18em 0.42em;
+      border-radius: 0.45em;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <span class="eyebrow">Logo Exploration</span>
+      <h1>MoliShot</h1>
+      <p class="intro">
+        Six directions built around one constraint: a logo that still reads at very small sizes,
+        feels rounded and friendly, and mixes screenshot framing with instant capture.
+      </p>
+      <section class="summary">
+        <div class="chip">Product type: lightweight screenshot tool</div>
+        <div class="chip">Visual goal: rounded, friendly, fast</div>
+        <div class="chip">Usage: Dock, menu bar, app icon, web</div>
+      </section>
+    </header>
+
+    <section class="grid">
+      <article>
+        <div class="logo-box">
+          <img src="./molishot-01-breeze-corners.svg" alt="MoliShot logo variant 01">
+        </div>
+        <h2>01. Breeze Corners</h2>
+        <p>Closest to the screenshot metaphor. Four soft crop corners keep the shape familiar, while the accent dot makes the icon feel alive instead of static.</p>
+        <span class="meta">Best for: App icon and website hero</span>
+      </article>
+
+      <article>
+        <div class="logo-box">
+          <img src="./molishot-02-swift-corners.svg" alt="MoliShot logo variant 02">
+        </div>
+        <h2>02. Swift Corners</h2>
+        <p>The strongest mix of “capture” and “quick”. The rounded capsule reads like motion, and the offset dot lands as the captured moment.</p>
+        <span class="meta">Best for: all-around primary mark</span>
+      </article>
+
+      <article>
+        <div class="logo-box">
+          <img src="./molishot-03-orbit-shot.svg" alt="MoliShot logo variant 03">
+        </div>
+        <h2>03. Orbit Shot</h2>
+        <p>More dynamic and slightly more brand-like. The orbit introduces movement without making the symbol busy.</p>
+        <span class="meta">Best for: marketing pages and launch visuals</span>
+      </article>
+
+      <article>
+        <div class="logo-box">
+          <img src="./molishot-04-pulse-window.svg" alt="MoliShot logo variant 04">
+        </div>
+        <h2>04. Pulse Window</h2>
+        <p>A softer app-window silhouette. It feels dependable and product-like, but it is less sharp than the corner-led marks at tiny sizes.</p>
+        <span class="meta">Best for: desktop app surfaces</span>
+      </article>
+
+      <article>
+        <div class="logo-box">
+          <img src="./molishot-05-pop-frame.svg" alt="MoliShot logo variant 05">
+        </div>
+        <h2>05. Pop Frame</h2>
+        <p>The brightest and boldest option. It pushes the accent color harder and feels more playful, though it is slightly less neutral.</p>
+        <span class="meta">Best for: friendly consumer-facing branding</span>
+      </article>
+
+      <article>
+        <div class="logo-box">
+          <img src="./molishot-06-snap-smile.svg" alt="MoliShot logo variant 06">
+        </div>
+        <h2>06. Snap Smile</h2>
+        <p>The most approachable one. The curve softens the whole mark and gives it a human tone, but it trades away some precision.</p>
+        <span class="meta">Best for: lighter brand personality</span>
+      </article>
+    </section>
+
+    <section class="recommended">
+      <span class="meta">Recommendation</span>
+      <p><strong>Start from 02. Swift Corners.</strong> It is the cleanest primary logo for your brief. It keeps the crop-corner screenshot cue, but the center shape gives it speed and a bit of brand memory. If you want a more literal backup, keep <code>01</code>. If you want a more expressive marketing variant, keep <code>03</code>.</p>
+    </section>
+  </main>
+</body>
+</html>

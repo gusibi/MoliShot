@@ -1,0 +1,21 @@
+# Xcode
+build/
+DerivedData/
+*.xcodeproj/
+*.xcworkspace/
+!default.xcodeproj/
+*.xcuserstate
+xcuserdata/
+.swiftpm/
+
+# macOS
+.DS_Store
+
+# Swift Package Manager
+.build/
+dist/
+Packages/
+Package.resolved
+
+.claude/
+.agents/

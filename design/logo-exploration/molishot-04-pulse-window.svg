@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" role="img" aria-labelledby="title desc">
+  <title id="title">MoliShot logo variant 04</title>
+  <desc id="desc">A soft window card with a pulse dot for fast capture.</desc>
+  <rect x="22" y="24" width="56" height="52" rx="18" fill="none" stroke="currentColor" stroke-width="8"/>
+  <circle cx="48" cy="50" r="10" fill="var(--logo-accent, #FF6B4A)"/>
+  <path d="M68 37l10-10" fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="8"/>
+</svg>

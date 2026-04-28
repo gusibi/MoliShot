@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" role="img" aria-labelledby="title desc">
+  <title id="title">MoliShot logo variant 03</title>
+  <desc id="desc">Three rounded crop corners wrapped around a quick shot orbit.</desc>
+  <g fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="8">
+    <path d="M35 22H22v13"/>
+    <path d="M22 65v13h13"/>
+    <path d="M65 78h13V65"/>
+  </g>
+  <path d="M35 55c5-13 19-22 31-18" stroke="currentColor" stroke-linecap="round" stroke-width="8"/>
+  <circle cx="70" cy="34" r="8" fill="var(--logo-accent, #FF6B4A)"/>
+</svg>

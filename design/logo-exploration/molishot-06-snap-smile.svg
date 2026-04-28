@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" role="img" aria-labelledby="title desc">
+  <title id="title">MoliShot logo variant 06</title>
+  <desc id="desc">Friendly crop corners with a curved motion smile and accent dot.</desc>
+  <g fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="8">
+    <path d="M34 22H22v12"/>
+    <path d="M66 22h12v12"/>
+    <path d="M22 66v12h12"/>
+  </g>
+  <path d="M34 58c8 10 23 13 36 6" fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="8"/>
+  <circle cx="73" cy="41" r="8" fill="var(--logo-accent, #FF6B4A)"/>
+</svg>

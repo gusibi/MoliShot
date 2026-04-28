@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-labelledby="title desc">
+  <title id="title">MoliShot app icon</title>
+  <desc id="desc">Coral squircle, large light capture card, two heavy motion bars for tiny UI legibility.</desc>
+  <rect width="1024" height="1024" rx="230" fill="#FF4D3A"/>
+  <rect x="88" y="152" width="548" height="720" rx="76" fill="#F7F4EF"/>
+  <rect x="688" y="268" width="248" height="168" rx="84" fill="#1A1D24" opacity="0.9"/>
+  <rect x="688" y="508" width="312" height="168" rx="84" fill="#1A1D24" opacity="0.9"/>
+</svg>
