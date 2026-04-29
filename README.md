@@ -118,4 +118,10 @@ project.yml        # XcodeGen 配置
 - [HotKey](https://github.com/soffes/HotKey) — 全局快捷键（SwiftPM）
 
 ## 许可
-自由修改，按自己方式使用。
+
+本项目采用 **非商业用途许可**（Non-Commercial License）。
+
+- ✅ **允许**：个人使用、学习研究、非商业用途的修改和分发
+- ❌ **禁止**：任何形式的商业使用、商业分发、商业获利
+
+请在使用时遵守许可要求，不得用于商业目的。
