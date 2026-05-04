@@ -74,6 +74,14 @@ extension NSColor {
         let b = Int((rgb.blueComponent * 255).rounded())
         return String(format: "#%02X%02X%02X", r, g, b)
     }
+
+    var rgbString: String {
+        guard let rgb = usingColorSpace(.sRGB) else { return "RGB 0, 0, 0" }
+        let r = Int((rgb.redComponent * 255).rounded())
+        let g = Int((rgb.greenComponent * 255).rounded())
+        let b = Int((rgb.blueComponent * 255).rounded())
+        return "RGB \(r), \(g), \(b)"
+    }
 }
 
 extension CGRect {

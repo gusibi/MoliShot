@@ -37,6 +37,10 @@ final class RegionSelectionView: NSView {
         .font: RegionSelectionView.safeMonospacedFont(size: 11, weight: .regular),
         .foregroundColor: NSColor.white
     ]
+    private static let magnifierValueAttributes: [NSAttributedString.Key: Any] = [
+        .font: RegionSelectionView.safeMonospacedFont(size: 10, weight: .medium),
+        .foregroundColor: NSColor.white.withAlphaComponent(0.92)
+    ]
 
     private static func safeMonospacedFont(size: CGFloat, weight: NSFont.Weight) -> NSFont {
         if let menlo = NSFont(name: "Menlo", size: size) {
@@ -77,8 +81,7 @@ final class RegionSelectionView: NSView {
         guard !isPointerPreservationActive else { return }
         isPointerPreservationActive = CGAssociateMouseAndMouseCursorPosition(0) == .success
         guard isPointerPreservationActive else { return }
-        NSCursor.hide()
-        didHideCursor = true
+        hideOverlayCursorIfNeeded()
     }
 
     func endPointerPreservationSession() {
@@ -141,6 +144,7 @@ final class RegionSelectionView: NSView {
         updateTrackingArea()
         if window != nil {
             pushCrosshairIfNeeded()
+            hideOverlayCursorIfNeeded()
             installKeyMonitorsIfNeeded()
             syncHoverToMouseLocation()
         } else {
@@ -240,19 +244,41 @@ final class RegionSelectionView: NSView {
 
     private func drawCrosshair(at point: NSPoint, in ctx: CGContext) {
         guard mode == .area else { return }
-        ctx.setStrokeColor(NSColor.white.withAlphaComponent(0.85).cgColor)
-        ctx.setLineWidth(1)
-        ctx.move(to: CGPoint(x: point.x - 8, y: point.y))
-        ctx.addLine(to: CGPoint(x: point.x + 8, y: point.y))
-        ctx.move(to: CGPoint(x: point.x, y: point.y - 8))
-        ctx.addLine(to: CGPoint(x: point.x, y: point.y + 8))
+        let ringRadius: CGFloat = 5
+        ctx.setStrokeColor(NSColor.black.withAlphaComponent(0.65).cgColor)
+        ctx.setLineWidth(3)
+        ctx.move(to: CGPoint(x: point.x - 15, y: point.y))
+        ctx.addLine(to: CGPoint(x: point.x - ringRadius - 3, y: point.y))
+        ctx.move(to: CGPoint(x: point.x + ringRadius + 3, y: point.y))
+        ctx.addLine(to: CGPoint(x: point.x + 15, y: point.y))
+        ctx.move(to: CGPoint(x: point.x, y: point.y - 15))
+        ctx.addLine(to: CGPoint(x: point.x, y: point.y - ringRadius - 3))
+        ctx.move(to: CGPoint(x: point.x, y: point.y + ringRadius + 3))
+        ctx.addLine(to: CGPoint(x: point.x, y: point.y + 15))
         ctx.strokePath()
+
+        ctx.setStrokeColor(NSColor.white.withAlphaComponent(0.95).cgColor)
+        ctx.setLineWidth(1)
+        ctx.move(to: CGPoint(x: point.x - 15, y: point.y))
+        ctx.addLine(to: CGPoint(x: point.x - ringRadius - 3, y: point.y))
+        ctx.move(to: CGPoint(x: point.x + ringRadius + 3, y: point.y))
+        ctx.addLine(to: CGPoint(x: point.x + 15, y: point.y))
+        ctx.move(to: CGPoint(x: point.x, y: point.y - 15))
+        ctx.addLine(to: CGPoint(x: point.x, y: point.y - ringRadius - 3))
+        ctx.move(to: CGPoint(x: point.x, y: point.y + ringRadius + 3))
+        ctx.addLine(to: CGPoint(x: point.x, y: point.y + 15))
+        ctx.strokePath()
+
+        ctx.setFillColor(NSColor.clear.cgColor)
+        ctx.setStrokeColor(NSColor.white.cgColor)
+        ctx.setLineWidth(1.5)
+        ctx.strokeEllipse(in: NSRect(x: point.x - ringRadius, y: point.y - ringRadius, width: ringRadius * 2, height: ringRadius * 2))
     }
 
     private func drawMagnifier(at point: NSPoint, in ctx: CGContext) {
         guard mode == .area, let snapshotImage else { return }
 
-        let magnifierSize = NSSize(width: 140, height: 140)
+        let magnifierSize = NSSize(width: 148, height: 176)
         var origin = NSPoint(x: point.x + 18, y: point.y + 18)
         if origin.x + magnifierSize.width > bounds.maxX - 8 {
             origin.x = point.x - magnifierSize.width - 18
@@ -273,38 +299,114 @@ final class RegionSelectionView: NSView {
         )
 
         ctx.saveGState()
+        let lensRect = NSRect(x: magnifierRect.minX, y: magnifierRect.minY + 28, width: 148, height: 148)
+        let lensPath = CGPath(ellipseIn: lensRect, transform: nil)
+        ctx.addPath(lensPath)
         ctx.setFillColor(NSColor.black.withAlphaComponent(0.82).cgColor)
-        ctx.fill(magnifierRect)
+        ctx.fillPath()
+
+        ctx.saveGState()
+        ctx.addPath(lensPath)
+        ctx.clip()
         snapshotImage.draw(
-            in: magnifierRect.insetBy(dx: 6, dy: 24),
+            in: lensRect.insetBy(dx: 8, dy: 8),
             from: sourceRect,
             operation: .copy,
             fraction: 1,
             respectFlipped: false,
             hints: [.interpolation: NSNumber(value: NSImageInterpolation.none.rawValue)]
         )
+        ctx.restoreGState()
+
+        ctx.addPath(lensPath)
         ctx.setStrokeColor(NSColor.white.withAlphaComponent(0.9).cgColor)
         ctx.setLineWidth(1.5)
-        ctx.stroke(magnifierRect)
+        ctx.strokePath()
 
-        let crossRect = magnifierRect.insetBy(dx: 6, dy: 24)
+        let crossRect = lensRect.insetBy(dx: 8, dy: 8)
         let midX = crossRect.midX
         let midY = crossRect.midY
-        ctx.setStrokeColor(NSColor.systemRed.cgColor)
+        ctx.setStrokeColor(NSColor.black.withAlphaComponent(0.7).cgColor)
+        ctx.setLineWidth(3)
+        ctx.move(to: CGPoint(x: midX - 14, y: midY))
+        ctx.addLine(to: CGPoint(x: midX + 14, y: midY))
+        ctx.move(to: CGPoint(x: midX, y: midY - 14))
+        ctx.addLine(to: CGPoint(x: midX, y: midY + 14))
+        ctx.strokePath()
+
+        ctx.setStrokeColor(NSColor.white.cgColor)
         ctx.setLineWidth(1)
-        ctx.move(to: CGPoint(x: midX - 10, y: midY))
-        ctx.addLine(to: CGPoint(x: midX + 10, y: midY))
-        ctx.move(to: CGPoint(x: midX, y: midY - 10))
-        ctx.addLine(to: CGPoint(x: midX, y: midY + 10))
+        ctx.move(to: CGPoint(x: midX - 14, y: midY))
+        ctx.addLine(to: CGPoint(x: midX + 14, y: midY))
+        ctx.move(to: CGPoint(x: midX, y: midY - 14))
+        ctx.addLine(to: CGPoint(x: midX, y: midY + 14))
         ctx.strokePath()
 
         let globalPoint = NSPoint(x: point.x + desktopBounds.origin.x, y: point.y + desktopBounds.origin.y)
         let info = "\(Int(globalPoint.x.rounded())), \(Int(globalPoint.y.rounded()))" as NSString
-        info.draw(
-            at: NSPoint(x: magnifierRect.minX + 8, y: magnifierRect.maxY - 18),
-            withAttributes: Self.magnifierLabelAttributes
-        )
+        info.draw(at: NSPoint(x: lensRect.minX + 20, y: lensRect.maxY - 24), withAttributes: Self.magnifierLabelAttributes)
+
+        let color = sampledColor(at: point, in: snapshotImage)
+        let valueRect = NSRect(x: magnifierRect.minX + 4, y: magnifierRect.minY, width: magnifierRect.width - 8, height: 30)
+        let valuePath = CGPath(roundedRect: valueRect, cornerWidth: 8, cornerHeight: 8, transform: nil)
+        ctx.addPath(valuePath)
+        ctx.setFillColor(NSColor.black.withAlphaComponent(0.82).cgColor)
+        ctx.fillPath()
+        if let color {
+            let swatchRect = NSRect(x: valueRect.minX + 8, y: valueRect.minY + 7, width: 16, height: 16)
+            ctx.setFillColor(color.cgColor)
+            ctx.fillEllipse(in: swatchRect)
+            ctx.setStrokeColor(NSColor.white.withAlphaComponent(0.75).cgColor)
+            ctx.setLineWidth(1)
+            ctx.strokeEllipse(in: swatchRect)
+
+            let text = "\(color.hexString)  \(color.rgbString)" as NSString
+            text.draw(at: NSPoint(x: valueRect.minX + 30, y: valueRect.minY + 8), withAttributes: Self.magnifierValueAttributes)
+        }
         ctx.restoreGState()
+    }
+
+    private func sampledColor(at point: NSPoint, in image: NSImage) -> NSColor? {
+        guard let cgImage = image.cgImageRef,
+              let provider = cgImage.dataProvider,
+              let data = provider.data,
+              let bytes = CFDataGetBytePtr(data)
+        else { return nil }
+
+        let scaleX = CGFloat(cgImage.width) / image.size.width
+        let scaleY = CGFloat(cgImage.height) / image.size.height
+        let bytesPerPixel = max(cgImage.bitsPerPixel / 8, 1)
+        guard bytesPerPixel >= 3 else { return nil }
+
+        let x = min(max(Int((point.x * scaleX).rounded()), 0), cgImage.width - 1)
+        let y = min(max(Int((point.y * scaleY).rounded()), 0), cgImage.height - 1)
+        let index = y * cgImage.bytesPerRow + x * bytesPerPixel
+        guard index + 2 < CFDataGetLength(data) else { return nil }
+
+        let info = cgImage.bitmapInfo
+        let order = info.intersection(.byteOrderMask)
+        let alphaInfo = CGImageAlphaInfo(rawValue: info.rawValue & CGBitmapInfo.alphaInfoMask.rawValue)
+        let red: UInt8
+        let green: UInt8
+        let blue: UInt8
+        if bytesPerPixel >= 4, order == .byteOrder32Little {
+            blue = bytes[index]
+            green = bytes[index + 1]
+            red = bytes[index + 2]
+        } else if bytesPerPixel >= 4, alphaInfo == .noneSkipFirst || alphaInfo == .premultipliedFirst || alphaInfo == .first {
+            red = bytes[index + 1]
+            green = bytes[index + 2]
+            blue = bytes[index + 3]
+        } else {
+            red = bytes[index]
+            green = bytes[index + 1]
+            blue = bytes[index + 2]
+        }
+
+        let redValue = CGFloat(red) / CGFloat(255)
+        let greenValue = CGFloat(green) / CGFloat(255)
+        let blueValue = CGFloat(blue) / CGFloat(255)
+        return NSColor(srgbRed: redValue, green: greenValue, blue: blueValue, alpha: 1)
     }
 
     private func convertGlobalRectToLocal(_ rect: CGRect) -> NSRect {
@@ -575,6 +677,12 @@ final class RegionSelectionView: NSView {
     private func applyOverlayCursor() {
         pushCrosshairIfNeeded()
         NSCursor.crosshair.set()
+    }
+
+    private func hideOverlayCursorIfNeeded() {
+        guard mode == .area, snapshotImage != nil, !didHideCursor else { return }
+        NSCursor.hide()
+        didHideCursor = true
     }
 
     private func pushCrosshairIfNeeded() {

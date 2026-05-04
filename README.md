@@ -1,127 +1,145 @@
 # MoliShot
 
-一款面向 macOS 的专业截图与录屏工具，基于 Swift + AppKit + ScreenCaptureKit + Vision 构建。覆盖从捕获、编辑、识别到分享的全链路屏幕信息工作流。
+一个基于 Swift + AppKit + ScreenCaptureKit + Vision 的 macOS 截图工具，对标 Shottr Pro 的核心功能。
 
-## 产品定位
+**⚠ 状态**：这是一个可用的基线版本，当前重点覆盖已经暴露在菜单栏和快捷键里的截图工作流。和成熟产品相比，仍有明显边界，尤其是滚动截图的稳定性和编辑器的轻量撤销能力。
 
-不止于「截图」，而是一套完整的工作流工具：
-- **捕获**：全屏 / 区域 / 窗口 / 延时 / 滚动截图 / 录屏
-- **编辑**：标注、画笔、形状、文字、马赛克、模糊、裁剪、撤销
-- **识别**：OCR 文字识别、取色、尺寸测量
-- **分享**：剪贴板、本地保存、固定悬浮、云端上传[TODO]
+## 已实现功能
 
-## 核心功能
 
-### 基础捕获
-- **区域截图**：十字线框选、实时尺寸（pt/px）、放大镜、Space 移动选区、Shift 锁定比例、Option 中心缩放；智能避开 Overlay 画面
-- **全屏截图**：支持多显示器独立输出，保持实际显示像素
-- **窗口截图**：悬停高亮，支持捕获阴影或被遮挡窗口
-- **延时截图**：3/5/10 秒延时，方便展开菜单、Popover、Tooltip 后再捕获
+| 模块       | 说明                                                                 |
+| -------- | ------------------------------------------------------------------ |
+| 区域截图     | 在当前鼠标所在显示器上进行区域选择，支持窗口 hover 高亮、放大镜、`pt`/`px` 实时尺寸、`Space` 移动选区、`Shift` 锁定比例、`Option` 中心缩放，避免把 overlay 画面带进最终结果 |
+| 全屏截图     | 捕获当前鼠标所在显示器                                                        |
+| 滚动截图     | Vision `VNTranslationalImageRegistrationRequest` 做帧间配准，手动滚动 + 拼接 |
+| 标注编辑器    | 箭头、矩形、椭圆、直线、画笔、文字、自增编号、高亮、模糊、像素化、裁剪，支持缩放查看 / 实际尺寸 / 适配窗口 |
+| OCR      | Vision 文字识别，自动检测语言，结果窗口支持查看与编辑，识别文本会复制到剪贴板                         |
+| 屏幕取色器    | 系统 `NSColorSampler`，HEX 自动复制 + HUD 提示                              |
+| 贴图 (Pin) | 浮动窗口置顶，hover 显示工具栏                                                 |
+| 历史记录     | Application Support 目录持久化，网格浏览                                     |
+| 全局快捷键    | 优先使用 `CGEventTap` 拦截截图热键；未授予辅助功能权限时自动降级到 HotKey，默认 ⇧⌘1 / ⇧⌘3 / ⇧⌘4 / ⇧⌘P / ⇧⌘R |
+| 偏好设置     | 快捷键列表、屏幕录制/辅助功能权限状态、历史路径 |
+| 导出分享     | 剪贴板、保存 PNG、上传到 0x0.st                                              |
 
-### 高级捕获
-- **滚动截图**：Vision 帧间配准，手动滚动 + 自动拼接，适合网页与长内容
-- **录屏**：区域 / 窗口 / 全屏录制，支持导出 GIF / 短视频
 
-### 编辑与标注
-- **绘图工具**：箭头、矩形、椭圆、直线、自由画笔
-- **文字标注**：支持双击编辑
-- **形状工具**：高亮、模糊、像素化、马赛克
-- **裁剪**：自由裁剪与比例裁剪
-- **撤销 / 清空**：轻量级操作历史（⌘Z）
-- **缩放**：放大 / 100% / 适配窗口，支持 ⌘+ / ⌘- / ⌘0 / ⌘1
+## 构建
 
-### 识别与取色
-- **OCR 文字识别**：Vision 端侧识别，自动检测语言，结果可编辑、复制
-- **屏幕取色器**：系统级取色，HEX 自动复制 + HUD 提示，支持多种颜色空间
-- **尺寸测量**：实时显示宽高、间距参考
+### 1. 安装 XcodeGen（首次）
 
-### 贴图与历史
-- **贴图（Pin）**：浮动窗口置顶，hover 显示工具栏，跨应用对照参考
-- **历史记录**：持久化存储，网格浏览，支持按时间 / OCR 文本 / 应用名检索
-
-### 快捷键与偏好
-- **全局快捷键**：优先使用 CGEventTap 拦截，避免干扰前台应用
-  - ⇧⌘1 区域截图
-  - ⇧⌘3 当前显示器截图
-  - ⇧⌘4 滚动截图
-  - ⇧⌘P 屏幕取色器
-  - ⇧⌘R OCR 识别
-- **偏好设置**：快捷键管理、权限状态提示、历史路径配置
-
-### 导出与分享
-- 剪贴板复制
-- 本地保存 PNG
-- 上传至 0x0.st 生成分享链接
-- 系统分享面板
-
-## 构建与运行
-
-### 环境准备
 ```bash
-# 安装 XcodeGen（首次）
 brew install xcodegen
 ```
 
-### 生成项目
+### 2. 生成 Xcode 项目
+
 ```bash
 cd ~/Desktop/Shottr-Clone
 xcodegen generate
 open MoliShot.xcodeproj
 ```
 
-### 签名配置
-在 Target `MoliShot` 的 **Signing & Capabilities** 中：
-- Team：选择你的 Apple ID
-- Bundle Identifier：可保留 `com.molishot.app` 或自定义
+### 3. 在 Xcode 中配置签名
 
-### 运行
-⌘R 运行。首次截图时会请求**屏幕录制权限**，请在「系统设置 → 隐私与安全 → 屏幕录制」中勾选 `MoliShot`，然后**完全退出再打开**一次。
+首次打开后，在 Target `MoliShot` 的 **Signing & Capabilities** 面板：
 
-如需使用热键触发时保持菜单/Popover 状态，还需授予**辅助功能权限**。
+- Team：选你自己的 Apple ID 或 "Sign to Run Locally"
+- Bundle Identifier：可保留 `com.molishot.app` 或改成你自己的
 
-### 打包 DMG（自用）
+### 4. 运行
+
+`⌘R` 运行。第一次真正发起截图时，系统会按 `NSScreenCaptureUsageDescription` 弹出录屏授权：**System Settings → Privacy & Security → Screen Recording**（或「屏幕与系统音频录制」），勾选 `MoliShot` 后，**完全退出再打开**一次 App 最稳妥。
+
+如果你希望截图热键触发时尽量保持目标 App 的菜单、Popover、tooltip 不被提前关闭，还需要授予 **Accessibility** 权限。没有该权限时截图仍可工作，但这部分行为只能尽力而为。
+
+### 5. 打包成 DMG（自用）
+
+仓库内置了一个自动打包脚本，会生成 `dist/MoliShot.dmg` 并自动打开输出目录：
+
 ```bash
 cd ~/Desktop/Shottr-Clone
 ./scripts/build-dmg.sh
 ```
-脚本会自动执行构建、打包，生成 `dist/MoliShot.dmg` 并打开输出目录。
+
+脚本会自动执行：
+
+- `xcodegen generate`
+- `Release` 构建
+- 查找生成的 `MoliShot.app`
+- 输出 `dist/MoliShot.dmg`
+- 在 DMG 根目录放置 `MoliShot.app` 和 `Applications` 快捷入口，支持直接拖拽安装
+- 打开 `dist/` 目录
+
+### 录屏权限反复弹窗？
+
+不要在启动时主动调用 `CGRequestScreenCaptureAccess()`：在从 Xcode 运行的 **Debug / 未签名** 构建里，`CGPreflightScreenCaptureAccess()` 有时会长期返回 `false`，于是每次启动都会再弹一次系统 sheet。当前版本已去掉该行为；若仍异常，请确认系统设置里勾选的是 **当前这条路径** 下的 `MoliShot`（例如 `DerivedData/.../Debug/MoliShot.app` 与 `/Applications/MoliShot.app` 会被系统当成不同条目）。正式发布后把 App 放进 `/Applications` 并固定签名即可。
+
+### 遇到 `xcodebuild` 插件错误？
+
+如果命令行 `xcodebuild` 报 `IDESimulatorFoundation` 加载失败，那是 Xcode 本身的系统组件需要初始化。先用 Xcode GUI 构建一次就能自动修复，或执行：
+
+```bash
+sudo xcodebuild -runFirstLaunch
+```
+
+这和本项目无关，是你本机 Xcode 安装状态问题。用 Xcode 图形界面直接打开 `.xcodeproj` 构建不受影响。
+
+## 使用
+
+启动后菜单栏会出现相机图标。默认快捷键：
+
+
+| 动作            | 快捷键 |
+| ------------- | --- |
+| 区域截图          | ⇧⌘1 |
+| 当前显示器截图  | ⇧⌘3 |
+| 滚动截图          | ⇧⌘4 |
+| 屏幕取色器      | ⇧⌘P |
+| OCR 选区识别   | ⇧⌘R |
+
+
+截图完成后会自动弹出编辑器窗口。工具栏左到右：Pin/复制 → 工具选择 → 颜色 + 粗细 → 裁剪/撤销/清空 → 缩放（放大 / 100% / Fit）→ OCR/保存/上传。
+
+编辑器补充交互：
+
+- 支持 `⌘+` / `⌘-` 缩放，`⌘0` 适配窗口，`⌘1` 实际尺寸
+- 支持 `⌘C` 复制、`⌘S` 保存、`⌘Z` 撤销最后一个标注
+- 文字标注支持双击重新编辑
+- 状态栏会显示当前图片尺寸、标注数量、当前工具和缩放比例
 
 ## 项目结构
+
 ```
 Sources/
-├── App/          # 应用入口、菜单栏、全局协调
-├── Capture/      # ScreenCaptureKit、区域选择、滚动截图
-├── Editor/       # 标注编辑器、各种 Annotation 类型
-├── OCR/          # Vision 文字识别
-├── Pin/          # 贴图浮动窗口
-├── ColorPicker/  # 屏幕取色器
-├── Ruler/        # 尺子 / 量角器
-├── History/      # 历史记录存储和浏览
-├── Hotkeys/      # 全局快捷键管理
-├── Preferences/  # 偏好设置窗口
-├── Services/     # 上传、导出服务
-└── Utilities/    # 权限、扩展、辅助函数
+├── App/                 # 应用入口、菜单栏、全局协调
+├── Capture/             # ScreenCaptureKit、区域选择、滚动截图
+├── Editor/              # 标注编辑器、各种 Annotation 类型
+├── OCR/                 # Vision 文字识别
+├── Pin/                 # 贴图浮动窗口
+├── ColorPicker/         # 屏幕取色器
+├── Ruler/               # 尺子 / 量角器
+├── History/             # 历史记录存储和浏览
+├── Hotkeys/             # 全局快捷键管理
+├── Preferences/         # 偏好设置窗口
+├── Services/            # 上传、导出服务
+└── Utilities/           # 权限、扩展、辅助函数
 Resources/
 ├── Info.plist
 └── MoliShot.entitlements
-project.yml        # XcodeGen 配置
+project.yml              # XcodeGen 配置
 ```
 
-## 已知限制
-1. **区域截图**：当前仅在鼠标所在显示器启动，非跨屏自由框选
-2. **编辑器撤销**：轻量级模型，暂未实现完整 NSUndoManager / Redo 栈
-3. **滚动截图**：依赖手动滚动，页面抖动或重叠区域少时可能失败
-4. **OCR**：纯文本结果，暂未提供文字框高亮与逐块复制
-5. **无录屏**：当前版本聚焦已暴露的截图工作流（计划中）
+## 已知限制和改进方向
+
+1. **区域截图当前只在鼠标所在显示器启动**：这是当前实现的明确行为，不是跨所有显示器自由框选。
+2. **编辑器撤销仍是轻量级模型**：当前支持取消当前操作或撤销最后一个标注，还没有完整 `NSUndoManager` / redo 栈。
+3. **滚动截图仍依赖手动滚动**：当页面滚动过快、重叠区域过少或内容抖动明显时，拼接可能失败。
+4. **OCR 仍是纯文本结果**：当前没有文字框高亮、逐块复制或结构化搜索。
+5. **没有录屏**：当前版本只聚焦已经暴露出来的截图工作流。
 
 ## 依赖
-- [HotKey](https://github.com/soffes/HotKey) — 全局快捷键（SwiftPM）
+
+- [HotKey](https://github.com/soffes/HotKey) — 全局快捷键，唯一的第三方依赖，由 SwiftPM 管理。
 
 ## 许可
 
-本项目采用 **非商业用途许可**（Non-Commercial License）。
-
-- ✅ **允许**：个人使用、学习研究、非商业用途的修改和分发
-- ❌ **禁止**：任何形式的商业使用、商业分发、商业获利
-
-请在使用时遵守许可要求，不得用于商业目的。
+自己决定，代码可自由修改。

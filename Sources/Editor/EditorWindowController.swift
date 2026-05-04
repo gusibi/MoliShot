@@ -329,7 +329,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, Editor
 
     @objc private func pinImage() {
         AppCoordinator.shared.pinImage(editorView.renderFinalImage())
-        showTransientStatus(L10n.text(.pinCreated))
+        close()
     }
 
     @objc private func copyImage() {

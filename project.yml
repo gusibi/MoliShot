@@ -14,7 +14,7 @@ settings:
     CODE_SIGN_IDENTITY: "-"
     ENABLE_HARDENED_RUNTIME: NO
     PRODUCT_BUNDLE_IDENTIFIER: com.molishot.app
-    MARKETING_VERSION: "0.2.0"
+    MARKETING_VERSION: "0.3.0"
     CURRENT_PROJECT_VERSION: "2"
     INFOPLIST_KEY_LSUIElement: YES
 
@@ -37,7 +37,7 @@ targets:
         LSUIElement: true
         CFBundleName: MoliShot
         CFBundleDisplayName: MoliShot
-        CFBundleShortVersionString: "0.2.0"
+        CFBundleShortVersionString: "0.3.0"
         CFBundleVersion: "2"
         NSHumanReadableCopyright: "Copyright (c) 2026"
         NSScreenCaptureUsageDescription: "MoliShot needs screen recording permission to capture screenshots."
