@@ -1,0 +1,44 @@
+# MoliShot
+
+> MoliShot 是一款面向 macOS 的专业截图与 OCR 工具，基于 Swift + ScreenCaptureKit + Vision 构建，覆盖区域截图、滚动截图、标注编辑、文字识别、贴图悬浮、屏幕取色等完整屏幕工作流。
+
+## About
+
+MoliShot 是一个 macOS 原生截图工具，对标 Shottr Pro 的核心功能。它不是简单的系统截图替代品，而是一套覆盖"捕获、编辑、识别、分享、回看"的完整屏幕信息工作流工具。目标用户包括产品经理、设计师、开发者、测试工程师、内容创作者和高频办公用户。
+
+MoliShot 使用 Swift 语言开发，基于 Apple 原生框架 AppKit、ScreenCaptureKit 和 Vision，唯一第三方依赖是 [HotKey](https://github.com/soffes/HotKey)（全局快捷键管理）。
+
+## Features
+
+- **区域截图** — 十字线框选、放大镜精准定位、pt/px 实时尺寸、Space 移动选区、Shift 锁定比例、Option 中心缩放
+- **全屏截图** — 一键捕获当前显示器，支持多显示器独立输出
+- **滚动截图** — Vision 框架帧间配准，手动滚动 + 智能拼接
+- **标注编辑器** — 箭头、矩形、椭圆、直线、画笔、文字、自增编号、高亮、模糊、像素化、裁剪
+- **OCR 文字识别** — Vision 框架自动语言检测，结果可查看编辑，一键复制到剪贴板
+- **贴图悬浮 (Pin)** — 截图固定为浮动窗口置顶，hover 显示工具栏
+- **屏幕取色器** — 系统 NSColorSampler，HEX 自动复制 + HUD 提示
+- **历史记录** — Application Support 持久化，网格浏览
+- **全局快捷键** — 默认 ⇧⌘1（区域）、⇧⌘3（全屏）、⇧⌘4（滚动）、⇧⌘P（取色）、⇧⌘R（OCR）
+- **导出分享** — 剪贴板、保存 PNG、上传 0x0.st
+
+## System Requirements
+
+- macOS 14 (Sonoma) 或更高版本
+- Apple Silicon 或 Intel 芯片
+
+## Installation
+
+从 GitHub Releases 下载 DMG，拖入 Applications 文件夹即可。首次使用需授予屏幕录制权限。
+
+## Links
+
+- 首页: https://molishot.eztoolab.com/
+- 详细介绍: https://molishot.eztoolab.com/about.html
+- 更新日志: https://molishot.eztoolab.com/changelog.html
+- GitHub: https://github.com/gusibi/MoliShot
+- 下载: https://github.com/gusibi/MoliShot/releases
+- 问题反馈: https://github.com/gusibi/MoliShot/issues
+
+## License
+
+PolyForm Noncommercial License 1.0.0

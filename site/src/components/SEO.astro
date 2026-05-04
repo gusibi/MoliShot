@@ -1,0 +1,74 @@
+---
+export interface Props {
+  pageType: 'home' | 'about' | 'changelog';
+  lang?: string;
+}
+
+const { pageType, lang = 'zh-CN' } = Astro.props;
+const isZh = lang === 'zh-CN';
+---
+
+<!-- Primary Meta -->
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>
+  {isZh
+    ? pageType === 'home'
+      ? 'MoliShot — macOS 截图 & OCR 工具 | Capture. Annotate. Share.'
+      : pageType === 'about'
+        ? 'MoliShot 详细介绍 — macOS 截图工具功能、技术栈与使用指南'
+        : 'MoliShot 更新日志 — Changelog'
+    : pageType === 'home'
+      ? 'MoliShot — macOS Screenshot & OCR Tool | Capture. Annotate. Share.'
+      : pageType === 'about'
+        ? 'MoliShot — macOS Screenshot Tool Features, Tech Stack & Guide'
+        : 'MoliShot Changelog'}
+</title>
+<meta
+  name="description"
+  content={isZh
+    ? 'MoliShot 是一款 macOS 专业截图与 OCR 工具，支持区域截图、滚动截图、标注编辑、文字识别、贴图悬浮、屏幕取色。免费开源，替代 Shottr。'
+    : 'MoliShot is a professional macOS screenshot and OCR tool. Region capture, scroll capture, annotation editor, OCR, pin, color picker. Free and open source, alternative to Shottr.'}
+/>
+<meta
+  name="keywords"
+  content="MoliShot, macOS screenshot, screenshot tool, OCR, 截图工具, 滚动截图, 标注, Shottr alternative"
+/>
+<link
+  rel="canonical"
+  href={`https://molishot.eztoolab.com/${pageType === 'home' ? '' : pageType + '.html'}`}
+/>
+
+<!-- Open Graph -->
+<meta property="og:type" content={pageType === 'about' ? 'article' : 'website'} />
+<meta
+  property="og:url"
+  content={`https://molishot.eztoolab.com/${pageType === 'home' ? '' : pageType + '.html'}`}
+/>
+<meta
+  property="og:title"
+  content={isZh ? 'MoliShot — macOS 截图 & OCR 工具' : 'MoliShot — macOS Screenshot & OCR Tool'}
+/>
+<meta
+  property="og:description"
+  content={isZh
+    ? '专业截图与 OCR 工具，支持区域截图、滚动截图、标注编辑、文字识别、贴图悬浮、屏幕取色。'
+    : 'Professional screenshot and OCR tool for macOS. Region capture, scroll capture, annotation editor, OCR, pin, color picker.'}
+/>
+<meta property="og:image" content="https://molishot.eztoolab.com/assets/og-image.png" />
+<meta property="og:locale" content={isZh ? 'zh_CN' : 'en_US'} />
+<meta name="twitter:card" content="summary_large_image" />
+<meta
+  name="twitter:title"
+  content={isZh ? 'MoliShot — macOS 截图 & OCR 工具' : 'MoliShot — macOS Screenshot & OCR Tool'}
+/>
+<meta
+  name="twitter:description"
+  content={isZh
+    ? '专业截图与 OCR 工具，支持区域截图、滚动截图、标注编辑、文字识别。'
+    : 'Professional screenshot and OCR tool for macOS. Region capture, scroll capture, annotation editor, OCR.'}
+/>
+<meta name="twitter:image" content="https://molishot.eztoolab.com/assets/og-image.png" />
+
+<link rel="alternate" type="text/markdown" href="/llms.txt" title="MoliShot for LLMs" />
+<link rel="icon" type="image/svg+xml" href="/assets/molishot-app-icon.svg" />

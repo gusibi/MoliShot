@@ -1,0 +1,94 @@
+---
+export interface Props {
+  page?: string;
+}
+
+const { page } = Astro.props;
+const linkClass =
+  'hover:text-accent transition-colors';
+const activeClass = 'text-accent hover:text-accent transition-colors';
+---
+
+<button
+  class="nav-toggle md:hidden p-2 text-mute dark:text-[#888]"
+  aria-label="Toggle menu"
+  aria-expanded="false"
+>
+  <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+    <path d="M3 12h18M3 6h18M3 18h18" />
+  </svg>
+</button>
+
+<ul
+  class="nav-links hidden md:flex items-center gap-8 font-mono text-sm text-mute dark:text-[#888]"
+>
+  <li><a href="/#features" data-i18n="nav.features" class={linkClass}>功能</a></li>
+  <li><a href="/#shortcuts" data-i18n="nav.shortcuts" class={linkClass}>快捷键</a></li>
+  <li>
+    <a href="/about" data-i18n="nav.about" class={page === 'about' ? activeClass : linkClass}
+      >详细介绍</a
+    >
+  </li>
+  <li>
+    <a
+      href="/changelog"
+      data-i18n="nav.changelog"
+      class={page === 'changelog' ? activeClass : linkClass}>更新日志</a
+    >
+  </li>
+  <li>
+    <a
+      href="https://github.com/gusibi/MoliShot"
+      target="_blank" rel="noopener"
+      data-i18n="nav.github"
+      class={linkClass}>GitHub</a
+    >
+  </li>
+  <li>
+    <a
+      href="https://github.com/gusibi/MoliShot/releases"
+      class="nav-cta inline-flex items-center gap-2 px-5 py-2 bg-accent text-white rounded-lg font-mono text-xs font-semibold hover:bg-accent-hover hover:-translate-y-px transition-all"
+      target="_blank" rel="noopener"
+      data-i18n="nav.download">Download</a
+    >
+  </li>
+  <li>
+    <button
+      class="lang-switch px-3 py-1.5 border rounded-lg font-mono text-xs hover:border-accent hover:text-accent transition-all border-bord-light dark:border-[#2a2a2a] text-mute dark:text-[#888]"
+      aria-label="Switch to English"
+    >EN</button>
+  </li>
+  <li>
+    <button
+      class="theme-toggle w-8 h-8 flex items-center justify-center border rounded-lg hover:border-accent hover:text-accent transition-all border-bord-light dark:border-[#2a2a2a] text-mute dark:text-[#888]"
+      aria-label="Toggle theme"
+    >
+      <svg
+        class="icon-moon w-4 h-4"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+      >
+        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+      </svg>
+      <svg
+        class="icon-sun hidden w-4 h-4"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+      >
+        <circle cx="12" cy="12" r="5" />
+        <line x1="12" y1="1" x2="12" y2="3" />
+        <line x1="12" y1="21" x2="12" y2="23" />
+        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
+        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
+        <line x1="1" y1="12" x2="3" y2="12" />
+        <line x1="21" y1="12" x2="23" y2="12" />
+        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
+        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
+      </svg>
+    </button>
+  </li>
+</ul>

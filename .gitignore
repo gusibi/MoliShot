@@ -11,6 +11,21 @@ xcuserdata/
 # macOS
 .DS_Store
 
+# Dependencies
+node_modules/
+*/node_modules/
+.pnp/
+.pnp.js
+
+# Build outputs
+dist/
+build/
+*.tsbuildinfo
+
+# Astro
+.astro/
+*.astro/
+
 # Swift Package Manager
 .build/
 dist/

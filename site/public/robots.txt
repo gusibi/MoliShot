@@ -1,0 +1,64 @@
+# MoliShot — robots.txt
+# Strategy: allow-search-block-training
+# Allows search/retrieval and user-triggered crawlers, blocks training crawlers.
+
+User-agent: *
+Allow: /
+
+# Sitemap
+Sitemap: https://molishot.eztoolab.com/sitemap.xml
+
+# --- AI Crawlers ---
+
+# Search & retrieval (ALLOWED)
+User-agent: GPTBot
+Allow: /
+
+User-agent: ChatGPT-User
+Allow: /
+
+User-agent: Google-Extended
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: Anthropic-ai
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: Claude-Web
+Allow: /
+
+User-agent: cohere-ai
+Allow: /
+
+User-agent: YouBot
+Allow: /
+
+User-agent: ai2bot
+Allow: /
+
+User-agent: Omgilibot
+Allow: /
+
+User-agent: Diffbot
+Allow: /
+
+User-agent: Bytespider
+Allow: /
+
+User-agent: Applebot-Extended
+Allow: /
+
+# Training crawlers (BLOCKED)
+User-agent: CCBot
+Disallow: /
+
+User-agent: omgili
+Disallow: /
+
+User-agent: archive.org_bot
+Disallow: /

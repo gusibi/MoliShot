@@ -1,0 +1,684 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+---
+
+<BaseLayout page="about">
+  <main class="pt-32 pb-24">
+    <div class="max-w-7xl mx-auto px-8">
+      <div class="grid lg:grid-cols-[1fr_240px] gap-16">
+        <article class="max-w-[72ch]">
+          <header
+            class="mb-12 pb-8 border-b border-bord dark:border-[#222]"
+          >
+            <h1
+              class="font-mono font-semibold text-4xl sm:text-5xl mb-4"
+              data-i18n="about.title">MoliShot 详细介绍</h1
+            >
+            <div
+              class="font-mono text-sm text-mute-dim dark:text-[#555]"
+              data-i18n="about.meta"
+            >
+              最后更新：2025-05-04 · 版本 0.3.0 · macOS 14+
+            </div>
+          </header>
+
+          <h2
+            id="overview"
+            class="font-mono font-semibold text-2xl mt-12 mb-4 pt-8 border-t border-bord dark:border-[#222]"
+            data-i18n="about.overview">产品概述</h2
+          >
+          <p
+            class="text-mute dark:text-[#888] mb-5 leading-relaxed"
+            data-i18n="about.overviewP1"
+          >
+            MoliShot 是一款面向 macOS 的专业截图与 OCR 工具，基于 Swift、AppKit、ScreenCaptureKit 和 Vision 框架构建。它不是简单的"系统截图替代品"，而是一套覆盖"捕获、编辑、识别、分享、回看"的完整屏幕信息工作流工具。
+          </p>
+          <p
+            class="text-mute dark:text-[#888] mb-5 leading-relaxed"
+            data-i18n="about.overviewP2"
+          >
+            系统截图负责轻量、即时、零学习成本的场景；MoliShot 负责高频专业使用场景、跨应用信息整理和内容交付。目标用户包括产品经理、设计师、开发者、测试工程师、内容创作者、讲师和高频办公用户。
+          </p>
+
+          <h2
+            id="features"
+            class="font-mono font-semibold text-2xl mt-12 mb-4 pt-8 border-t border-bord dark:border-[#222]"
+            data-i18n="about.features">功能模块</h2
+          >
+
+          <h3
+            id="region-capture"
+            class="font-mono font-semibold text-xl mt-8 mb-3 text-accent"
+            data-i18n="about.regionCapture">区域截图</h3
+          >
+          <p
+            class="text-mute dark:text-[#888] mb-5 leading-relaxed"
+            data-i18n="about.regionCaptureDesc"
+          >
+            在当前鼠标所在显示器上进行区域选择。支持十字线框选、窗口 hover 高亮、像素级放大镜、<code
+              class="px-1.5 py-0.5 bg-white dark:bg-[#161616] border border-bord-light dark:border-[#222] rounded text-accent text-sm font-mono"
+              >pt</code
+            >/<code
+              class="px-1.5 py-0.5 bg-white dark:bg-[#161616] border border-bord-light dark:border-[#222] rounded text-accent text-sm font-mono"
+              >px</code
+            > 实时尺寸显示。快捷操作：<code
+              class="px-1.5 py-0.5 bg-white dark:bg-[#161616] border border-bord-light dark:border-[#222] rounded text-accent text-sm font-mono"
+              >Space</code
+            > 移动选区、<code
+              class="px-1.5 py-0.5 bg-white dark:bg-[#161616] border border-bord-light dark:border-[#222] rounded text-accent text-sm font-mono"
+              >Shift</code
+            > 锁定比例、<code
+              class="px-1.5 py-0.5 bg-white dark:bg-[#161616] border border-bord-light dark:border-[#222] rounded text-accent text-sm font-mono"
+              >Option</code
+            > 中心缩放。截图过程不会把 overlay 画面带进最终结果。
+          </p>
+
+          <h3
+            id="fullscreen-capture"
+            class="font-mono font-semibold text-xl mt-8 mb-3 text-accent"
+            data-i18n="about.fullscreenCapture">全屏截图</h3
+          >
+          <p
+            class="text-mute dark:text-[#888] mb-5 leading-relaxed"
+            data-i18n="about.fullscreenCaptureDesc"
+          >
+            一键捕获当前鼠标所在显示器。多显示器场景下，每个显示器可独立输出文件，保持与实际显示像素一致。支持复制到剪贴板、保存到文件、进入编辑器、上传云端等后续动作。
+          </p>
+
+          <h3
+            id="scroll-capture"
+            class="font-mono font-semibold text-xl mt-8 mb-3 text-accent"
+            data-i18n="about.scrollCapture">滚动截图</h3
+          >
+          <p
+            class="text-mute dark:text-[#888] mb-5 leading-relaxed"
+            data-i18n="about.scrollCaptureDesc"
+          >
+            使用 Vision 框架的 <code
+              class="px-1.5 py-0.5 bg-white dark:bg-[#161616] border border-bord-light dark:border-[#222] rounded text-accent text-sm font-mono"
+              >VNTranslationalImageRegistrationRequest</code
+            > 进行帧间配准，手动滚动 + 智能拼接。适用于长网页、文档、聊天记录等需要完整捕获的场景。注意：当页面滚动过快、重叠区域过少或内容抖动明显时，拼接可能失败。
+          </p>
+
+          <h3
+            id="editor"
+            class="font-mono font-semibold text-xl mt-8 mb-3 text-accent"
+            data-i18n="about.editor">标注编辑器</h3
+          >
+          <p
+            class="text-mute dark:text-[#888] mb-5 leading-relaxed"
+            data-i18n="about.editorDesc"
+          >
+            截图完成后自动弹出编辑器窗口。支持的标注类型：
+          </p>
+          <ul class="text-mute dark:text-[#888] mb-5 pl-6 space-y-2">
+            <li data-i18n="about.editorArrow">
+              <strong class="text-[#1a1a1a] dark:text-[#e0e0e0]">箭头</strong> — 指向性标注
+            </li>
+            <li data-i18n="about.editorRect">
+              <strong class="text-[#1a1a1a] dark:text-[#e0e0e0]">矩形 / 椭圆</strong> — 区域高亮
+            </li>
+            <li data-i18n="about.editorLine">
+              <strong class="text-[#1a1a1a] dark:text-[#e0e0e0]">直线</strong> — 连接线标注
+            </li>
+            <li data-i18n="about.editorBrush">
+              <strong class="text-[#1a1a1a] dark:text-[#e0e0e0]">画笔</strong> — 自由绘制
+            </li>
+            <li data-i18n="about.editorText">
+              <strong class="text-[#1a1a1a] dark:text-[#e0e0e0]">文字</strong> — 支持双击重新编辑
+            </li>
+            <li data-i18n="about.editorNumber">
+              <strong class="text-[#1a1a1a] dark:text-[#e0e0e0]">自增编号</strong> — 步骤标注
+            </li>
+            <li data-i18n="about.editorHighlight">
+              <strong class="text-[#1a1a1a] dark:text-[#e0e0e0]">高亮</strong> — 半透明覆盖
+            </li>
+            <li data-i18n="about.editorBlur">
+              <strong class="text-[#1a1a1a] dark:text-[#e0e0e0]">模糊 / 像素化</strong> — 隐私遮挡
+            </li>
+            <li data-i18n="about.editorCrop">
+              <strong class="text-[#1a1a1a] dark:text-[#e0e0e0]">裁剪</strong> — 调整截图范围
+            </li>
+          </ul>
+          <p
+            class="text-mute dark:text-[#888] mb-5 leading-relaxed"
+            data-i18n="about.editorShortcuts"
+          >
+            编辑器支持 <code
+              class="px-1.5 py-0.5 bg-white dark:bg-[#161616] border border-bord-light dark:border-[#222] rounded text-accent text-sm font-mono"
+              >⌘+</code
+            > / <code
+              class="px-1.5 py-0.5 bg-white dark:bg-[#161616] border border-bord-light dark:border-[#222] rounded text-accent text-sm font-mono"
+              >⌘-</code
+            > 缩放、<code
+              class="px-1.5 py-0.5 bg-white dark:bg-[#161616] border border-bord-light dark:border-[#222] rounded text-accent text-sm font-mono"
+              >⌘0</code
+            > 适配窗口、<code
+              class="px-1.5 py-0.5 bg-white dark:bg-[#161616] border border-bord-light dark:border-[#222] rounded text-accent text-sm font-mono"
+              >⌘1</code
+            > 实际尺寸。<code
+              class="px-1.5 py-0.5 bg-white dark:bg-[#161616] border border-bord-light dark:border-[#222] rounded text-accent text-sm font-mono"
+              >⌘C</code
+            > 复制、<code
+              class="px-1.5 py-0.5 bg-white dark:bg-[#161616] border border-bord-light dark:border-[#222] rounded text-accent text-sm font-mono"
+              >⌘S</code
+            > 保存、<code
+              class="px-1.5 py-0.5 bg-white dark:bg-[#161616] border border-bord-light dark:border-[#222] rounded text-accent text-sm font-mono"
+              >⌘Z</code
+            > 撤销最后一个标注。状态栏显示当前图片尺寸、标注数量、当前工具和缩放比例。
+          </p>
+
+          <h3
+            id="ocr"
+            class="font-mono font-semibold text-xl mt-8 mb-3 text-accent"
+            data-i18n="about.ocr">OCR 文字识别</h3
+          >
+          <p
+            class="text-mute dark:text-[#888] mb-5 leading-relaxed"
+            data-i18n="about.ocrDesc"
+          >
+            基于 Vision 框架的文字识别，自动检测语言。识别结果窗口支持查看与编辑，识别文本自动复制到剪贴板。当前为纯文本结果，暂不支持文字框高亮或逐块复制。
+          </p>
+
+          <h3
+            id="pin"
+            class="font-mono font-semibold text-xl mt-8 mb-3 text-accent"
+            data-i18n="about.pin">贴图悬浮 (Pin)</h3
+          >
+          <p
+            class="text-mute dark:text-[#888] mb-5 leading-relaxed"
+            data-i18n="about.pinDesc"
+          >
+            将截图固定为浮动窗口置顶显示，hover 时显示工具栏。适合在做设计评审、写文档时跨应用对照参考内容。
+          </p>
+
+          <h3
+            id="color-picker"
+            class="font-mono font-semibold text-xl mt-8 mb-3 text-accent"
+            data-i18n="about.colorPicker">屏幕取色器</h3
+          >
+          <p
+            class="text-mute dark:text-[#888] mb-5 leading-relaxed"
+            data-i18n="about.colorPickerDesc"
+          >
+            使用系统 <code
+              class="px-1.5 py-0.5 bg-white dark:bg-[#161616] border border-bord-light dark:border-[#222] rounded text-accent text-sm font-mono"
+              >NSColorSampler</code
+            > 提供原生取色体验。HEX 值自动复制到剪贴板，HUD 即时提示取色结果。
+          </p>
+
+          <h3
+            id="history"
+            class="font-mono font-semibold text-xl mt-8 mb-3 text-accent"
+            data-i18n="about.history">历史记录</h3
+          >
+          <p
+            class="text-mute dark:text-[#888] mb-5 leading-relaxed"
+            data-i18n="about.historyDesc"
+          >
+            截图自动持久化到 Application Support 目录，支持网格浏览历史记录。方便快速查找和复用过往截图。
+          </p>
+
+          <h3
+            id="hotkeys"
+            class="font-mono font-semibold text-xl mt-8 mb-3 text-accent"
+            data-i18n="about.hotkeys">全局快捷键</h3
+          >
+          <p
+            class="text-mute dark:text-[#888] mb-5 leading-relaxed"
+            data-i18n="about.hotkeysDesc"
+          >
+            优先使用 <code
+              class="px-1.5 py-0.5 bg-white dark:bg-[#161616] border border-bord-light dark:border-[#222] rounded text-accent text-sm font-mono"
+              >CGEventTap</code
+            > 拦截截图热键；未授予辅助功能权限时自动降级到 HotKey 库。默认快捷键：
+          </p>
+          <table class="w-full text-sm mb-6">
+            <thead>
+              <tr
+                class="font-mono text-xs uppercase tracking-[0.05em] text-mute dark:text-[#888]"
+              >
+                <th
+                  class="text-left p-3 border-b border-bord dark:border-[#222] font-medium"
+                  data-i18n="shortcuts.action">操作</th
+                >
+                <th
+                  class="text-left p-3 border-b border-bord dark:border-[#222] font-medium"
+                  data-i18n="shortcuts.shortcut">快捷键</th
+                >
+              </tr>
+            </thead>
+            <tbody class="font-mono">
+              <tr>
+                <td
+                  class="p-3 border-b border-bord dark:border-[#222]"
+                  data-i18n="shortcuts.region">区域截图</td
+                >
+                <td class="p-3 border-b border-bord dark:border-[#222]">
+                  <code
+                    class="px-1.5 py-0.5 bg-white dark:bg-[#161616] border border-bord-light dark:border-[#222] rounded text-accent text-sm font-mono"
+                    >⇧⌘1</code
+                  >
+                </td>
+              </tr>
+              <tr>
+                <td
+                  class="p-3 border-b border-bord dark:border-[#222]"
+                  data-i18n="shortcuts.fullscreen">全屏截图</td
+                >
+                <td class="p-3 border-b border-bord dark:border-[#222]">
+                  <code
+                    class="px-1.5 py-0.5 bg-white dark:bg-[#161616] border border-bord-light dark:border-[#222] rounded text-accent text-sm font-mono"
+                    >⇧⌘3</code
+                  >
+                </td>
+              </tr>
+              <tr>
+                <td
+                  class="p-3 border-b border-bord dark:border-[#222]"
+                  data-i18n="shortcuts.scroll">滚动截图</td
+                >
+                <td class="p-3 border-b border-bord dark:border-[#222]">
+                  <code
+                    class="px-1.5 py-0.5 bg-white dark:bg-[#161616] border border-bord-light dark:border-[#222] rounded text-accent text-sm font-mono"
+                    >⇧⌘4</code
+                  >
+                </td>
+              </tr>
+              <tr>
+                <td
+                  class="p-3 border-b border-bord dark:border-[#222]"
+                  data-i18n="shortcuts.colorPicker">屏幕取色</td
+                >
+                <td class="p-3 border-b border-bord dark:border-[#222]">
+                  <code
+                    class="px-1.5 py-0.5 bg-white dark:bg-[#161616] border border-bord-light dark:border-[#222] rounded text-accent text-sm font-mono"
+                    >⇧⌘P</code
+                  >
+                </td>
+              </tr>
+              <tr>
+                <td
+                  class="p-3 border-b border-bord dark:border-[#222]"
+                  data-i18n="shortcuts.ocr">OCR 选区识别</td
+                >
+                <td class="p-3 border-b border-bord dark:border-[#222]">
+                  <code
+                    class="px-1.5 py-0.5 bg-white dark:bg-[#161616] border border-bord-light dark:border-[#222] rounded text-accent text-sm font-mono"
+                    >⇧⌘R</code
+                  >
+                </td>
+              </tr>
+            </tbody>
+          </table>
+
+          <h3
+            id="export"
+            class="font-mono font-semibold text-xl mt-8 mb-3 text-accent"
+            data-i18n="about.export">导出与分享</h3
+          >
+          <p
+            class="text-mute dark:text-[#888] mb-5 leading-relaxed"
+            data-i18n="about.exportDesc"
+          >
+            支持三种导出方式：复制到剪贴板、保存为 PNG 文件、上传到 0x0.st 生成分享链接。
+          </p>
+
+          <h3
+            id="preferences"
+            class="font-mono font-semibold text-xl mt-8 mb-3 text-accent"
+            data-i18n="about.preferences">偏好设置</h3
+          >
+          <p
+            class="text-mute dark:text-[#888] mb-5 leading-relaxed"
+            data-i18n="about.preferencesDesc"
+          >
+            提供快捷键列表配置、屏幕录制/辅助功能权限状态查看、历史记录路径设置等功能。
+          </p>
+
+          <h2
+            id="tech-stack"
+            class="font-mono font-semibold text-2xl mt-12 mb-4 pt-8 border-t border-bord dark:border-[#222]"
+            data-i18n="about.techStack">技术栈</h2
+          >
+          <p
+            class="text-mute dark:text-[#888] mb-5 leading-relaxed"
+            data-i18n="about.techStackDesc"
+          >
+            MoliShot 完全基于 Apple 原生框架构建：
+          </p>
+          <ul class="text-mute dark:text-[#888] mb-5 pl-6 space-y-2">
+            <li data-i18n="about.techSwift">
+              <strong class="text-[#1a1a1a] dark:text-[#e0e0e0]">Swift</strong> — 主要编程语言
+            </li>
+            <li data-i18n="about.techAppKit">
+              <strong class="text-[#1a1a1a] dark:text-[#e0e0e0]">AppKit</strong> — UI 框架，窗口管理、菜单栏、编辑器
+            </li>
+            <li data-i18n="about.techSCK">
+              <strong class="text-[#1a1a1a] dark:text-[#e0e0e0]">ScreenCaptureKit</strong> — 高性能屏幕捕获 API
+            </li>
+            <li data-i18n="about.techVision">
+              <strong class="text-[#1a1a1a] dark:text-[#e0e0e0]">Vision</strong> — OCR 文字识别、滚动截图帧间配准
+            </li>
+            <li data-i18n="about.techHotKey">
+              <strong class="text-[#1a1a1a] dark:text-[#e0e0e0]">HotKey</strong> — 唯一第三方依赖，全局快捷键管理（SwiftPM）
+            </li>
+          </ul>
+
+          <h2
+            id="install"
+            class="font-mono font-semibold text-2xl mt-12 mb-4 pt-8 border-t border-bord dark:border-[#222]"
+            data-i18n="about.install">安装指南</h2
+          >
+
+          <h3
+            id="install-dmg"
+            class="font-mono font-semibold text-xl mt-8 mb-3 text-accent"
+            data-i18n="about.installDmg"
+            >方式一：下载 DMG（推荐）</h3
+          >
+          <ol
+            class="text-mute dark:text-[#888] mb-5 pl-6 space-y-2 list-decimal"
+          >
+            <li data-i18n="about.installDmg1">
+              从 <a
+                href="https://github.com/gusibi/MoliShot/releases"
+                target="_blank" rel="noopener"
+                class="text-accent hover:underline">GitHub Releases</a
+              > 下载最新 DMG
+            </li>
+            <li data-i18n="about.installDmg2">
+              打开 DMG，将 MoliShot.app 拖入 Applications 文件夹
+            </li>
+            <li data-i18n="about.installDmg3">
+              首次启动时，系统会请求屏幕录制权限：进入"系统设置 → 隐私与安全性 → 屏幕与系统音频录制"，勾选 MoliShot
+            </li>
+            <li data-i18n="about.installDmg4">
+              完全退出再打开一次 App 以确保权限生效
+            </li>
+          </ol>
+
+          <h3
+            id="install-build"
+            class="font-mono font-semibold text-xl mt-8 mb-3 text-accent"
+            data-i18n="about.installBuild">方式二：从源码构建</h3
+          >
+          <pre
+            class="bg-white dark:bg-[#161616] border border-bord-light dark:border-[#222] rounded-lg p-5 overflow-x-auto mb-5 font-mono text-sm"
+          ><code># Install XcodeGen
+brew install xcodegen
+
+# Clone the repository
+git clone https://github.com/gusibi/MoliShot.git
+cd MoliShot
+
+# Generate Xcode project
+xcodegen generate
+
+# Open the project
+open MoliShot.xcodeproj</code></pre>
+          <p
+            class="text-mute dark:text-[#888] mb-5 leading-relaxed"
+            data-i18n="about.installBuildNote"
+          >
+            在 Xcode 中配置签名（Team 选你的 Apple ID），然后 <code
+              class="px-1.5 py-0.5 bg-white dark:bg-[#161616] border border-bord-light dark:border-[#222] rounded text-accent text-sm font-mono"
+              >⌘R</code
+            > 运行。
+          </p>
+
+          <h3
+            id="install-dmg-build"
+            class="font-mono font-semibold text-xl mt-8 mb-3 text-accent"
+            data-i18n="about.installDmgBuild">打包 DMG</h3
+          >
+          <pre
+            class="bg-white dark:bg-[#161616] border border-bord-light dark:border-[#222] rounded-lg p-5 overflow-x-auto mb-5 font-mono text-sm"
+          ><code>./scripts/build-dmg.sh</code></pre>
+          <p
+            class="text-mute dark:text-[#888] mb-5 leading-relaxed"
+            data-i18n="about.installDmgBuildNote"
+          >
+            脚本会自动执行 xcodegen generate、Release 构建，并输出 <code
+              class="px-1.5 py-0.5 bg-white dark:bg-[#161616] border border-bord-light dark:border-[#222] rounded text-accent text-sm font-mono"
+              >dist/MoliShot.dmg</code
+            >。
+          </p>
+
+          <h2
+            id="permissions"
+            class="font-mono font-semibold text-2xl mt-12 mb-4 pt-8 border-t border-bord dark:border-[#222]"
+            data-i18n="about.permissions">权限说明</h2
+          >
+          <ul class="text-mute dark:text-[#888] mb-5 pl-6 space-y-2">
+            <li data-i18n="about.permScreen">
+              <strong class="text-[#1a1a1a] dark:text-[#e0e0e0]">屏幕录制</strong> — 必需，用于屏幕捕获
+            </li>
+            <li data-i18n="about.permAccessibility">
+              <strong class="text-[#1a1a1a] dark:text-[#e0e0e0]">辅助功能</strong> — 可选，授予后截图时可保持目标 App 的菜单、Popover、tooltip 不被提前关闭
+            </li>
+          </ul>
+
+          <h2
+            id="limitations"
+            class="font-mono font-semibold text-2xl mt-12 mb-4 pt-8 border-t border-bord dark:border-[#222]"
+            data-i18n="about.limitations">已知限制</h2
+          >
+          <ul class="text-mute dark:text-[#888] mb-5 pl-6 space-y-2">
+            <li data-i18n="about.lim1">
+              区域截图当前只在鼠标所在显示器启动，不支持跨显示器自由框选
+            </li>
+            <li data-i18n="about.lim2">
+              编辑器撤销为轻量级模型，支持取消当前操作或撤销最后一个标注，暂无完整 redo 栈
+            </li>
+            <li data-i18n="about.lim3">
+              滚动截图依赖手动滚动，过快滚动或重叠不足时可能拼接失败
+            </li>
+            <li data-i18n="about.lim4">
+              OCR 为纯文本结果，暂不支持文字框高亮或逐块复制
+            </li>
+            <li data-i18n="about.lim5">
+              当前版本不包含录屏功能
+            </li>
+          </ul>
+
+          <h2
+            id="faq"
+            class="font-mono font-semibold text-2xl mt-12 mb-4 pt-8 border-t border-bord dark:border-[#222]"
+            data-i18n="about.faq">常见问题</h2
+          >
+
+          <h3
+            class="font-mono font-semibold text-xl mt-8 mb-3 text-accent"
+            data-i18n="about.faq1Q">录屏权限反复弹窗？</h3
+          >
+          <p
+            class="text-mute dark:text-[#888] mb-5 leading-relaxed"
+            data-i18n="about.faq1A"
+          >
+            不要在启动时主动调用 <code
+              class="px-1.5 py-0.5 bg-white dark:bg-[#161616] border border-bord-light dark:border-[#222] rounded text-accent text-sm font-mono"
+              >CGRequestScreenCaptureAccess()</code
+            >。确认系统设置里勾选的是当前路径下的 MoliShot（不同路径的 App 会被系统当成不同条目）。正式发布后把 App 放进 <code
+              class="px-1.5 py-0.5 bg-white dark:bg-[#161616] border border-bord-light dark:border-[#222] rounded text-accent text-sm font-mono"
+              >/Applications</code
+            > 并固定签名即可。
+          </p>
+
+          <h3
+            class="font-mono font-semibold text-xl mt-8 mb-3 text-accent"
+            data-i18n="about.faq2Q">xcodebuild 插件错误？</h3
+          >
+          <p
+            class="text-mute dark:text-[#888] mb-5 leading-relaxed"
+            data-i18n="about.faq2A"
+          >
+            执行 <code
+              class="px-1.5 py-0.5 bg-white dark:bg-[#161616] border border-bord-light dark:border-[#222] rounded text-accent text-sm font-mono"
+              >sudo xcodebuild -runFirstLaunch</code
+            > 初始化 Xcode 系统组件，或直接用 Xcode GUI 构建。
+          </p>
+
+          <h3
+            class="font-mono font-semibold text-xl mt-8 mb-3 text-accent"
+            data-i18n="about.faq3Q">支持哪些 macOS 版本？</h3
+          >
+          <p
+            class="text-mute dark:text-[#888] mb-5 leading-relaxed"
+            data-i18n="about.faq3A"
+          >
+            macOS 14 (Sonoma) 及以上版本。支持 Apple Silicon 和 Intel 芯片。
+          </p>
+
+          <h2
+            id="project-structure"
+            class="font-mono font-semibold text-2xl mt-12 mb-4 pt-8 border-t border-bord dark:border-[#222]"
+            data-i18n="about.projectStructure">项目结构</h2
+          >
+          <pre
+            class="bg-white dark:bg-[#161616] border border-bord-light dark:border-[#222] rounded-lg p-5 overflow-x-auto mb-5 font-mono text-sm"
+          ><code>Sources/
+├── App/                 # 应用入口、菜单栏、全局协调
+├── Capture/             # ScreenCaptureKit、区域选择、滚动截图
+├── Editor/              # 标注编辑器、各种 Annotation 类型
+├── OCR/                 # Vision 文字识别
+├── Pin/                 # 贴图浮动窗口
+├── ColorPicker/         # 屏幕取色器
+├── Ruler/               # 尺子 / 量角器
+├── History/             # 历史记录存储和浏览
+├── Hotkeys/             # 全局快捷键管理
+├── Preferences/         # 偏好设置窗口
+├── Services/            # 上传、导出服务
+└── Utilities/           # 权限、扩展、辅助函数</code></pre>
+
+          <h2
+            id="license"
+            class="font-mono font-semibold text-2xl mt-12 mb-4 pt-8 border-t border-bord dark:border-[#222]"
+            data-i18n="about.license">许可证</h2
+          >
+          <p
+            class="text-mute dark:text-[#888] mb-5 leading-relaxed"
+            data-i18n="about.licenseText"
+          >
+            MoliShot 使用 <a
+              href="https://polyformproject.org/licenses/noncommercial/1.0.0/"
+              target="_blank" rel="noopener"
+              class="text-accent hover:underline"
+              >PolyForm Noncommercial License 1.0.0</a
+            >。代码可自由查看和修改，非商业用途免费使用。
+          </p>
+        </article>
+
+        <!-- Sidebar TOC -->
+        <aside class="hidden lg:block sticky top-28 self-start">
+          <nav class="toc font-mono text-xs">
+            <div
+              class="text-[11px] uppercase tracking-[0.15em] text-mute-dim dark:text-[#555] mb-4"
+              data-i18n="about.toc">目录</div
+            >
+            <ul class="space-y-2">
+              <li>
+                <a
+                  href="#overview"
+                  data-i18n="about.overview"
+                  class="text-mute-dim dark:text-[#555] hover:text-accent transition-colors"
+                  >产品概述</a
+                >
+              </li>
+              <li>
+                <a
+                  href="#features"
+                  data-i18n="about.features"
+                  class="text-mute-dim dark:text-[#555] hover:text-accent transition-colors"
+                  >功能模块</a
+                >
+              </li>
+              <li>
+                <a
+                  href="#tech-stack"
+                  data-i18n="about.techStack"
+                  class="text-mute-dim dark:text-[#555] hover:text-accent transition-colors"
+                  >技术栈</a
+                >
+              </li>
+              <li>
+                <a
+                  href="#install"
+                  data-i18n="about.install"
+                  class="text-mute-dim dark:text-[#555] hover:text-accent transition-colors"
+                  >安装指南</a
+                >
+              </li>
+              <li>
+                <a
+                  href="#permissions"
+                  data-i18n="about.permissions"
+                  class="text-mute-dim dark:text-[#555] hover:text-accent transition-colors"
+                  >权限说明</a
+                >
+              </li>
+              <li>
+                <a
+                  href="#limitations"
+                  data-i18n="about.limitations"
+                  class="text-mute-dim dark:text-[#555] hover:text-accent transition-colors"
+                  >已知限制</a
+                >
+              </li>
+              <li>
+                <a
+                  href="#faq"
+                  data-i18n="about.faq"
+                  class="text-mute-dim dark:text-[#555] hover:text-accent transition-colors"
+                  >常见问题</a
+                >
+              </li>
+              <li>
+                <a
+                  href="#project-structure"
+                  data-i18n="about.projectStructure"
+                  class="text-mute-dim dark:text-[#555] hover:text-accent transition-colors"
+                  >项目结构</a
+                >
+              </li>
+              <li>
+                <a
+                  href="#license"
+                  data-i18n="about.license"
+                  class="text-mute-dim dark:text-[#555] hover:text-accent transition-colors"
+                  >许可证</a
+                >
+              </li>
+            </ul>
+          </nav>
+        </aside>
+      </div>
+    </div>
+  </main>
+
+  <!-- JSON-LD -->
+  <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "Article",
+      "headline": "MoliShot 详细介绍 — macOS 截图工具功能、技术栈与使用指南",
+      "description": "MoliShot 是一款基于 Swift、AppKit、ScreenCaptureKit、Vision 的 macOS 专业截图与 OCR 工具。",
+      "url": "https://molishot.eztoolab.com/about",
+      "datePublished": "2025-01-01",
+      "dateModified": "2025-05-04",
+      "author": { "@type": "Person", "name": "gusibi", "url": "https://github.com/gusibi" },
+      "publisher": { "@type": "Organization", "name": "MoliShot", "url": "https://molishot.eztoolab.com" },
+      "mainEntityOfPage": { "@type": "WebPage", "@id": "https://molishot.eztoolab.com/about" }
+    }
+  </script>
+  <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        { "@type": "ListItem", "position": 1, "name": "首页", "item": "https://molishot.eztoolab.com/" },
+        { "@type": "ListItem", "position": 2, "name": "详细介绍", "item": "https://molishot.eztoolab.com/about" }
+      ]
+    }
+  </script>
+</BaseLayout>

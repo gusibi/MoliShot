@@ -1,0 +1,734 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+---
+
+<BaseLayout page="home">
+  <main>
+    <!-- Hero -->
+    <section class="pt-40 pb-24 relative overflow-hidden">
+      <div class="absolute inset-0 pointer-events-none">
+        <div
+          class="absolute -top-1/2 -left-[20%] w-[140%] h-[200%] bg-[radial-gradient(ellipse_at_30%_20%,rgba(240,120,85,0.15)_0%,transparent_50%),radial-gradient(ellipse_at_70%_80%,rgba(255,176,136,0.08)_0%,transparent_50%)]"
+        ></div>
+      </div>
+      <div class="max-w-7xl mx-auto px-8 relative z-10">
+        <div class="grid lg:grid-cols-2 gap-16 items-center">
+          <div>
+            <div
+              class="inline-flex items-center gap-2 px-4 py-1.5 bg-white dark:bg-[#161616] border border-bord-light dark:border-[#2a2a2a] rounded-full font-mono text-xs text-accent mb-6"
+            >
+              <span class="w-1.5 h-1.5 bg-accent rounded-full animate-pulse"></span>
+              <span data-i18n="hero.badge"
+                >v0.3.0 — macOS 14+ / Apple Silicon & Intel</span
+              >
+            </div>
+            <h1
+              class="font-mono font-semibold text-5xl sm:text-6xl lg:text-7xl leading-none tracking-tight mb-6"
+            >
+              <span data-i18n="hero.line1">Capture.</span><br />
+              <span data-i18n="hero.line2">Annotate.</span><br />
+              <span
+                class="bg-gradient-to-br from-accent to-accent-light bg-clip-text text-transparent"
+                data-i18n="hero.line3">Share.</span
+              >
+            </h1>
+            <p
+              class="text-lg text-mute dark:text-[#888] max-w-xl mb-10 leading-relaxed"
+              data-i18n="hero.desc"
+            >
+              MoliShot 是一款面向 macOS 的专业截图与 OCR 工具。区域截图、滚动截图、标注编辑器、文字识别、贴图悬浮、屏幕取色 —— 一个工具覆盖完整屏幕工作流。
+            </p>
+            <div class="flex gap-4 flex-wrap">
+              <a
+                href="https://github.com/gusibi/MoliShot/releases"
+                class="inline-flex items-center gap-2 px-8 py-3.5 bg-accent text-white rounded-lg font-mono font-semibold hover:bg-accent-hover hover:-translate-y-0.5 hover:shadow-[0_8px_30px_rgba(240,120,85,0.25)] transition-all"
+                target="_blank" rel="noopener"
+              >
+                <svg
+                  class="w-4.5 h-4.5"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                  <polyline points="7 10 12 15 17 10" />
+                  <line x1="12" y1="15" x2="12" y2="3" />
+                </svg>
+                <span data-i18n="hero.downloadDmg">下载 DMG</span>
+              </a>
+              <a
+                href="https://github.com/gusibi/MoliShot"
+                class="inline-flex items-center gap-2 px-8 py-3.5 bg-white dark:bg-[#161616] border border-bord-light dark:border-[#2a2a2a] rounded-lg font-mono font-semibold hover:border-accent hover:-translate-y-0.5 transition-all"
+                target="_blank" rel="noopener"
+              >
+                <svg class="w-4.5 h-4.5" viewBox="0 0 24 24" fill="currentColor">
+                  <path
+                    d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"
+                  />
+                </svg>
+                <span data-i18n="hero.github">GitHub</span>
+              </a>
+            </div>
+          </div>
+          <div
+            class="rounded-2xl overflow-hidden border border-bord-light dark:border-[#2a2a2a] bg-white dark:bg-[#161616] shadow-sm"
+          >
+            <img
+              src="/screenshots/screenshot--hero.jpg"
+              alt="MoliShot hero screenshot"
+              width="800"
+              height="450"
+              class="w-full h-auto"
+            />
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Features -->
+    <section id="features" class="py-24">
+      <div class="max-w-7xl mx-auto px-8">
+        <div class="text-center mb-16 fade-in">
+          <span
+            class="inline-block font-mono text-xs uppercase tracking-[0.15em] text-accent mb-4 px-3 py-1.5 bg-accent/10 rounded"
+            data-i18n="features.label">Features</span
+          >
+          <h2
+            class="font-mono font-semibold text-3xl sm:text-4xl mb-4"
+            data-i18n="features.heading"
+          >
+            完整覆盖屏幕工作流
+          </h2>
+          <p
+            class="text-mute dark:text-[#888] max-w-xl mx-auto"
+            data-i18n="features.subheading"
+          >
+            从捕获到编辑、识别到分享，MoliShot 在一个工具里完成所有操作。
+          </p>
+        </div>
+
+        <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          <!-- Editor -->
+          <div
+            class="feature-card fade-in rounded-2xl p-8 bg-white dark:bg-[#161616] border border-bord-light dark:border-[#222] relative overflow-hidden hover:-translate-y-1 hover:border-bord dark:hover:border-[#2a2a2a] hover:shadow-[0_4px_24px_rgba(0,0,0,0.06)] dark:hover:shadow-[0_20px_60px_rgba(0,0,0,0.3)] transition-all duration-300 before:absolute before:top-0 before:inset-x-0 before:h-0.5 before:bg-gradient-to-r before:from-accent before:to-accent-light before:opacity-0 hover:before:opacity-100 before:transition-opacity"
+          >
+            <div
+              class="w-12 h-12 flex items-center justify-center bg-accent/10 rounded-xl mb-5 text-accent"
+            >
+              <svg
+                class="w-6 h-6"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <path d="M12 20h9" /><path
+                  d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"
+                />
+              </svg>
+            </div>
+            <h3
+              class="font-mono font-semibold text-lg mb-3"
+              data-i18n="features.editor.title">标注编辑器</h3
+            >
+            <p
+              class="text-sm text-mute dark:text-[#888] leading-relaxed mb-5"
+              data-i18n="features.editor.desc"
+            >
+              箭头、矩形、椭圆、直线、画笔、文字、自增编号、高亮、模糊、像素化、裁剪。支持缩放与撤销。
+            </p>
+            <img
+              src="/screenshots/screenshot--editor.jpg"
+              alt="标注编辑器截图"
+              width="640"
+              height="400"
+              class="w-full h-52 object-cover object-top rounded-lg border border-bord-light dark:border-[#222]"
+              loading="lazy"
+            />
+          </div>
+
+          <!-- Pin -->
+          <div
+            class="feature-card fade-in rounded-2xl p-8 bg-white dark:bg-[#161616] border border-bord-light dark:border-[#222] relative overflow-hidden hover:-translate-y-1 hover:border-bord dark:hover:border-[#2a2a2a] hover:shadow-[0_4px_24px_rgba(0,0,0,0.06)] dark:hover:shadow-[0_20px_60px_rgba(0,0,0,0.3)] transition-all duration-300 before:absolute before:top-0 before:inset-x-0 before:h-0.5 before:bg-gradient-to-r before:from-accent before:to-accent-light before:opacity-0 hover:before:opacity-100 before:transition-opacity"
+          >
+            <div
+              class="w-12 h-12 flex items-center justify-center bg-accent/10 rounded-xl mb-5 text-accent"
+            >
+              <svg
+                class="w-6 h-6"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <path d="M12 17v5" /><path
+                  d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 1 1 0 0 0 1-1V4a2 2 0 0 0-2-2H9a2 2 0 0 0-2 2v1a1 1 0 0 0 1 1 1 1 0 0 1 1 1z"
+                />
+              </svg>
+            </div>
+            <h3
+              class="font-mono font-semibold text-lg mb-3"
+              data-i18n="features.pin.title">贴图悬浮 (Pin)</h3
+            >
+            <p
+              class="text-sm text-mute dark:text-[#888] leading-relaxed mb-5"
+              data-i18n="features.pin.desc"
+            >
+              截图固定为浮动窗口置顶显示，hover 显示工具栏。适合跨应用对照参考。
+            </p>
+            <img
+              src="/screenshots/screenshot--pin.jpg"
+              alt="贴图悬浮截图"
+              width="640"
+              height="400"
+              class="w-full h-52 object-cover object-top rounded-lg border border-bord-light dark:border-[#222]"
+              loading="lazy"
+            />
+          </div>
+
+          <!-- History -->
+          <div
+            class="feature-card fade-in rounded-2xl p-8 bg-white dark:bg-[#161616] border border-bord-light dark:border-[#222] relative overflow-hidden hover:-translate-y-1 hover:border-bord dark:hover:border-[#2a2a2a] hover:shadow-[0_4px_24px_rgba(0,0,0,0.06)] dark:hover:shadow-[0_20px_60px_rgba(0,0,0,0.3)] transition-all duration-300 before:absolute before:top-0 before:inset-x-0 before:h-0.5 before:bg-gradient-to-r before:from-accent before:to-accent-light before:opacity-0 hover:before:opacity-100 before:transition-opacity"
+          >
+            <div
+              class="w-12 h-12 flex items-center justify-center bg-accent/10 rounded-xl mb-5 text-accent"
+            >
+              <svg
+                class="w-6 h-6"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <circle cx="12" cy="12" r="10" /><polyline
+                  points="12 6 12 12 16 14"
+                />
+              </svg>
+            </div>
+            <h3
+              class="font-mono font-semibold text-lg mb-3"
+              data-i18n="features.history.title">历史记录</h3
+            >
+            <p
+              class="text-sm text-mute dark:text-[#888] leading-relaxed mb-5"
+              data-i18n="features.history.desc"
+            >
+              截图自动持久化，网格浏览历史记录。快速查找、复用过往截图。
+            </p>
+            <img
+              src="/screenshots/screenshot--history.jpg"
+              alt="历史记录截图"
+              width="640"
+              height="400"
+              class="w-full h-52 object-cover object-top rounded-lg border border-bord-light dark:border-[#222]"
+              loading="lazy"
+            />
+          </div>
+
+          <!-- Region -->
+          <div
+            class="feature-card fade-in rounded-2xl p-8 bg-white dark:bg-[#161616] border border-bord-light dark:border-[#222] relative overflow-hidden hover:-translate-y-1 hover:border-bord dark:hover:border-[#2a2a2a] hover:shadow-[0_4px_24px_rgba(0,0,0,0.06)] dark:hover:shadow-[0_20px_60px_rgba(0,0,0,0.3)] transition-all duration-300 before:absolute before:top-0 before:inset-x-0 before:h-0.5 before:bg-gradient-to-r before:from-accent before:to-accent-light before:opacity-0 hover:before:opacity-100 before:transition-opacity"
+          >
+            <div
+              class="w-12 h-12 flex items-center justify-center bg-accent/10 rounded-xl mb-5 text-accent"
+            >
+              <svg
+                class="w-6 h-6"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <path d="M4 4h4M4 4v4M20 4h-4M20 4v4M4 20h4M4 20v-4M20 20h-4M20 20v-4" /><circle
+                  cx="12" cy="12" r="3"
+                />
+              </svg>
+            </div>
+            <h3
+              class="font-mono font-semibold text-lg mb-3"
+              data-i18n="features.region.title">区域截图</h3
+            >
+            <p
+              class="text-sm text-mute dark:text-[#888] leading-relaxed"
+              data-i18n="features.region.desc"
+            >
+              十字线框选、放大镜精准定位、pt/px 实时尺寸显示。支持 Space 移动选区、Shift 锁定比例、Option 中心缩放。
+            </p>
+          </div>
+
+          <!-- Fullscreen -->
+          <div
+            class="feature-card fade-in rounded-2xl p-8 bg-white dark:bg-[#161616] border border-bord-light dark:border-[#222] relative overflow-hidden hover:-translate-y-1 hover:border-bord dark:hover:border-[#2a2a2a] hover:shadow-[0_4px_24px_rgba(0,0,0,0.06)] dark:hover:shadow-[0_20px_60px_rgba(0,0,0,0.3)] transition-all duration-300 before:absolute before:top-0 before:inset-x-0 before:h-0.5 before:bg-gradient-to-r before:from-accent before:to-accent-light before:opacity-0 hover:before:opacity-100 before:transition-opacity"
+          >
+            <div
+              class="w-12 h-12 flex items-center justify-center bg-accent/10 rounded-xl mb-5 text-accent"
+            >
+              <svg
+                class="w-6 h-6"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <rect x="2" y="3" width="20" height="14" rx="2" /><line
+                  x1="8" y1="21" x2="16" y2="21"
+                /><line x1="12" y1="17" x2="12" y2="21" />
+              </svg>
+            </div>
+            <h3
+              class="font-mono font-semibold text-lg mb-3"
+              data-i18n="features.fullscreen.title">全屏截图</h3
+            >
+            <p
+              class="text-sm text-mute dark:text-[#888] leading-relaxed"
+              data-i18n="features.fullscreen.desc"
+            >
+              一键捕获当前显示器，支持多显示器独立输出。保持与实际显示像素一致。
+            </p>
+          </div>
+
+          <!-- Scroll -->
+          <div
+            class="feature-card fade-in rounded-2xl p-8 bg-white dark:bg-[#161616] border border-bord-light dark:border-[#222] relative overflow-hidden hover:-translate-y-1 hover:border-bord dark:hover:border-[#2a2a2a] hover:shadow-[0_4px_24px_rgba(0,0,0,0.06)] dark:hover:shadow-[0_20px_60px_rgba(0,0,0,0.3)] transition-all duration-300 before:absolute before:top-0 before:inset-x-0 before:h-0.5 before:bg-gradient-to-r before:from-accent before:to-accent-light before:opacity-0 hover:before:opacity-100 before:transition-opacity"
+          >
+            <div
+              class="w-12 h-12 flex items-center justify-center bg-accent/10 rounded-xl mb-5 text-accent"
+            >
+              <svg
+                class="w-6 h-6"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <rect x="4" y="2" width="16" height="20" rx="2" /><line
+                  x1="12" y1="6" x2="12" y2="18"
+                /><polyline points="8 14 12 18 16 14" />
+              </svg>
+            </div>
+            <h3
+              class="font-mono font-semibold text-lg mb-3"
+              data-i18n="features.scroll.title">滚动截图</h3
+            >
+            <p
+              class="text-sm text-mute dark:text-[#888] leading-relaxed"
+              data-i18n="features.scroll.desc"
+            >
+              Vision 框架帧间配准，手动滚动 + 智能拼接。适用于长网页、文档、聊天记录。
+            </p>
+          </div>
+
+          <!-- OCR -->
+          <div
+            class="feature-card fade-in rounded-2xl p-8 bg-white dark:bg-[#161616] border border-bord-light dark:border-[#222] relative overflow-hidden hover:-translate-y-1 hover:border-bord dark:hover:border-[#2a2a2a] hover:shadow-[0_4px_24px_rgba(0,0,0,0.06)] dark:hover:shadow-[0_20px_60px_rgba(0,0,0,0.3)] transition-all duration-300 before:absolute before:top-0 before:inset-x-0 before:h-0.5 before:bg-gradient-to-r before:from-accent before:to-accent-light before:opacity-0 hover:before:opacity-100 before:transition-opacity"
+          >
+            <div
+              class="w-12 h-12 flex items-center justify-center bg-accent/10 rounded-xl mb-5 text-accent"
+            >
+              <svg
+                class="w-6 h-6"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <polyline points="4 7 4 4 20 4 20 7" /><line
+                  x1="9" y1="20" x2="15" y2="20"
+                /><line x1="12" y1="4" x2="12" y2="20" />
+              </svg>
+            </div>
+            <h3
+              class="font-mono font-semibold text-lg mb-3"
+              data-i18n="features.ocr.title">OCR 文字识别</h3
+            >
+            <p
+              class="text-sm text-mute dark:text-[#888] leading-relaxed"
+              data-i18n="features.ocr.desc"
+            >
+              Vision 框架自动检测语言，识别结果可查看、编辑、一键复制到剪贴板。
+            </p>
+          </div>
+
+          <!-- Color Picker -->
+          <div
+            class="feature-card fade-in rounded-2xl p-8 bg-white dark:bg-[#161616] border border-bord-light dark:border-[#222] relative overflow-hidden hover:-translate-y-1 hover:border-bord dark:hover:border-[#2a2a2a] hover:shadow-[0_4px_24px_rgba(0,0,0,0.06)] dark:hover:shadow-[0_20px_60px_rgba(0,0,0,0.3)] transition-all duration-300 before:absolute before:top-0 before:inset-x-0 before:h-0.5 before:bg-gradient-to-r before:from-accent before:to-accent-light before:opacity-0 hover:before:opacity-100 before:transition-opacity"
+          >
+            <div
+              class="w-12 h-12 flex items-center justify-center bg-accent/10 rounded-xl mb-5 text-accent"
+            >
+              <svg
+                class="w-6 h-6"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <path
+                  d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"
+                />
+              </svg>
+            </div>
+            <h3
+              class="font-mono font-semibold text-lg mb-3"
+              data-i18n="features.colorPicker.title">屏幕取色器</h3
+            >
+            <p
+              class="text-sm text-mute dark:text-[#888] leading-relaxed"
+              data-i18n="features.colorPicker.desc"
+            >
+              系统原生取色体验，HEX 值自动复制到剪贴板，HUD 即时提示。
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Shortcuts -->
+    <section
+      id="shortcuts"
+      class="py-24 bg-surf-elevated dark:bg-[#111] border-y border-bord dark:border-[#222]"
+    >
+      <div class="max-w-3xl mx-auto px-8">
+        <div class="text-center mb-16 fade-in">
+          <span
+            class="inline-block font-mono text-xs uppercase tracking-[0.15em] text-accent mb-4 px-3 py-1.5 bg-accent/10 rounded"
+            data-i18n="shortcuts.label">Shortcuts</span
+          >
+          <h2
+            class="font-mono font-semibold text-3xl sm:text-4xl mb-4"
+            data-i18n="shortcuts.title">快捷键一览</h2
+          >
+          <p class="text-mute dark:text-[#888]" data-i18n="shortcuts.desc">
+            默认快捷键，可在偏好设置中自定义。
+          </p>
+        </div>
+        <div class="fade-in overflow-x-auto">
+          <table class="w-full font-mono text-sm border-collapse">
+            <thead>
+              <tr
+                class="text-xs uppercase tracking-[0.1em] text-mute dark:text-[#888]"
+              >
+                <th
+                  class="text-left p-4 border-b border-bord dark:border-[#222] font-medium"
+                  data-i18n="shortcuts.action">操作</th
+                >
+                <th
+                  class="text-left p-4 border-b border-bord dark:border-[#222] font-medium"
+                  data-i18n="shortcuts.shortcut">快捷键</th
+                >
+                <th
+                  class="text-left p-4 border-b border-bord dark:border-[#222] font-medium"
+                  data-i18n="shortcuts.description">说明</th
+                >
+              </tr>
+            </thead>
+            <tbody>
+              <tr
+                class="hover:bg-white dark:hover:bg-[#161616] transition-colors"
+              >
+                <td
+                  class="p-4 border-b border-bord dark:border-[#222]"
+                  data-i18n="shortcuts.region">区域截图</td
+                >
+                <td
+                  class="p-4 border-b border-bord dark:border-[#222]"
+                >
+                  <kbd
+                    class="inline-block px-2.5 py-1 bg-white dark:bg-[#161616] border border-bord-light dark:border-[#2a2a2a] rounded-md text-accent shadow-[0_2px_0_var(--tw-border-color)] min-w-8 text-center"
+                    >⇧</kbd
+                  >
+                  <kbd
+                    class="inline-block px-2.5 py-1 bg-white dark:bg-[#161616] border border-bord-light dark:border-[#2a2a2a] rounded-md text-accent shadow-[0_2px_0_var(--tw-border-color)] min-w-8 text-center"
+                    >⌘</kbd
+                  >
+                  <kbd
+                    class="inline-block px-2.5 py-1 bg-white dark:bg-[#161616] border border-bord-light dark:border-[#2a2a2a] rounded-md text-accent shadow-[0_2px_0_var(--tw-border-color)] min-w-8 text-center"
+                    >1</kbd
+                  >
+                </td>
+                <td
+                  class="p-4 border-b border-bord dark:border-[#222]"
+                  data-i18n="shortcuts.regionDesc"
+                >
+                  十字线框选区域，支持放大镜与尺寸显示
+                </td>
+              </tr>
+              <tr
+                class="hover:bg-white dark:hover:bg-[#161616] transition-colors"
+              >
+                <td
+                  class="p-4 border-b border-bord dark:border-[#222]"
+                  data-i18n="shortcuts.fullscreen">全屏截图</td
+                >
+                <td
+                  class="p-4 border-b border-bord dark:border-[#222]"
+                >
+                  <kbd
+                    class="inline-block px-2.5 py-1 bg-white dark:bg-[#161616] border border-bord-light dark:border-[#2a2a2a] rounded-md text-accent shadow-[0_2px_0_var(--tw-border-color)] min-w-8 text-center"
+                    >⇧</kbd
+                  >
+                  <kbd
+                    class="inline-block px-2.5 py-1 bg-white dark:bg-[#161616] border border-bord-light dark:border-[#2a2a2a] rounded-md text-accent shadow-[0_2px_0_var(--tw-border-color)] min-w-8 text-center"
+                    >⌘</kbd
+                  >
+                  <kbd
+                    class="inline-block px-2.5 py-1 bg-white dark:bg-[#161616] border border-bord-light dark:border-[#2a2a2a] rounded-md text-accent shadow-[0_2px_0_var(--tw-border-color)] min-w-8 text-center"
+                    >3</kbd
+                  >
+                </td>
+                <td
+                  class="p-4 border-b border-bord dark:border-[#222]"
+                  data-i18n="shortcuts.fullscreenDesc"
+                >
+                  捕获当前鼠标所在显示器
+                </td>
+              </tr>
+              <tr
+                class="hover:bg-white dark:hover:bg-[#161616] transition-colors"
+              >
+                <td
+                  class="p-4 border-b border-bord dark:border-[#222]"
+                  data-i18n="shortcuts.scroll">滚动截图</td
+                >
+                <td
+                  class="p-4 border-b border-bord dark:border-[#222]"
+                >
+                  <kbd
+                    class="inline-block px-2.5 py-1 bg-white dark:bg-[#161616] border border-bord-light dark:border-[#2a2a2a] rounded-md text-accent shadow-[0_2px_0_var(--tw-border-color)] min-w-8 text-center"
+                    >⇧</kbd
+                  >
+                  <kbd
+                    class="inline-block px-2.5 py-1 bg-white dark:bg-[#161616] border border-bord-light dark:border-[#2a2a2a] rounded-md text-accent shadow-[0_2px_0_var(--tw-border-color)] min-w-8 text-center"
+                    >⌘</kbd
+                  >
+                  <kbd
+                    class="inline-block px-2.5 py-1 bg-white dark:bg-[#161616] border border-bord-light dark:border-[#2a2a2a] rounded-md text-accent shadow-[0_2px_0_var(--tw-border-color)] min-w-8 text-center"
+                    >4</kbd
+                  >
+                </td>
+                <td
+                  class="p-4 border-b border-bord dark:border-[#222]"
+                  data-i18n="shortcuts.scrollDesc"
+                >
+                  手动滚动 + 智能拼接
+                </td>
+              </tr>
+              <tr
+                class="hover:bg-white dark:hover:bg-[#161616] transition-colors"
+              >
+                <td
+                  class="p-4 border-b border-bord dark:border-[#222]"
+                  data-i18n="shortcuts.colorPicker">屏幕取色</td
+                >
+                <td
+                  class="p-4 border-b border-bord dark:border-[#222]"
+                >
+                  <kbd
+                    class="inline-block px-2.5 py-1 bg-white dark:bg-[#161616] border border-bord-light dark:border-[#2a2a2a] rounded-md text-accent shadow-[0_2px_0_var(--tw-border-color)] min-w-8 text-center"
+                    >⇧</kbd
+                  >
+                  <kbd
+                    class="inline-block px-2.5 py-1 bg-white dark:bg-[#161616] border border-bord-light dark:border-[#2a2a2a] rounded-md text-accent shadow-[0_2px_0_var(--tw-border-color)] min-w-8 text-center"
+                    >⌘</kbd
+                  >
+                  <kbd
+                    class="inline-block px-2.5 py-1 bg-white dark:bg-[#161616] border border-bord-light dark:border-[#2a2a2a] rounded-md text-accent shadow-[0_2px_0_var(--tw-border-color)] min-w-8 text-center"
+                    >P</kbd
+                  >
+                </td>
+                <td
+                  class="p-4 border-b border-bord dark:border-[#222]"
+                  data-i18n="shortcuts.colorPickerDesc"
+                >
+                  取色并复制 HEX 到剪贴板
+                </td>
+              </tr>
+              <tr
+                class="hover:bg-white dark:hover:bg-[#161616] transition-colors"
+              >
+                <td
+                  class="p-4 border-b border-bord dark:border-[#222]"
+                  data-i18n="shortcuts.ocr">OCR 选区识别</td
+                >
+                <td
+                  class="p-4 border-b border-bord dark:border-[#222]"
+                >
+                  <kbd
+                    class="inline-block px-2.5 py-1 bg-white dark:bg-[#161616] border border-bord-light dark:border-[#2a2a2a] rounded-md text-accent shadow-[0_2px_0_var(--tw-border-color)] min-w-8 text-center"
+                    >⇧</kbd
+                  >
+                  <kbd
+                    class="inline-block px-2.5 py-1 bg-white dark:bg-[#161616] border border-bord-light dark:border-[#2a2a2a] rounded-md text-accent shadow-[0_2px_0_var(--tw-border-color)] min-w-8 text-center"
+                    >⌘</kbd
+                  >
+                  <kbd
+                    class="inline-block px-2.5 py-1 bg-white dark:bg-[#161616] border border-bord-light dark:border-[#2a2a2a] rounded-md text-accent shadow-[0_2px_0_var(--tw-border-color)] min-w-8 text-center"
+                    >R</kbd
+                  >
+                </td>
+                <td
+                  class="p-4 border-b border-bord dark:border-[#222]"
+                  data-i18n="shortcuts.ocrDesc"
+                >
+                  框选区域后自动识别文字
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- Workflow -->
+    <section id="how-it-works" class="py-24">
+      <div class="max-w-3xl mx-auto px-8">
+        <div class="text-center mb-16 fade-in">
+          <span
+            class="inline-block font-mono text-xs uppercase tracking-[0.15em] text-accent mb-4 px-3 py-1.5 bg-accent/10 rounded"
+            data-i18n="workflow.label">Workflow</span
+          >
+          <h2
+            class="font-mono font-semibold text-3xl sm:text-4xl"
+            data-i18n="workflow.title">三步完成</h2
+          >
+        </div>
+        <div
+          class="grid sm:grid-cols-3 gap-8 relative before:absolute before:top-12 before:left-[15%] before:right-[15%] before:h-px before:bg-gradient-to-r before:from-transparent before:via-accent before:to-accent-light before:opacity-30 max-sm:before:hidden fade-in"
+        >
+          <div class="text-center relative z-10">
+            <span
+              class="inline-flex items-center justify-center w-16 h-16 rounded-full border-2 border-accent bg-white dark:bg-[#161616] font-mono text-2xl font-bold text-accent mb-6"
+              >01</span
+            >
+            <h3
+              class="font-mono font-semibold text-lg mb-3"
+              data-i18n="workflow.step1Title">捕获</h3
+            >
+            <p
+              class="text-sm text-mute dark:text-[#888]"
+              data-i18n="workflow.step1Desc"
+            >
+              快捷键触发截图，十字线精准框选，放大镜辅助对齐边界。
+            </p>
+          </div>
+          <div class="text-center relative z-10">
+            <span
+              class="inline-flex items-center justify-center w-16 h-16 rounded-full border-2 border-accent bg-white dark:bg-[#161616] font-mono text-2xl font-bold text-accent mb-6"
+              >02</span
+            >
+            <h3
+              class="font-mono font-semibold text-lg mb-3"
+              data-i18n="workflow.step2Title">编辑</h3
+            >
+            <p
+              class="text-sm text-mute dark:text-[#888]"
+              data-i18n="workflow.step2Desc"
+            >
+              自动弹出编辑器，添加箭头、文字、模糊、高亮等标注。
+            </p>
+          </div>
+          <div class="text-center relative z-10">
+            <span
+              class="inline-flex items-center justify-center w-16 h-16 rounded-full border-2 border-accent bg-white dark:bg-[#161616] font-mono text-2xl font-bold text-accent mb-6"
+              >03</span
+            >
+            <h3
+              class="font-mono font-semibold text-lg mb-3"
+              data-i18n="workflow.step3Title">分享</h3
+            >
+            <p
+              class="text-sm text-mute dark:text-[#888]"
+              data-i18n="workflow.step3Desc"
+            >
+              复制到剪贴板、保存 PNG、上传云端生成链接，一步到位。
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- CTA -->
+    <section
+      id="download"
+      class="py-24 bg-surf-elevated dark:bg-[#111] border-y border-bord dark:border-[#222]"
+    >
+      <div class="max-w-xl mx-auto px-8 text-center fade-in">
+        <h2
+          class="font-mono font-semibold text-3xl sm:text-4xl mb-4"
+          data-i18n="cta.title">开始使用 MoliShot</h2
+        >
+        <p class="text-mute dark:text-[#888] mb-10" data-i18n="cta.desc">
+          免费下载，开箱即用。支持 macOS 14+，Apple Silicon & Intel。
+        </p>
+        <div class="flex justify-center gap-4 flex-wrap mb-10">
+          <a
+            href="https://github.com/gusibi/MoliShot/releases"
+            class="inline-flex items-center gap-2 px-8 py-3.5 bg-accent text-white rounded-lg font-mono font-semibold hover:bg-accent-hover hover:-translate-y-0.5 hover:shadow-[0_8px_30px_rgba(240,120,85,0.25)] transition-all"
+            target="_blank" rel="noopener"
+          >
+            <svg
+              class="w-4.5 h-4.5"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="7 10 12 15 17 10" />
+              <line x1="12" y1="15" x2="12" y2="3" />
+            </svg>
+            <span data-i18n="cta.downloadDmg">下载 DMG</span>
+          </a>
+          <a
+            href="https://github.com/gusibi/MoliShot"
+            class="inline-flex items-center gap-2 px-8 py-3.5 bg-white dark:bg-[#161616] border border-bord-light dark:border-[#2a2a2a] rounded-lg font-mono font-semibold hover:border-accent hover:-translate-y-0.5 transition-all"
+            target="_blank" rel="noopener"
+          >
+            <svg class="w-4.5 h-4.5" viewBox="0 0 24 24" fill="currentColor">
+              <path
+                d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"
+              />
+            </svg>
+            <span data-i18n="cta.github">View on GitHub</span>
+          </a>
+        </div>
+        <div
+          class="flex justify-center gap-8 font-mono text-xs text-mute-dim dark:text-[#555] flex-wrap"
+        >
+          <span data-i18n="cta.meta1">macOS 14+</span>
+          <span data-i18n="cta.meta2">Apple Silicon & Intel</span>
+          <span data-i18n="cta.meta3">PolyForm Noncommercial License</span>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- JSON-LD -->
+  <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      "name": "MoliShot",
+      "description": "MoliShot 是一款 macOS 专业截图与 OCR 工具，支持区域截图、滚动截图、标注编辑、文字识别、贴图悬浮、屏幕取色。免费开源，替代 Shottr。",
+      "applicationCategory": "UtilitiesApplication",
+      "operatingSystem": "macOS",
+      "url": "https://molishot.eztoolab.com",
+      "downloadUrl": "https://github.com/gusibi/MoliShot/releases",
+      "softwareVersion": "0.3.0",
+      "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+      "author": { "@type": "Person", "name": "gusibi", "url": "https://github.com/gusibi" },
+      "softwareHelp": { "@type": "CreativeWork", "url": "https://molishot.eztoolab.com/about" },
+      "releaseNotes": { "@type": "CreativeWork", "url": "https://molishot.eztoolab.com/changelog" }
+    }
+  </script>
+  <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebSite",
+      "name": "MoliShot",
+      "url": "https://molishot.eztoolab.com",
+      "description": "MoliShot — macOS 专业截图与 OCR 工具"
+    }
+  </script>
+</BaseLayout>
