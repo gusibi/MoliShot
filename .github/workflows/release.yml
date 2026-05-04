@@ -1,0 +1,58 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - "[0-9]*.[0-9]*.[0-9]*"
+
+jobs:
+  build:
+    runs-on: macos-15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        run: xcodegen generate
+
+      - name: Build archive
+        run: |
+          xcodebuild archive \
+            -project MoliShot.xcodeproj \
+            -scheme MoliShot \
+            -archivePath ./build/MoliShot.xcarchive \
+            -configuration Release \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO
+
+      - name: Package DMG
+        run: |
+          APP_PATH="./build/MoliShot.xcarchive/Products/Applications/MoliShot.app"
+          DMG_NAME="MoliShot-${GITHUB_REF##*/}.dmg"
+          DMG_PATH="./build/$DMG_NAME"
+
+          mkdir -p ./build/dmg
+          cp -R "$APP_PATH" ./build/dmg/
+
+          hdiutil create \
+            -volname "MoliShot" \
+            -srcfolder ./build/dmg \
+            -ov \
+            -format UDZO \
+            "$DMG_PATH"
+
+          echo "DMG_PATH=$DMG_PATH" >> $GITHUB_ENV
+          echo "DMG_NAME=$DMG_NAME" >> $GITHUB_ENV
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ./build/MoliShot-*.dmg
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
