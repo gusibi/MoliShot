@@ -42,3 +42,14 @@ MoliShot 使用 Swift 语言开发，基于 Apple 原生框架 AppKit、ScreenCa
 ## License
 
 PolyForm Noncommercial License 1.0.0
+
+## 相关项目 (EZTOLAB 生态)
+
+MoliShot 是独立开发者 gusibi 的个人工具实验室 EZTOLAB 的一员，每个工具专注解决一个问题：
+
+- [EZTOLAB](https://eztoolab.com) — 工具实验室主页，产品矩阵与设计哲学
+- [MoliBot](https://molibot.eztoolab.com) — 多渠道个人 AI 助手运行时（Web, Telegram, Feishu, WeChat, QQ, CLI）
+- [MoliTodo](https://molitodo.eztoolab.com) — AI 驱动的桌面悬浮 todo 管理器，100% 本地存储
+- [MoliTutu](https://tutu.eztoolab.com) — 智能图片压缩与 CDN 上传工具
+- [Momo Paper](https://momo.eztoolab.com) — 路由式文档设计系统，15 种文档类型 + 5 种图表
+- [LLM Wiki](https://llmwiki.eztoolab.com) — AI 驱动的个人知识编译器 (Obsidian 插件 + Claude Code Skill)

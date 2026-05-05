@@ -1,64 +1,51 @@
-# MoliShot — robots.txt
-# Strategy: allow-search-block-training
-# Allows search/retrieval and user-triggered crawlers, blocks training crawlers.
-
 User-agent: *
 Allow: /
 
-# Sitemap
-Sitemap: https://molishot.eztoolab.com/sitemap.xml
-
-# --- AI Crawlers ---
-
-# Search & retrieval (ALLOWED)
-User-agent: GPTBot
+# Search & retrieval crawlers — allow (power AI search results)
+User-agent: OAI-SearchBot
 Allow: /
 
-User-agent: ChatGPT-User
-Allow: /
-
-User-agent: Google-Extended
+User-agent: Claude-SearchBot
 Allow: /
 
 User-agent: PerplexityBot
 Allow: /
 
-User-agent: Anthropic-ai
+# User-triggered crawlers — allow (fire when user explicitly shares URL with AI)
+User-agent: ChatGPT-User
 Allow: /
+
+User-agent: Claude-User
+Allow: /
+
+User-agent: Perplexity-User
+Allow: /
+
+User-agent: Google-Agent
+Allow: /
+
+# Training crawlers — disallow (use content for model training, not search visibility)
+User-agent: GPTBot
+Disallow: /
 
 User-agent: ClaudeBot
-Allow: /
+Disallow: /
 
-User-agent: Claude-Web
-Allow: /
+User-agent: Meta-ExternalAgent
+Disallow: /
 
-User-agent: cohere-ai
-Allow: /
-
-User-agent: YouBot
-Allow: /
-
-User-agent: ai2bot
-Allow: /
-
-User-agent: Omgilibot
-Allow: /
-
-User-agent: Diffbot
-Allow: /
-
-User-agent: Bytespider
-Allow: /
-
-User-agent: Applebot-Extended
-Allow: /
-
-# Training crawlers (BLOCKED)
 User-agent: CCBot
 Disallow: /
 
-User-agent: omgili
+# Opt-out tokens — disallow (AI training opt-out signals)
+User-agent: Google-Extended
 Disallow: /
 
-User-agent: archive.org_bot
+User-agent: Applebot-Extended
 Disallow: /
+
+# Undeclared crawlers — disallow (no clear purpose stated)
+User-agent: Bytespider
+Disallow: /
+
+Sitemap: https://molishot.eztoolab.com/sitemap.xml
