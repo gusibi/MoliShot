@@ -28,7 +28,7 @@ const I18N: Record<string, Record<string, TranslationValue>> = {
       download: 'Download',
     },
     hero: {
-      badge: 'v0.3.0 — macOS 14+ / Apple Silicon & Intel',
+      badge: 'v0.4.0 — macOS 14+ / Apple Silicon & Intel',
       line1: 'Capture.',
       line2: 'Annotate.',
       line3: 'Share.',
@@ -141,6 +141,14 @@ const I18N: Record<string, Record<string, TranslationValue>> = {
     changelog: {
       title: '更新日志',
       meta: 'MoliShot 版本历史',
+      v040Title: '设计系统全面升级，明暗主题适配',
+      v040Item1: '引入 MoliDesign 设计系统，统一全应用色彩与组件风格',
+      v040Item2: '所有窗口支持明/暗主题自动切换，自适应外观变化',
+      v040Item3: 'OCR 窗口重新设计：紧凑迷你面板、字符计数、展开/收起切换',
+      v040Item4: '偏好设置页面视觉全面重做：新色彩体系、状态标签、图标导航',
+      v040Item5: '历史记录卡片升级：更大预览图、图标按钮、自适应主题',
+      v040Item6: '编辑器工具栏与贴图窗口适配新设计语言',
+      v040Item7: '按钮添加无障碍标签与 tooltip',
       v030Title: '交叉线与放大镜改进，OCR 布局优化',
       v030Item1:
         '改进十字线与放大镜视觉效果，提升截图选区精度',
@@ -173,7 +181,7 @@ const I18N: Record<string, Record<string, TranslationValue>> = {
     },
     about: {
       title: 'MoliShot 详细介绍',
-      meta: '最后更新：2025-05-04 · 版本 0.3.0 · macOS 14+',
+      meta: '最后更新：2026-05-26 · 版本 0.4.0 · macOS 14+',
       toc: '目录',
       overview: '产品概述',
       overviewP1:
@@ -314,7 +322,7 @@ const I18N: Record<string, Record<string, TranslationValue>> = {
       download: 'Download',
     },
     hero: {
-      badge: 'v0.3.0 — macOS 14+ / Apple Silicon & Intel',
+      badge: 'v0.4.0 — macOS 14+ / Apple Silicon & Intel',
       line1: 'Capture.',
       line2: 'Annotate.',
       line3: 'Share.',
@@ -429,6 +437,22 @@ const I18N: Record<string, Record<string, TranslationValue>> = {
     changelog: {
       title: 'Changelog',
       meta: 'MoliShot version history',
+      v040Title:
+        'Design system overhaul with light/dark theme support',
+      v040Item1:
+        'Introduced MoliDesign design system with unified color tokens and components',
+      v040Item2:
+        'All windows now support auto light/dark theme switching with appearance awareness',
+      v040Item3:
+        'Redesigned OCR window: compact mini-panel, character count, expand/collapse toggle',
+      v040Item4:
+        'Preferences page visual overhaul: new color system, status badges, icon navigation',
+      v040Item5:
+        'History card upgrade: larger previews, icon buttons, adaptive theming',
+      v040Item6:
+        'Editor toolbar and pin window adapted to new design language',
+      v040Item7:
+        'Added accessibility labels and tooltips to buttons',
       v030Title:
         'Improved crosshair/magnifier visuals and OCR layout',
       v030Item1:
@@ -467,7 +491,7 @@ const I18N: Record<string, Record<string, TranslationValue>> = {
     },
     about: {
       title: 'About MoliShot',
-      meta: 'Last updated: 2025-05-04 · Version 0.3.0 · macOS 14+',
+      meta: 'Last updated: 2026-05-26 · Version 0.4.0 · macOS 14+',
       toc: 'Contents',
       overview: 'Overview',
       overviewP1:

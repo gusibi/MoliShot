@@ -33,18 +33,20 @@ final class HistoryWindowController: NSWindowController, NSCollectionViewDataSou
 
     private func setupUI() {
         guard let content = window?.contentView else { return }
+        content.wantsLayer = true
+        content.layer?.backgroundColor = MoliDesign.canvas.cgColor
 
         let layout = NSCollectionViewFlowLayout()
-        layout.itemSize = NSSize(width: 180, height: 140)
-        layout.sectionInset = NSEdgeInsets(top: 16, left: 16, bottom: 16, right: 16)
-        layout.minimumInteritemSpacing = 12
-        layout.minimumLineSpacing = 12
+        layout.itemSize = NSSize(width: 210, height: 164)
+        layout.sectionInset = NSEdgeInsets(top: 18, left: 18, bottom: 18, right: 18)
+        layout.minimumInteritemSpacing = 14
+        layout.minimumLineSpacing = 14
         collectionView.collectionViewLayout = layout
         collectionView.dataSource = self
         collectionView.delegate = self
         collectionView.isSelectable = true
         collectionView.register(HistoryCell.self, forItemWithIdentifier: NSUserInterfaceItemIdentifier("cell"))
-        collectionView.backgroundColors = [NSColor.controlBackgroundColor]
+        collectionView.backgroundColors = [MoliDesign.canvas]
 
         scroll.documentView = collectionView
         scroll.hasVerticalScroller = true
@@ -52,7 +54,8 @@ final class HistoryWindowController: NSWindowController, NSCollectionViewDataSou
         content.addSubview(scroll)
 
         emptyLabel.translatesAutoresizingMaskIntoConstraints = false
-        emptyLabel.textColor = .secondaryLabelColor
+        emptyLabel.textColor = MoliDesign.secondaryText
+        emptyLabel.font = NSFont.systemFont(ofSize: 13, weight: .medium)
         content.addSubview(emptyLabel)
 
         NSLayoutConstraint.activate([
@@ -104,35 +107,31 @@ final class HistoryCell: NSCollectionViewItem {
     private let openBtn = NSButton()
 
     override func loadView() {
-        let v = NSView(frame: NSRect(x: 0, y: 0, width: 180, height: 140))
-        v.wantsLayer = true
-        v.layer?.cornerRadius = 6
-        v.layer?.backgroundColor = NSColor.windowBackgroundColor.cgColor
-        v.layer?.borderWidth = 1
-        v.layer?.borderColor = NSColor.separatorColor.cgColor
+        let v = MoliCardView(
+            frame: NSRect(x: 0, y: 0, width: 210, height: 164),
+            fillColor: MoliDesign.card,
+            borderColor: MoliDesign.hairline,
+            cornerRadius: 10
+        )
         view = v
 
         imgView.translatesAutoresizingMaskIntoConstraints = false
         imgView.imageScaling = .scaleProportionallyUpOrDown
+        imgView.wantsLayer = true
+        imgView.layer?.cornerRadius = 7
+        imgView.layer?.backgroundColor = MoliDesign.cardElevated.cgColor
+        imgView.layer?.masksToBounds = true
         v.addSubview(imgView)
 
         label.translatesAutoresizingMaskIntoConstraints = false
-        label.font = NSFont.systemFont(ofSize: 10)
-        label.textColor = .secondaryLabelColor
+        label.font = NSFont.systemFont(ofSize: 11, weight: .medium)
+        label.textColor = MoliDesign.secondaryText
         v.addSubview(label)
 
-        openBtn.title = L10n.text(.open)
-        openBtn.bezelStyle = .inline
-        openBtn.target = self
-        openBtn.action = #selector(openTap)
-        openBtn.translatesAutoresizingMaskIntoConstraints = false
+        configureActionButton(openBtn, symbol: "arrow.up.right.square", tooltip: L10n.text(.open), action: #selector(openTap))
         v.addSubview(openBtn)
 
-        deleteBtn.title = L10n.text(.delete)
-        deleteBtn.bezelStyle = .inline
-        deleteBtn.target = self
-        deleteBtn.action = #selector(deleteTap)
-        deleteBtn.translatesAutoresizingMaskIntoConstraints = false
+        configureActionButton(deleteBtn, symbol: "trash", tooltip: L10n.text(.delete), action: #selector(deleteTap))
         v.addSubview(deleteBtn)
 
         let doubleClick = NSClickGestureRecognizer(target: self, action: #selector(openTap))
@@ -140,29 +139,46 @@ final class HistoryCell: NSCollectionViewItem {
         v.addGestureRecognizer(doubleClick)
 
         NSLayoutConstraint.activate([
-            imgView.topAnchor.constraint(equalTo: v.topAnchor, constant: 6),
-            imgView.leadingAnchor.constraint(equalTo: v.leadingAnchor, constant: 6),
-            imgView.trailingAnchor.constraint(equalTo: v.trailingAnchor, constant: -6),
-            imgView.heightAnchor.constraint(equalToConstant: 90),
+            imgView.topAnchor.constraint(equalTo: v.topAnchor, constant: 8),
+            imgView.leadingAnchor.constraint(equalTo: v.leadingAnchor, constant: 8),
+            imgView.trailingAnchor.constraint(equalTo: v.trailingAnchor, constant: -8),
+            imgView.heightAnchor.constraint(equalToConstant: 112),
 
-            label.topAnchor.constraint(equalTo: imgView.bottomAnchor, constant: 4),
-            label.leadingAnchor.constraint(equalTo: v.leadingAnchor, constant: 6),
-            label.trailingAnchor.constraint(equalTo: v.trailingAnchor, constant: -6),
+            label.topAnchor.constraint(equalTo: imgView.bottomAnchor, constant: 8),
+            label.leadingAnchor.constraint(equalTo: v.leadingAnchor, constant: 10),
+            label.trailingAnchor.constraint(lessThanOrEqualTo: openBtn.leadingAnchor, constant: -8),
 
-            openBtn.bottomAnchor.constraint(equalTo: v.bottomAnchor, constant: -4),
-            openBtn.leadingAnchor.constraint(equalTo: v.leadingAnchor, constant: 6),
-            deleteBtn.bottomAnchor.constraint(equalTo: v.bottomAnchor, constant: -4),
-            deleteBtn.trailingAnchor.constraint(equalTo: v.trailingAnchor, constant: -6),
+            openBtn.centerYAnchor.constraint(equalTo: label.centerYAnchor),
+            openBtn.trailingAnchor.constraint(equalTo: deleteBtn.leadingAnchor, constant: -4),
+            deleteBtn.centerYAnchor.constraint(equalTo: label.centerYAnchor),
+            deleteBtn.trailingAnchor.constraint(equalTo: v.trailingAnchor, constant: -8),
         ])
     }
 
     func configure(with entry: HistoryEntry) {
-        openBtn.title = L10n.text(.open)
-        deleteBtn.title = L10n.text(.delete)
+        openBtn.toolTip = L10n.text(.open)
+        openBtn.setAccessibilityLabel(L10n.text(.open))
+        deleteBtn.toolTip = L10n.text(.delete)
+        deleteBtn.setAccessibilityLabel(L10n.text(.delete))
         imgView.image = HistoryStore.shared.image(for: entry)
         let df = DateFormatter()
         df.dateStyle = .short; df.timeStyle = .short
         label.stringValue = df.string(from: entry.timestamp)
+    }
+
+    private func configureActionButton(_ button: NSButton, symbol: String, tooltip: String, action: Selector) {
+        button.isBordered = false
+        button.image = NSImage(systemSymbolName: symbol, accessibilityDescription: tooltip)
+        button.imagePosition = .imageOnly
+        button.imageScaling = .scaleProportionallyDown
+        button.contentTintColor = MoliDesign.icon
+        button.toolTip = tooltip
+        button.setAccessibilityLabel(tooltip)
+        button.target = self
+        button.action = action
+        button.translatesAutoresizingMaskIntoConstraints = false
+        button.widthAnchor.constraint(equalToConstant: 24).isActive = true
+        button.heightAnchor.constraint(equalToConstant: 24).isActive = true
     }
 
     @objc private func openTap() { onOpen?() }

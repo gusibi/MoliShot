@@ -31,23 +31,26 @@ final class ColorPickerController {
         window.backgroundColor = .clear
         window.isOpaque = false
         window.level = .floating
+        window.hasShadow = true
 
-        let view = NSView(frame: NSRect(origin: .zero, size: size))
-        view.wantsLayer = true
-        view.layer?.backgroundColor = NSColor.black.withAlphaComponent(0.75).cgColor
-        view.layer?.cornerRadius = 8
+        let view = MoliCardView(
+            frame: NSRect(origin: .zero, size: size),
+            fillColor: MoliDesign.card,
+            borderColor: MoliDesign.hairline,
+            cornerRadius: 10
+        )
 
         let swatch = NSView(frame: NSRect(x: 10, y: 10, width: 50, height: 50))
         swatch.wantsLayer = true
         swatch.layer?.backgroundColor = color.cgColor
         swatch.layer?.cornerRadius = 6
         swatch.layer?.borderWidth = 1
-        swatch.layer?.borderColor = NSColor.white.withAlphaComponent(0.5).cgColor
+        swatch.layer?.borderColor = MoliDesign.hairline.cgColor
         view.addSubview(swatch)
 
         let label = NSTextField(labelWithString: "\(hex)\n\(L10n.text(.copiedToClipboard))")
         label.frame = NSRect(x: 70, y: 8, width: 140, height: 55)
-        label.textColor = .white
+        label.textColor = MoliDesign.primaryText
         label.font = NSFont.monospacedSystemFont(ofSize: 13, weight: .medium)
         label.maximumNumberOfLines = 2
         view.addSubview(label)

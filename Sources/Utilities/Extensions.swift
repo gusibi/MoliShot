@@ -67,6 +67,21 @@ extension NSPasteboard {
 }
 
 extension NSColor {
+    static func srgb(hex: UInt32, alpha: CGFloat = 1) -> NSColor {
+        NSColor(
+            srgbRed: CGFloat((hex >> 16) & 0xff) / 255,
+            green: CGFloat((hex >> 8) & 0xff) / 255,
+            blue: CGFloat(hex & 0xff) / 255,
+            alpha: alpha
+        )
+    }
+
+    static func adaptive(light: NSColor, dark: NSColor) -> NSColor {
+        NSColor(name: nil) { appearance in
+            appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? dark : light
+        }
+    }
+
     var hexString: String {
         guard let rgb = usingColorSpace(.sRGB) else { return "#000000" }
         let r = Int((rgb.redComponent * 255).rounded())
@@ -81,6 +96,66 @@ extension NSColor {
         let g = Int((rgb.greenComponent * 255).rounded())
         let b = Int((rgb.blueComponent * 255).rounded())
         return "RGB \(r), \(g), \(b)"
+    }
+}
+
+enum MoliDesign {
+    static let card = NSColor.adaptive(light: .srgb(hex: 0xcfd0d2), dark: .srgb(hex: 0x2b2c2f))
+    static let cardElevated = NSColor.adaptive(light: .srgb(hex: 0xd9dadc), dark: .srgb(hex: 0x333438))
+    static let canvas = NSColor.adaptive(light: .srgb(hex: 0xe8e9eb), dark: .srgb(hex: 0x1f2023))
+    static let primaryText = NSColor.adaptive(light: .srgb(hex: 0x2e3034), dark: .srgb(hex: 0xf2f2f3))
+    static let secondaryText = NSColor.adaptive(light: .srgb(hex: 0x707277), dark: .srgb(hex: 0xb8bac0))
+    static let tertiaryText = NSColor.adaptive(light: .srgb(hex: 0xb5b7bc), dark: .srgb(hex: 0x767980))
+    static let icon = NSColor.adaptive(light: .srgb(hex: 0x5f6268), dark: .srgb(hex: 0xc8c9ce))
+    static let hairline = NSColor.adaptive(light: .srgb(hex: 0xbfc2c8), dark: .srgb(hex: 0x484a50))
+    static let accent = NSColor.adaptive(light: .srgb(hex: 0xb5515e), dark: .srgb(hex: 0xff8c99))
+    static let selection = NSColor.adaptive(
+        light: .srgb(hex: 0xb8bdc8, alpha: 0.45),
+        dark: .srgb(hex: 0x555b6a, alpha: 0.7)
+    )
+
+    static func toolbarFill(isSelected: Bool) -> NSColor {
+        isSelected ? selection : .clear
+    }
+}
+
+class MoliCardView: NSView {
+    var fillColor: NSColor
+    var borderColor: NSColor?
+    var cornerRadius: CGFloat
+
+    init(
+        frame frameRect: NSRect = .zero,
+        fillColor: NSColor = MoliDesign.card,
+        borderColor: NSColor? = nil,
+        cornerRadius: CGFloat = 10
+    ) {
+        self.fillColor = fillColor
+        self.borderColor = borderColor
+        self.cornerRadius = cornerRadius
+        super.init(frame: frameRect)
+        wantsLayer = true
+        applyStyle()
+    }
+
+    required init?(coder: NSCoder) { fatalError() }
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        applyStyle()
+    }
+
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        applyStyle()
+    }
+
+    func applyStyle() {
+        layer?.backgroundColor = fillColor.cgColor
+        layer?.cornerRadius = cornerRadius
+        layer?.borderWidth = borderColor == nil ? 0 : 1
+        layer?.borderColor = borderColor?.cgColor
+        layer?.masksToBounds = cornerRadius > 0
     }
 }
 
@@ -212,6 +287,9 @@ enum L10nKey {
     case done
     case cancel
     case close
+    case expand
+    case collapse
+    case ocrCharacterCount
     case capturedScrollProgress
     case rulerHint
 }
@@ -262,6 +340,8 @@ enum L10n {
             return isChinese ? "上传失败：\(value)" : "Upload failed: \(value)"
         case .capturedScrollProgress:
             return isChinese ? "已捕获 \(value) px。滚动后点完成。" : "Captured \(value) px. Scroll + Done."
+        case .ocrCharacterCount:
+            return isChinese ? "\(value) 个字符" : "\(value) characters"
         case .scrollCaptureFailedMessage:
             return isChinese ? "滚动截图已停止：\(value)" : "Scrolling capture stopped: \(value)"
         default:
@@ -366,6 +446,9 @@ enum L10n {
         case .done: return "Done"
         case .cancel: return "Cancel"
         case .close: return "Close"
+        case .expand: return "Expand"
+        case .collapse: return "Collapse"
+        case .ocrCharacterCount: return "characters"
         case .capturedScrollProgress: return "Captured"
         case .rulerHint: return "Drag to measure. Click again to restart. ESC exits."
         }
@@ -468,6 +551,9 @@ enum L10n {
         case .done: return "完成"
         case .cancel: return "取消"
         case .close: return "关闭"
+        case .expand: return "展开"
+        case .collapse: return "收起"
+        case .ocrCharacterCount: return "个字符"
         case .capturedScrollProgress: return "已捕获"
         case .rulerHint: return "拖动以测量。再次点击可重新开始。按 ESC 退出。"
         }

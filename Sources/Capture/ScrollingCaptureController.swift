@@ -292,24 +292,27 @@ final class ScrollingToolbar {
         win.isOpaque = false
         win.backgroundColor = .clear
 
-        let container = NSView(frame: NSRect(origin: .zero, size: size))
-        container.wantsLayer = true
-        container.layer?.backgroundColor = NSColor.black.withAlphaComponent(0.8).cgColor
-        container.layer?.cornerRadius = 10
+        let container = MoliCardView(
+            frame: NSRect(origin: .zero, size: size),
+            fillColor: MoliDesign.card,
+            borderColor: MoliDesign.hairline,
+            cornerRadius: 10
+        )
 
         label.frame = NSRect(x: 12, y: 18, width: 260, height: 20)
-        label.textColor = .white
-        label.font = NSFont.systemFont(ofSize: 12)
+        label.textColor = MoliDesign.primaryText
+        label.font = NSFont.systemFont(ofSize: 12, weight: .medium)
+        label.lineBreakMode = .byTruncatingTail
         container.addSubview(label)
 
         let done = NSButton(title: L10n.text(.done), target: self, action: #selector(doneTap))
         done.frame = NSRect(x: 280, y: 14, width: 60, height: 28)
-        done.bezelStyle = .rounded
+        configureToolbarButton(done, emphasized: true)
         container.addSubview(done)
 
         let cancel = NSButton(title: L10n.text(.cancel), target: self, action: #selector(cancelTap))
         cancel.frame = NSRect(x: 346, y: 14, width: 66, height: 28)
-        cancel.bezelStyle = .rounded
+        configureToolbarButton(cancel, emphasized: false)
         container.addSubview(cancel)
 
         win.contentView = container
@@ -327,6 +330,21 @@ final class ScrollingToolbar {
     func close() {
         window?.orderOut(nil)
         window = nil
+    }
+
+    private func configureToolbarButton(_ button: NSButton, emphasized: Bool) {
+        button.isBordered = false
+        button.wantsLayer = true
+        button.layer?.cornerRadius = 7
+        button.layer?.backgroundColor = (emphasized ? MoliDesign.cardElevated : .clear).cgColor
+        button.attributedTitle = NSAttributedString(
+            string: button.title,
+            attributes: [
+                .foregroundColor: emphasized ? MoliDesign.primaryText : MoliDesign.secondaryText,
+                .font: NSFont.systemFont(ofSize: 12, weight: .medium)
+            ]
+        )
+        button.setAccessibilityLabel(button.title)
     }
 
     @objc private func doneTap() { onDone?() }

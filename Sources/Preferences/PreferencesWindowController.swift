@@ -5,11 +5,40 @@ import HotKey
 // MARK: - Layout Constants
 
 private enum PreferencesLayout {
-    static let windowWidth: CGFloat = 750
-    static let windowHeight: CGFloat = 550
+    static let windowWidth: CGFloat = 780
+    static let windowHeight: CGFloat = 560
     static let minWindowWidth: CGFloat = 600
     static let minWindowHeight: CGFloat = 400
-    static let sidebarWidth: CGFloat = 180
+    static let sidebarWidth: CGFloat = 196
+    static let detailMaxWidth: CGFloat = 520
+}
+
+private enum PreferencesDesign {
+    static let primary = NSColor.srgb(hex: 0x5e6ad2)
+    static let primaryHover = NSColor.srgb(hex: 0x828fff)
+    static let onPrimary = NSColor.srgb(hex: 0xffffff)
+
+    static let canvas = NSColor.adaptive(light: .srgb(hex: 0xffffff), dark: .srgb(hex: 0x010102))
+    static let sidebar = NSColor.adaptive(light: .srgb(hex: 0xf5f6f6), dark: .srgb(hex: 0x0f1011))
+    static let surface1 = NSColor.adaptive(light: .srgb(hex: 0xf5f6f6), dark: .srgb(hex: 0x0f1011))
+    static let surface2 = NSColor.adaptive(light: .srgb(hex: 0xf6f7f7), dark: .srgb(hex: 0x141516))
+    static let surface3 = NSColor.adaptive(light: .srgb(hex: 0xffffff), dark: .srgb(hex: 0x18191a))
+    static let ink = NSColor.adaptive(light: .srgb(hex: 0x000000), dark: .srgb(hex: 0xf7f8f8))
+    static let inkMuted = NSColor.adaptive(light: .srgb(hex: 0x4d5561), dark: .srgb(hex: 0xd0d6e0))
+    static let inkSubtle = NSColor.adaptive(light: .srgb(hex: 0x747986), dark: .srgb(hex: 0x8a8f98))
+    static let inkTertiary = NSColor.adaptive(light: .srgb(hex: 0x9aa0aa), dark: .srgb(hex: 0x62666d))
+    static let hairline = NSColor.adaptive(light: .srgb(hex: 0xe4e6ea), dark: .srgb(hex: 0x23252a))
+    static let hairlineStrong = NSColor.adaptive(light: .srgb(hex: 0xd2d6de), dark: .srgb(hex: 0x34343a))
+    static let success = NSColor.srgb(hex: 0x27a644)
+    static let danger = NSColor.srgb(hex: 0xff453a)
+
+    static func navFill(isSelected: Bool) -> NSColor {
+        isSelected ? surface2 : .clear
+    }
+
+    static func controlFill(isPressed: Bool) -> NSColor {
+        isPressed ? surface3 : surface2
+    }
 }
 
 // MARK: - Window Controller
@@ -27,6 +56,7 @@ final class PreferencesWindowController: NSWindowController {
         window.title = L10n.text(.preferences)
         window.titlebarAppearsTransparent = true
         window.titleVisibility = .hidden
+        window.backgroundColor = PreferencesDesign.canvas
         window.center()
         window.minSize = NSSize(width: PreferencesLayout.minWindowWidth, height: PreferencesLayout.minWindowHeight)
         super.init(window: window)
@@ -91,20 +121,36 @@ struct PreferencesContentView: View {
     var body: some View {
         HStack(spacing: 0) {
             sidebar
-            Divider()
+            Rectangle()
+                .fill(Color(nsColor: PreferencesDesign.hairline))
+                .frame(width: 1)
             detailArea
         }
-        .background(Color(nsColor: .windowBackgroundColor))
+        .background(Color(nsColor: PreferencesDesign.canvas))
     }
 
     // MARK: - Sidebar
 
     private var sidebar: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(L10n.text(.preferences))
-                .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(.primary)
-                .padding(.bottom, 16)
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 9) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 6)
+                        .fill(Color(nsColor: PreferencesDesign.primary))
+
+                    Text("M")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(Color(nsColor: PreferencesDesign.onPrimary))
+                }
+                .frame(width: 24, height: 24)
+                .accessibilityHidden(true)
+
+                Text(L10n.text(.preferences))
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(Color(nsColor: PreferencesDesign.ink))
+            }
+            .padding(.horizontal, 4)
+            .padding(.bottom, 20)
 
             ForEach(PreferencesPane.allCases, id: \.self) { pane in
                 sidebarButton(for: pane)
@@ -112,24 +158,54 @@ struct PreferencesContentView: View {
 
             Spacer()
         }
-        .padding(.top, 48)
+        .padding(.top, 50)
         .padding(.horizontal, 16)
         .frame(width: PreferencesLayout.sidebarWidth)
-        .background(.regularMaterial)
+        .background(Color(nsColor: PreferencesDesign.sidebar))
     }
 
     private func sidebarButton(for pane: PreferencesPane) -> some View {
-        Button {
+        let isSelected = selectedPane == pane
+
+        return Button {
             selectedPane = pane
         } label: {
-            Label(pane.title, systemImage: pane.symbol)
-                .font(.system(size: 13, weight: selectedPane == pane ? .semibold : .regular))
-                .foregroundStyle(selectedPane == pane ? Color.accentColor : .primary)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .frame(height: 30)
-                .contentShape(.rect(cornerRadius: 6))
+            HStack(spacing: 8) {
+                Image(systemName: pane.symbol)
+                    .font(.system(size: 13, weight: .medium))
+                    .frame(width: 16)
+                    .accessibilityHidden(true)
+
+                Text(pane.title)
+                    .font(.system(size: 13, weight: isSelected ? .semibold : .regular))
+
+                Spacer(minLength: 0)
+            }
+            .foregroundStyle(Color(nsColor: isSelected ? PreferencesDesign.ink : PreferencesDesign.inkSubtle))
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .frame(height: 34)
+            .padding(.horizontal, 10)
+            .background(
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(Color(nsColor: PreferencesDesign.navFill(isSelected: isSelected)))
+            )
+            .overlay(
+                HStack(spacing: 0) {
+                    Capsule()
+                        .fill(Color(nsColor: isSelected ? PreferencesDesign.primary : .clear))
+                        .frame(width: 2, height: 16)
+                    Spacer()
+                }
+                .padding(.leading, 1)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 8)
+                    .stroke(Color(nsColor: isSelected ? PreferencesDesign.hairlineStrong : .clear), lineWidth: 1)
+            )
+            .contentShape(.rect(cornerRadius: 8))
         }
         .buttonStyle(.plain)
+        .accessibilityLabel(pane.title)
     }
 
     // MARK: - Detail Area
@@ -147,26 +223,54 @@ struct PreferencesContentView: View {
                     StoragePane()
                 }
             }
-            .padding(.top, 24)
-            .padding(.horizontal, 20)
-            .padding(.bottom, 40)
+            .frame(maxWidth: PreferencesLayout.detailMaxWidth, alignment: .leading)
+            .padding(.top, 34)
+            .padding(.horizontal, 32)
+            .padding(.bottom, 42)
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
+        .background(Color(nsColor: PreferencesDesign.canvas))
     }
 }
 
 // MARK: - Section Helpers
+
+private struct PaneHeader: View {
+    let title: String
+    let symbol: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 8) {
+                Image(systemName: symbol)
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(Color(nsColor: PreferencesDesign.primary))
+                    .accessibilityHidden(true)
+
+                Text(L10n.text(.preferences))
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(Color(nsColor: PreferencesDesign.inkSubtle))
+            }
+
+            Text(title)
+                .font(.system(size: 24, weight: .semibold))
+                .foregroundStyle(Color(nsColor: PreferencesDesign.ink))
+        }
+        .padding(.bottom, 22)
+    }
+}
 
 private struct SectionHeader: View {
     let title: String
 
     var body: some View {
         Text(title)
-            .font(.system(size: 11.5))
-            .foregroundStyle(.secondary)
+            .font(.system(size: 11.5, weight: .medium))
+            .foregroundStyle(Color(nsColor: PreferencesDesign.inkSubtle))
             .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.horizontal, 16)
-            .padding(.top, 20)
-            .padding(.bottom, 6)
+            .padding(.horizontal, 2)
+            .padding(.top, 22)
+            .padding(.bottom, 8)
     }
 }
 
@@ -177,11 +281,11 @@ private struct SettingsGroup<Content: View>: View {
         VStack(alignment: .leading, spacing: 0) {
             content()
         }
-        .background(Color(nsColor: .controlBackgroundColor))
-        .clipShape(RoundedRectangle(cornerRadius: 10))
+        .background(Color(nsColor: PreferencesDesign.surface1))
+        .clipShape(RoundedRectangle(cornerRadius: 12))
         .overlay(
-            RoundedRectangle(cornerRadius: 10)
-                .stroke(Color(nsColor: .separatorColor).opacity(0.08), lineWidth: 1)
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(Color(nsColor: PreferencesDesign.hairline), lineWidth: 1)
         )
     }
 }
@@ -200,21 +304,189 @@ private struct SettingsRow<Control: View>: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 16) {
-                Text(label)
-                    .font(.system(size: 13))
-                    .foregroundStyle(.primary)
+                if label.isEmpty {
+                    Spacer(minLength: 0)
+                } else {
+                    Text(label)
+                        .font(.system(size: 13))
+                        .foregroundStyle(Color(nsColor: PreferencesDesign.inkMuted))
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
                 Spacer()
                 control()
             }
             .padding(.horizontal, 16)
-            .frame(minHeight: 40)
+            .frame(minHeight: 46)
 
             if !isLast {
-                Divider()
+                Rectangle()
+                    .fill(Color(nsColor: PreferencesDesign.hairline))
+                    .frame(height: 1)
                     .padding(.leading, 16)
-                    .padding(.trailing, 8)
             }
         }
+    }
+}
+
+private struct SettingsMessageRow: View {
+    let text: String
+    let isLast: Bool
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(alignment: .top, spacing: 8) {
+                Image(systemName: "info.circle")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(Color(nsColor: PreferencesDesign.inkTertiary))
+                    .accessibilityHidden(true)
+
+                Text(text)
+                    .font(.system(size: 12))
+                    .foregroundStyle(Color(nsColor: PreferencesDesign.inkSubtle))
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 13)
+
+            if !isLast {
+                Rectangle()
+                    .fill(Color(nsColor: PreferencesDesign.hairline))
+                    .frame(height: 1)
+                    .padding(.leading, 16)
+            }
+        }
+        .accessibilityElement(children: .combine)
+    }
+}
+
+private struct SettingsStackedRow<Control: View>: View {
+    let label: String
+    let isLast: Bool
+    @ViewBuilder let control: () -> Control
+
+    init(label: String, isLast: Bool = false, @ViewBuilder control: @escaping () -> Control) {
+        self.label = label
+        self.isLast = isLast
+        self.control = control
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            VStack(alignment: .leading, spacing: 10) {
+                Text(label)
+                    .font(.system(size: 13))
+                    .foregroundStyle(Color(nsColor: PreferencesDesign.inkMuted))
+
+                control()
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 14)
+
+            if !isLast {
+                Rectangle()
+                    .fill(Color(nsColor: PreferencesDesign.hairline))
+                    .frame(height: 1)
+                    .padding(.leading, 16)
+            }
+        }
+    }
+}
+
+private struct PermissionStatusLabel: View {
+    let isGranted: Bool
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Image(systemName: isGranted ? "checkmark.circle.fill" : "xmark.circle.fill")
+                .font(.system(size: 12, weight: .semibold))
+                .accessibilityHidden(true)
+
+            Text(isGranted ? L10n.text(.granted) : L10n.text(.notGranted))
+                .font(.system(size: 12, weight: .medium))
+        }
+        .foregroundStyle(statusColor)
+        .padding(.horizontal, 9)
+        .frame(height: 24)
+        .background(
+            Capsule()
+                .fill(Color(nsColor: PreferencesDesign.surface2))
+        )
+        .overlay(
+            Capsule()
+                .stroke(Color(nsColor: PreferencesDesign.hairline), lineWidth: 1)
+        )
+        .fixedSize(horizontal: true, vertical: false)
+        .accessibilityElement(children: .combine)
+    }
+
+    private var statusColor: Color {
+        if isGranted {
+            return Color(nsColor: PreferencesDesign.success)
+        }
+        return Color(nsColor: PreferencesDesign.danger)
+    }
+}
+
+private struct PreferencePathValue: View {
+    let path: String
+
+    var body: some View {
+        Text(path)
+            .font(.system(size: 12))
+            .foregroundStyle(Color(nsColor: PreferencesDesign.inkSubtle))
+            .lineLimit(1)
+            .truncationMode(.middle)
+            .padding(.horizontal, 10)
+            .frame(maxWidth: 270, minHeight: 28, alignment: .trailing)
+            .background(
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(Color(nsColor: PreferencesDesign.surface2))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 8)
+                    .stroke(Color(nsColor: PreferencesDesign.hairline), lineWidth: 1)
+            )
+            .accessibilityLabel(path)
+    }
+}
+
+private struct PreferenceActionButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.system(size: 12, weight: .medium))
+            .foregroundStyle(Color(nsColor: PreferencesDesign.inkMuted))
+            .lineLimit(1)
+            .fixedSize(horizontal: true, vertical: false)
+            .padding(.horizontal, 12)
+            .frame(height: 30)
+            .background(
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(Color(nsColor: PreferencesDesign.controlFill(isPressed: configuration.isPressed)))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 8)
+                    .stroke(Color(nsColor: PreferencesDesign.hairlineStrong), lineWidth: 1)
+            )
+    }
+}
+
+private struct PreferenceTextFieldStyle: ViewModifier {
+    func body(content: Content) -> some View {
+        content
+            .font(.system(size: 12, weight: .medium))
+            .foregroundStyle(Color(nsColor: PreferencesDesign.ink))
+            .padding(.horizontal, 8)
+            .frame(width: 56, height: 28)
+            .background(
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(Color(nsColor: PreferencesDesign.surface2))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 8)
+                    .stroke(Color(nsColor: PreferencesDesign.hairlineStrong), lineWidth: 1)
+            )
     }
 }
 
@@ -232,7 +504,7 @@ private struct GeneralPane: View {
     @State private var launchErrorMessage = ""
 
     var body: some View {
-        SectionHeader(title: L10n.text(.general))
+        PaneHeader(title: L10n.text(.general), symbol: "gearshape")
 
         SettingsGroup {
             SettingsRow(label: L10n.text(.language)) {
@@ -269,17 +541,14 @@ private struct GeneralPane: View {
         SectionHeader(title: L10n.text(.screenRecordingPermission))
 
         SettingsGroup {
-            SettingsRow(label: L10n.text(.screenRecordingPermission), isLast: true) {
+            SettingsStackedRow(label: L10n.text(.screenRecordingPermission), isLast: true) {
                 HStack(spacing: 12) {
-                    Text(hasScreenCapturePermission ? L10n.text(.granted) : L10n.text(.notGranted))
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundStyle(hasScreenCapturePermission ? .green : .red)
+                    PermissionStatusLabel(isGranted: hasScreenCapturePermission)
 
                     Button(L10n.text(.openScreenRecordingSettings)) {
                         Permissions.openScreenRecordingPrivacySettings()
                     }
-                    .buttonStyle(.bordered)
-                    .controlSize(.regular)
+                    .buttonStyle(PreferenceActionButtonStyle())
                 }
             }
         }
@@ -287,39 +556,27 @@ private struct GeneralPane: View {
         SectionHeader(title: L10n.text(.accessibilityPermission))
 
         SettingsGroup {
-            SettingsRow(label: L10n.text(.accessibilityPermission)) {
-                HStack(spacing: 12) {
-                    Text(hasAccessibilityPermission ? L10n.text(.granted) : L10n.text(.notGranted))
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundStyle(hasAccessibilityPermission ? .green : .red)
-
-                    Button(L10n.text(.requestAccessibilityPermission)) {
-                        _ = Permissions.requestAccessibilityAccessUserInitiated()
+            SettingsStackedRow(label: L10n.text(.accessibilityPermission)) {
+                ViewThatFits(in: .horizontal) {
+                    HStack(spacing: 12) {
+                        PermissionStatusLabel(isGranted: hasAccessibilityPermission)
+                        accessibilityButtons
                     }
-                    .buttonStyle(.bordered)
-                    .controlSize(.regular)
 
-                    Button(L10n.text(.openAccessibilitySettings)) {
-                        Permissions.openAccessibilityPrivacySettings()
+                    VStack(alignment: .leading, spacing: 8) {
+                        PermissionStatusLabel(isGranted: hasAccessibilityPermission)
+                        accessibilityButtons
                     }
-                    .buttonStyle(.bordered)
-                    .controlSize(.regular)
                 }
             }
 
             SettingsRow(label: L10n.text(.hotkeyRegistrationMode)) {
                 Text(hotkeyModeText)
                     .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(hotkeyRegistrationMode == .eventTap ? .green : .secondary)
+                    .foregroundStyle(Color(nsColor: hotkeyRegistrationMode == .eventTap ? PreferencesDesign.success : PreferencesDesign.inkSubtle))
             }
 
-            SettingsRow(label: L10n.text(.accessibilityPermissionHint), isLast: true) {
-                Text(L10n.text(.accessibilityPermissionHint))
-                    .font(.system(size: 12))
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.trailing)
-                    .frame(maxWidth: 280, alignment: .trailing)
-            }
+            SettingsMessageRow(text: L10n.text(.accessibilityPermissionHint), isLast: true)
         }
 
         .onAppear {
@@ -335,6 +592,20 @@ private struct GeneralPane: View {
             Button("OK", role: .cancel) {}
         } message: {
             Text(launchErrorMessage)
+        }
+    }
+
+    private var accessibilityButtons: some View {
+        HStack(spacing: 8) {
+            Button(L10n.text(.requestAccessibilityPermission)) {
+                _ = Permissions.requestAccessibilityAccessUserInitiated()
+            }
+            .buttonStyle(PreferenceActionButtonStyle())
+
+            Button(L10n.text(.openAccessibilitySettings)) {
+                Permissions.openAccessibilityPrivacySettings()
+            }
+            .buttonStyle(PreferenceActionButtonStyle())
         }
     }
 
@@ -358,7 +629,7 @@ private struct GeneralPane: View {
 
 private struct HotkeysPane: View {
     var body: some View {
-        SectionHeader(title: L10n.text(.hotkeys))
+        PaneHeader(title: L10n.text(.hotkeys), symbol: "keyboard")
 
         SettingsGroup {
             let actions = HotkeyAction.allCases
@@ -410,10 +681,7 @@ private final class HotkeyRecorderButton: NSButton {
         bezelStyle = .regularSquare
         isBordered = false
         wantsLayer = true
-        layer?.cornerRadius = 6
-        layer?.backgroundColor = NSColor.controlColor.cgColor
-        layer?.borderWidth = 0.5
-        layer?.borderColor = NSColor.separatorColor.cgColor
+        applyBaseStyle()
 
         target = self
         action = #selector(startRecording)
@@ -428,13 +696,30 @@ private final class HotkeyRecorderButton: NSButton {
 
     override var acceptsFirstResponder: Bool { true }
 
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        applyBaseStyle()
+        if isRecording {
+            layer?.borderColor = PreferencesDesign.primary.cgColor
+            layer?.borderWidth = 2
+        }
+        updateTitle()
+    }
+
+    private func applyBaseStyle() {
+        layer?.cornerRadius = 6
+        layer?.backgroundColor = PreferencesDesign.surface2.cgColor
+        layer?.borderWidth = 0.5
+        layer?.borderColor = PreferencesDesign.hairlineStrong.cgColor
+    }
+
     @objc private func startRecording() {
         if !isRecording {
             onBeginRecording?()
         }
         isRecording = true
         // Visual feedback: accent border highlight
-        layer?.borderColor = NSColor.controlAccentColor.cgColor
+        layer?.borderColor = PreferencesDesign.primary.cgColor
         layer?.borderWidth = 2
         updateTitle()
         window?.makeFirstResponder(self)
@@ -490,7 +775,7 @@ private final class HotkeyRecorderButton: NSButton {
     }
 
     private func resetBorder() {
-        layer?.borderColor = NSColor.separatorColor.cgColor
+        layer?.borderColor = PreferencesDesign.hairlineStrong.cgColor
         layer?.borderWidth = 0.5
     }
 
@@ -501,7 +786,7 @@ private final class HotkeyRecorderButton: NSButton {
 
         let attributedTitle = NSAttributedString(string: text, attributes: [
             .font: NSFont.systemFont(ofSize: 12, weight: .regular),
-            .foregroundColor: isRecording ? NSColor.controlAccentColor : NSColor.secondaryLabelColor,
+            .foregroundColor: isRecording ? PreferencesDesign.primaryHover : PreferencesDesign.inkMuted,
             .paragraphStyle: paragraph,
         ])
         self.attributedTitle = attributedTitle
@@ -526,23 +811,19 @@ private struct StoragePane: View {
     @State private var showFileImporter = false
 
     var body: some View {
+        PaneHeader(title: L10n.text(.storage), symbol: "folder")
+
         SectionHeader(title: L10n.text(.saveDirectory))
 
         SettingsGroup {
             SettingsRow(label: L10n.text(.saveDirectory)) {
                 HStack(spacing: 8) {
-                    Text(saveDirectoryPath)
-                        .font(.system(size: 12))
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                        .truncationMode(.middle)
-                        .frame(maxWidth: 250, alignment: .trailing)
+                    PreferencePathValue(path: saveDirectoryPath)
 
                     Button(L10n.text(.choose)) {
                         showFileImporter = true
                     }
-                    .buttonStyle(.bordered)
-                    .controlSize(.regular)
+                    .buttonStyle(PreferenceActionButtonStyle())
                 }
             }
 
@@ -551,8 +832,7 @@ private struct StoragePane: View {
                     AppSettings.clearSaveDirectory()
                     saveDirectoryPath = AppSettings.saveDirectoryURL.path
                 }
-                .buttonStyle(.borderless)
-                .controlSize(.small)
+                .buttonStyle(PreferenceActionButtonStyle())
             }
         }
         .fileImporter(
@@ -580,7 +860,8 @@ private struct StoragePane: View {
                     TextField("", value: $historyLimit, format: .number)
                         .textFieldStyle(.plain)
                         .multilineTextAlignment(.center)
-                        .frame(width: 50)
+                        .modifier(PreferenceTextFieldStyle())
+                        .accessibilityLabel(L10n.text(.keepRecentScreenshots))
                         .onChange(of: historyLimit) { _, newValue in
                             let clamped = AppSettings.clampedHistoryLimit(newValue)
                             if clamped != newValue {

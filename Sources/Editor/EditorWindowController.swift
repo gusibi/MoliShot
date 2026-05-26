@@ -93,11 +93,11 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, Editor
 
         statusLabel.translatesAutoresizingMaskIntoConstraints = false
         statusLabel.font = NSFont.monospacedSystemFont(ofSize: 11, weight: .regular)
-        statusLabel.textColor = .secondaryLabelColor
+        statusLabel.textColor = MoliDesign.secondaryText
 
         zoomLabel.translatesAutoresizingMaskIntoConstraints = false
         zoomLabel.font = NSFont.monospacedSystemFont(ofSize: 11, weight: .semibold)
-        zoomLabel.textColor = .secondaryLabelColor
+        zoomLabel.textColor = MoliDesign.secondaryText
 
         content.addSubview(toolBarView)
         content.addSubview(scrollView)
@@ -154,7 +154,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, Editor
 
         toolBarStack.orientation = .horizontal
         toolBarStack.alignment = .centerY
-        toolBarStack.spacing = 4
+        toolBarStack.spacing = 5
 
         toolBarStack.addArrangedSubview(compactToolbarButton(title: L10n.text(.pin), symbol: "pin", action: #selector(pinImage)))
         toolBarStack.addArrangedSubview(compactToolbarButton(title: L10n.text(.copy), symbol: "doc.on.doc", action: #selector(copyImage)))
@@ -210,15 +210,19 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, Editor
     private func compactToolbarButton(title: String, symbol: String, action: Selector) -> NSButton {
         let button = NSButton()
         button.controlSize = .regular
-        button.bezelStyle = .texturedRounded
+        button.isBordered = false
+        button.wantsLayer = true
         button.image = toolbarSymbol(symbol, title: title)
         button.imagePosition = .imageOnly
+        button.contentTintColor = MoliDesign.icon
         button.toolTip = title
+        button.setAccessibilityLabel(title)
         button.target = self
         button.action = action
         button.translatesAutoresizingMaskIntoConstraints = false
         button.widthAnchor.constraint(equalToConstant: 30).isActive = true
         button.heightAnchor.constraint(equalToConstant: 28).isActive = true
+        styleToolbarButton(button, isSelected: false)
         return button
     }
 
@@ -229,11 +233,10 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, Editor
     }
 
     private func toolbarSeparator() -> NSView {
-        let separator = NSBox()
-        separator.boxType = .separator
+        let separator = MoliCardView(fillColor: MoliDesign.hairline, cornerRadius: 0)
         separator.translatesAutoresizingMaskIntoConstraints = false
         separator.widthAnchor.constraint(equalToConstant: 1).isActive = true
-        separator.heightAnchor.constraint(equalToConstant: 22).isActive = true
+        separator.heightAnchor.constraint(equalToConstant: 20).isActive = true
         return separator
     }
 
@@ -252,8 +255,18 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, Editor
 
     private func refreshToolButtons() {
         for (tool, button) in toolButtons {
-            button.state = editorView.currentTool == tool ? .on : .off
+            let isSelected = editorView.currentTool == tool
+            button.state = isSelected ? .on : .off
+            styleToolbarButton(button, isSelected: isSelected)
         }
+    }
+
+    private func styleToolbarButton(_ button: NSButton, isSelected: Bool) {
+        button.layer?.cornerRadius = 7
+        button.layer?.backgroundColor = MoliDesign.toolbarFill(isSelected: isSelected).cgColor
+        button.layer?.borderWidth = isSelected ? 1 : 0
+        button.layer?.borderColor = MoliDesign.hairline.cgColor
+        button.contentTintColor = isSelected ? MoliDesign.primaryText : MoliDesign.icon
     }
 
     // MARK: - Toolbar actions

@@ -101,25 +101,20 @@ final class PinView: NSView {
         toolbar.spacing = 6
         toolbar.edgeInsets = NSEdgeInsets(top: 4, left: 8, bottom: 4, right: 8)
         toolbar.wantsLayer = true
-        toolbar.layer?.backgroundColor = NSColor.black.withAlphaComponent(0.6).cgColor
-        toolbar.layer?.cornerRadius = 6
         toolbar.translatesAutoresizingMaskIntoConstraints = false
         toolbar.alphaValue = 0
 
         super.init(frame: frame)
         wantsLayer = true
-        layer?.cornerRadius = 8
-        layer?.borderWidth = 1
-        layer?.borderColor = NSColor.white.withAlphaComponent(0.3).cgColor
-        layer?.masksToBounds = true
+        applyStyle()
 
         addSubview(imageView)
         addSubview(toolbar)
 
-        let closeBtn = makeBtn("xmark.circle.fill", sel: #selector(closeTap))
-        let copyBtn = makeBtn("doc.on.doc", sel: #selector(copyTap))
-        let saveBtn = makeBtn("arrow.down.circle", sel: #selector(saveTap))
-        let ocrBtn = makeBtn("textformat", sel: #selector(ocrTap))
+        let closeBtn = makeBtn("xmark.circle.fill", tooltip: L10n.text(.close), sel: #selector(closeTap))
+        let copyBtn = makeBtn("doc.on.doc", tooltip: L10n.text(.copy), sel: #selector(copyTap))
+        let saveBtn = makeBtn("arrow.down.circle", tooltip: L10n.text(.save), sel: #selector(saveTap))
+        let ocrBtn = makeBtn("textformat", tooltip: L10n.text(.ocr), sel: #selector(ocrTap))
         [closeBtn, copyBtn, saveBtn, ocrBtn].forEach { toolbar.addArrangedSubview($0) }
 
         NSLayoutConstraint.activate([
@@ -133,11 +128,29 @@ final class PinView: NSView {
 
     required init?(coder: NSCoder) { fatalError() }
 
-    private func makeBtn(_ symbol: String, sel: Selector) -> NSButton {
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        applyStyle()
+    }
+
+    private func applyStyle() {
+        layer?.cornerRadius = 8
+        layer?.borderWidth = 1
+        layer?.borderColor = MoliDesign.hairline.cgColor
+        layer?.masksToBounds = true
+        toolbar.layer?.backgroundColor = MoliDesign.card.withAlphaComponent(0.94).cgColor
+        toolbar.layer?.cornerRadius = 8
+        toolbar.layer?.borderWidth = 1
+        toolbar.layer?.borderColor = MoliDesign.hairline.cgColor
+    }
+
+    private func makeBtn(_ symbol: String, tooltip: String, sel: Selector) -> NSButton {
         let b = NSButton()
         b.isBordered = false
-        b.image = NSImage(systemSymbolName: symbol, accessibilityDescription: nil)
-        b.contentTintColor = .white
+        b.image = NSImage(systemSymbolName: symbol, accessibilityDescription: tooltip)
+        b.contentTintColor = MoliDesign.icon
+        b.toolTip = tooltip
+        b.setAccessibilityLabel(tooltip)
         b.target = self
         b.action = sel
         b.widthAnchor.constraint(equalToConstant: 22).isActive = true
