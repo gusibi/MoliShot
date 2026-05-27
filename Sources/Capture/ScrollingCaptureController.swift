@@ -272,12 +272,14 @@ final class ScrollingCaptureController {
     }
 }
 
-final class ScrollingToolbar {
+final class ScrollingToolbar: NSObject {
     var onDone: (() -> Void)?
     var onCancel: (() -> Void)?
 
     private var window: NSWindow?
     private let label = NSTextField(labelWithString: L10n.text(.scrollInstruction))
+    private var doneButton: NSButton?
+    private var cancelButton: NSButton?
 
     func show(near rect: NSRect) {
         let center = NSPoint(x: rect.midX, y: rect.midY)
@@ -288,6 +290,7 @@ final class ScrollingToolbar {
                            styleMask: [.borderless],
                            backing: .buffered,
                            defer: false)
+        win.addObserver(self, forKeyPath: "effectiveAppearance", options: [.new, .old], context: nil)
         win.level = .floating
         win.isOpaque = false
         win.backgroundColor = .clear
@@ -305,15 +308,15 @@ final class ScrollingToolbar {
         label.lineBreakMode = .byTruncatingTail
         container.addSubview(label)
 
-        let done = NSButton(title: L10n.text(.done), target: self, action: #selector(doneTap))
-        done.frame = NSRect(x: 280, y: 14, width: 60, height: 28)
-        configureToolbarButton(done, emphasized: true)
-        container.addSubview(done)
+        doneButton = NSButton(title: L10n.text(.done), target: self, action: #selector(doneTap))
+        doneButton!.frame = NSRect(x: 280, y: 14, width: 60, height: 28)
+        configureToolbarButton(doneButton!, emphasized: true)
+        container.addSubview(doneButton!)
 
-        let cancel = NSButton(title: L10n.text(.cancel), target: self, action: #selector(cancelTap))
-        cancel.frame = NSRect(x: 346, y: 14, width: 66, height: 28)
-        configureToolbarButton(cancel, emphasized: false)
-        container.addSubview(cancel)
+        cancelButton = NSButton(title: L10n.text(.cancel), target: self, action: #selector(cancelTap))
+        cancelButton!.frame = NSRect(x: 346, y: 14, width: 66, height: 28)
+        configureToolbarButton(cancelButton!, emphasized: false)
+        container.addSubview(cancelButton!)
 
         win.contentView = container
         win.makeKeyAndOrderFront(nil)
@@ -328,8 +331,30 @@ final class ScrollingToolbar {
     }
 
     func close() {
+        if let window {
+            window.removeObserver(self, forKeyPath: "effectiveAppearance")
+        }
         window?.orderOut(nil)
         window = nil
+        doneButton = nil
+        cancelButton = nil
+    }
+
+    override func observeValue(forKeyPath keyPath: String?, of object: Any?, change: [NSKeyValueChangeKey : Any]?, context: UnsafeMutableRawPointer?) {
+        if keyPath == "effectiveAppearance" {
+            updateButtonStyles()
+        } else {
+            super.observeValue(forKeyPath: keyPath, of: object, change: change, context: context)
+        }
+    }
+
+    private func updateButtonStyles() {
+        if let doneButton {
+            configureToolbarButton(doneButton, emphasized: true)
+        }
+        if let cancelButton {
+            configureToolbarButton(cancelButton, emphasized: false)
+        }
     }
 
     private func configureToolbarButton(_ button: NSButton, emphasized: Bool) {

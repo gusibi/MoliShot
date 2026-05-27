@@ -43,11 +43,13 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, Editor
         window.delegate = self
         editorView.delegate = self
         NotificationCenter.default.addObserver(self, selector: #selector(languageDidChange), name: .appLanguageDidChange, object: nil)
+        window.addObserver(self, forKeyPath: "effectiveAppearance", options: [.new, .old], context: nil)
         setupUI()
     }
 
     deinit {
         NotificationCenter.default.removeObserver(self)
+        window?.removeObserver(self, forKeyPath: "effectiveAppearance")
     }
 
     required init?(coder: NSCoder) { fatalError() }
@@ -241,12 +243,21 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, Editor
     }
 
     private static func checkerboardColor() -> NSColor {
+        NSColor(name: nil) { appearance in
+            let isDark = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+            return makeCheckerboardPattern(isDark: isDark)
+        }
+    }
+
+    private static func makeCheckerboardPattern(isDark: Bool) -> NSColor {
         let size = NSSize(width: 16, height: 16)
         let image = NSImage(size: size)
         image.lockFocus()
-        NSColor(calibratedWhite: 0.98, alpha: 1).setFill()
+        let c1 = NSColor(calibratedWhite: isDark ? 0.12 : 0.98, alpha: 1)
+        let c2 = NSColor(calibratedWhite: isDark ? 0.18 : 0.92, alpha: 1)
+        c1.setFill()
         NSRect(origin: .zero, size: size).fill()
-        NSColor(calibratedWhite: 0.92, alpha: 1).setFill()
+        c2.setFill()
         NSRect(x: 0, y: 0, width: 8, height: 8).fill()
         NSRect(x: 8, y: 8, width: 8, height: 8).fill()
         image.unlockFocus()
@@ -407,6 +418,14 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, Editor
     func windowDidResize(_ notification: Notification) {
         recenterImageIfNeeded()
         updateStatusLabel()
+    }
+
+    override func observeValue(forKeyPath keyPath: String?, of object: Any?, change: [NSKeyValueChangeKey : Any]?, context: UnsafeMutableRawPointer?) {
+        if keyPath == "effectiveAppearance" {
+            refreshToolButtons()
+        } else {
+            super.observeValue(forKeyPath: keyPath, of: object, change: change, context: context)
+        }
     }
 
     private func installEventMonitor() {

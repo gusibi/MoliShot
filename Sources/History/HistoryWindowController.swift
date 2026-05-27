@@ -33,8 +33,7 @@ final class HistoryWindowController: NSWindowController, NSCollectionViewDataSou
 
     private func setupUI() {
         guard let content = window?.contentView else { return }
-        content.wantsLayer = true
-        content.layer?.backgroundColor = MoliDesign.canvas.cgColor
+        window?.backgroundColor = MoliDesign.canvas
 
         let layout = NSCollectionViewFlowLayout()
         layout.itemSize = NSSize(width: 210, height: 164)
@@ -97,6 +96,15 @@ final class HistoryWindowController: NSWindowController, NSCollectionViewDataSou
     }
 }
 
+private final class HistoryCellView: MoliCardView {
+    weak var imageView: NSImageView?
+
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        imageView?.layer?.backgroundColor = MoliDesign.cardElevated.cgColor
+    }
+}
+
 final class HistoryCell: NSCollectionViewItem {
     var onOpen: (() -> Void)?
     var onDelete: (() -> Void)?
@@ -107,7 +115,7 @@ final class HistoryCell: NSCollectionViewItem {
     private let openBtn = NSButton()
 
     override func loadView() {
-        let v = MoliCardView(
+        let v = HistoryCellView(
             frame: NSRect(x: 0, y: 0, width: 210, height: 164),
             fillColor: MoliDesign.card,
             borderColor: MoliDesign.hairline,
@@ -122,6 +130,10 @@ final class HistoryCell: NSCollectionViewItem {
         imgView.layer?.backgroundColor = MoliDesign.cardElevated.cgColor
         imgView.layer?.masksToBounds = true
         v.addSubview(imgView)
+
+        if let historyCellView = v as? HistoryCellView {
+            historyCellView.imageView = imgView
+        }
 
         label.translatesAutoresizingMaskIntoConstraints = false
         label.font = NSFont.systemFont(ofSize: 11, weight: .medium)

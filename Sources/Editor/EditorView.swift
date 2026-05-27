@@ -367,7 +367,10 @@ final class EditorView: NSView {
         tf.stringValue = annotation.text
         tf.font = NSFont.systemFont(ofSize: annotation.fontSize, weight: .semibold)
         tf.textColor = annotation.color
-        tf.backgroundColor = NSColor.white.withAlphaComponent(0.1)
+        tf.backgroundColor = NSColor.adaptive(
+            light: NSColor.white.withAlphaComponent(0.15),
+            dark: NSColor.black.withAlphaComponent(0.25)
+        )
         tf.isBordered = false
         tf.focusRingType = .none
         tf.target = self
