@@ -141,7 +141,9 @@ struct LineAnnotation: Annotation, BoundedShapeAnnotation, Codable {
         start = NSPoint(x: start.x + delta.width, y: start.y + delta.height)
         end = NSPoint(x: end.x + delta.width, y: end.y + delta.height)
     }
-    func hitTest(_ point: NSPoint) -> Bool { bounds.insetBy(dx: -6, dy: -6).contains(point) }
+    func hitTest(_ point: NSPoint) -> Bool {
+        distanceFromPoint(point, toSegment: start, end) <= strokeHitTolerance
+    }
     func draw(in ctx: CGContext, base: NSImage) {
         ctx.setStrokeColor(style.color.cgColor)
         ctx.setLineWidth(style.strokeWidth)
@@ -170,7 +172,9 @@ struct ArrowAnnotation: Annotation, BoundedShapeAnnotation, Codable {
         start = NSPoint(x: start.x + delta.width, y: start.y + delta.height)
         end = NSPoint(x: end.x + delta.width, y: end.y + delta.height)
     }
-    func hitTest(_ point: NSPoint) -> Bool { bounds.insetBy(dx: -6, dy: -6).contains(point) }
+    func hitTest(_ point: NSPoint) -> Bool {
+        distanceFromPoint(point, toSegment: start, end) <= strokeHitTolerance
+    }
     func draw(in ctx: CGContext, base: NSImage) {
         ctx.setStrokeColor(style.color.cgColor)
         ctx.setFillColor(style.color.cgColor)
@@ -258,7 +262,16 @@ struct PenAnnotation: Annotation, Codable {
     }
 
     func hitTest(_ point: NSPoint) -> Bool {
-        bounds.insetBy(dx: -6, dy: -6).contains(point)
+        guard let first = points.first else { return false }
+        if points.count == 1 {
+            return hypot(point.x - first.x, point.y - first.y) <= strokeHitTolerance
+        }
+        for i in 0..<(points.count - 1) {
+            if distanceFromPoint(point, toSegment: points[i], points[i + 1]) <= strokeHitTolerance {
+                return true
+            }
+        }
+        return false
     }
 
     func draw(in ctx: CGContext, base: NSImage) {
@@ -447,4 +460,26 @@ struct PixelateAnnotation: Annotation, BoundedShapeAnnotation, Codable {
             return f.outputImage?.cropped(to: ci.extent)
         }
     }
+}
+
+// MARK: - Stroke hit-testing geometry
+
+/// Tolerance for selecting line/arrow/pen strokes by proximity, in view
+/// (logical point) coordinates. 6pt visual; no backingScaleFactor multiplier
+/// because view coords are already in points (Retina density is factored out
+/// by NSView.convert). Zoom scales both the view and click mapping, so this
+/// stays 6 world-points at any zoom — standard behaviour (Preview/Figma).
+private let strokeHitTolerance: CGFloat = 6
+
+/// Perpendicular distance from `p` to segment `a`–`b` (clamped to endpoints).
+private func distanceFromPoint(_ p: CGPoint, toSegment a: CGPoint, _ b: CGPoint) -> CGFloat {
+    let dx = b.x - a.x
+    let dy = b.y - a.y
+    let len2 = dx * dx + dy * dy
+    if len2 == 0 { return hypot(p.x - a.x, p.y - a.y) }
+    var t = ((p.x - a.x) * dx + (p.y - a.y) * dy) / len2
+    t = Swift.max(0, Swift.min(1, t))
+    let px = a.x + t * dx
+    let py = a.y + t * dy
+    return hypot(p.x - px, p.y - py)
 }
