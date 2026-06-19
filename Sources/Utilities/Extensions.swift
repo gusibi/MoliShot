@@ -30,6 +30,15 @@ extension NSImage {
         return rep.representation(using: .png, properties: [.compressionFactor: 0.0])
     }
 
+    /// JPEG encode at `quality` (0...1). Real pixel resolution preserved.
+    func jpegData(quality: CGFloat = 0.85) -> Data? {
+        guard let cg = cgImageRef else { return nil }
+        let rep = NSBitmapImageRep(cgImage: cg)
+        rep.size = NSSize(width: cg.width, height: cg.height)
+        let q = max(0.05, min(1.0, quality))
+        return rep.representation(using: .jpeg, properties: [.compressionFactor: NSNumber(value: Double(q))])
+    }
+
     func cropped(to rect: NSRect) -> NSImage? {
         guard let cg = cgImageRef else { return nil }
         let scale = CGFloat(cg.width) / size.width
@@ -243,6 +252,10 @@ enum L10nKey {
     case resetToDesktop
     case general
     case storage
+    case saveFormat
+    case jpegQuality
+    case pngFormat
+    case jpegFormat
     case autoStart
     case language
     case launchAtLogin
@@ -400,6 +413,10 @@ enum L10n {
         case .openScreenRecordingSettings: return "Open Screen Recording Settings"
         case .showInFinder: return "Show in Finder"
         case .saveDirectory: return "Save Directory"
+        case .saveFormat: return "Save Format"
+        case .jpegQuality: return "JPEG Quality"
+        case .pngFormat: return "PNG"
+        case .jpegFormat: return "JPEG"
         case .choose: return "Choose..."
         case .open: return "Open"
         case .resetToDesktop: return "Reset to Desktop"
@@ -508,6 +525,10 @@ enum L10n {
         case .openScreenRecordingSettings: return "打开屏幕录制设置"
         case .showInFinder: return "在访达中显示"
         case .saveDirectory: return "保存目录"
+        case .saveFormat: return "保存格式"
+        case .jpegQuality: return "JPEG 质量"
+        case .pngFormat: return "PNG"
+        case .jpegFormat: return "JPEG"
         case .choose: return "选择..."
         case .open: return "打开"
         case .resetToDesktop: return "重置到桌面"

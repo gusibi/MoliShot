@@ -808,6 +808,8 @@ private final class HotkeyRecorderButton: NSButton {
 private struct StoragePane: View {
     @State private var saveDirectoryPath = AppSettings.saveDirectoryURL.path
     @State private var historyLimit = AppSettings.historyLimit
+    @State private var saveFormat = AppSettings.saveFormat
+    @State private var jpegQuality = AppSettings.jpegQuality
     @State private var showFileImporter = false
 
     var body: some View {
@@ -855,7 +857,7 @@ private struct StoragePane: View {
         SectionHeader(title: L10n.text(.history))
 
         SettingsGroup {
-            SettingsRow(label: L10n.text(.keepRecentScreenshots), isLast: true) {
+            SettingsRow(label: L10n.text(.keepRecentScreenshots)) {
                 HStack(spacing: 8) {
                     TextField("", value: $historyLimit, format: .number)
                         .textFieldStyle(.plain)
@@ -881,6 +883,34 @@ private struct StoragePane: View {
                             AppSettings.historyLimit = clamped
                             HistoryStore.shared.applyRetentionLimit()
                         }
+                }
+            }
+
+            SettingsRow(label: L10n.text(.saveFormat), isLast: true) {
+                VStack(alignment: .leading, spacing: 8) {
+                    Picker("", selection: $saveFormat) {
+                        Text(L10n.text(.pngFormat)).tag(AppSettings.SaveFormat.png)
+                        Text(L10n.text(.jpegFormat)).tag(AppSettings.SaveFormat.jpeg)
+                    }
+                    .pickerStyle(.segmented)
+                    .labelsHidden()
+                    .onChange(of: saveFormat) { _, newValue in
+                        AppSettings.saveFormat = newValue
+                    }
+
+                    if saveFormat == .jpeg {
+                        HStack(spacing: 8) {
+                            Text(L10n.text(.jpegQuality))
+                                .font(.caption)
+                            Slider(value: $jpegQuality, in: AppSettings.minJpegQuality...AppSettings.maxJpegQuality)
+                                .onChange(of: jpegQuality) { _, newValue in
+                                    AppSettings.jpegQuality = newValue
+                                }
+                            Text("\(Int((jpegQuality * 100).rounded()))%")
+                                .font(.caption)
+                                .frame(width: 36, alignment: .trailing)
+                        }
+                    }
                 }
             }
         }

@@ -4,9 +4,33 @@ import ServiceManagement
 enum AppSettings {
     private static let saveDirectoryBookmarkKey = "saveDirectoryBookmark"
     private static let historyLimitKey = "historyLimit"
+    private static let saveFormatKey = "saveFormat"
+    private static let jpegQualityKey = "jpegQuality"
 
     static let minHistoryLimit = 1
     static let maxHistoryLimit = 500
+    static let minJpegQuality: Double = 0.3
+    static let maxJpegQuality: Double = 1.0
+
+    enum SaveFormat: String, CaseIterable {
+        case png, jpeg
+    }
+
+    static var saveFormat: SaveFormat {
+        get {
+            let raw = UserDefaults.standard.string(forKey: saveFormatKey) ?? SaveFormat.png.rawValue
+            return SaveFormat(rawValue: raw) ?? .png
+        }
+        set { UserDefaults.standard.set(newValue.rawValue, forKey: saveFormatKey) }
+    }
+
+    static var jpegQuality: Double {
+        get {
+            let v = UserDefaults.standard.double(forKey: jpegQualityKey)
+            return v > 0 ? v : 0.85
+        }
+        set { UserDefaults.standard.set(max(minJpegQuality, min(maxJpegQuality, newValue)), forKey: jpegQualityKey) }
+    }
 
     static var historyLimit: Int {
         get {
@@ -107,8 +131,22 @@ enum AppSettings {
     }
 
     static func save(image: NSImage, prefix: String) throws -> URL {
-        guard let data = image.pngData() else {
-            throw NSError(domain: "MoliShot.Save", code: 1, userInfo: [NSLocalizedDescriptionKey: "Failed to encode PNG"])
+        try save(image: image, prefix: prefix, format: saveFormat, jpegQuality: jpegQuality)
+    }
+
+    static func save(image: NSImage, prefix: String, format: SaveFormat, jpegQuality: Double) throws -> URL {
+        let data: Data?
+        let ext: String
+        switch format {
+        case .png:
+            data = image.pngData()
+            ext = "png"
+        case .jpeg:
+            data = image.jpegData(quality: CGFloat(jpegQuality))
+            ext = "jpg"
+        }
+        guard let data else {
+            throw NSError(domain: "MoliShot.Save", code: 1, userInfo: [NSLocalizedDescriptionKey: "Failed to encode image"])
         }
 
         let directory = saveDirectoryURL
@@ -122,10 +160,10 @@ enum AppSettings {
         let baseName = "\(prefix)-\(formatter.string(from: Date()))"
 
         var attempt = 0
-        var url = directory.appendingPathComponent("\(baseName).png")
+        var url = directory.appendingPathComponent("\(baseName).\(ext)")
         while FileManager.default.fileExists(atPath: url.path) {
             attempt += 1
-            url = directory.appendingPathComponent("\(baseName)-\(attempt).png")
+            url = directory.appendingPathComponent("\(baseName)-\(attempt).\(ext)")
         }
 
         try data.write(to: url)
