@@ -18,6 +18,8 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, Editor
     private let fontSizeSlider = NSSlider()
     private let fontSizeContainer = NSStackView()  // hides font size when not editing text
     private let opacitySlider = NSSlider()
+    private let effectSlider = NSSlider()
+    private let effectContainer = NSStackView()  // blur radius / pixelate size, conditional
 
     private var eventMonitor: Any?
     private var lastImageSize: NSSize
@@ -214,6 +216,15 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, Editor
         opacitySlider.widthAnchor.constraint(equalToConstant: 60).isActive = true
         toolBarStack.addArrangedSubview(opacitySlider)
 
+        effectSlider.controlSize = .regular
+        effectSlider.target = self
+        effectSlider.action = #selector(effectChanged(_:))
+        effectSlider.widthAnchor.constraint(equalToConstant: 60).isActive = true
+        effectContainer.orientation = .horizontal
+        effectContainer.addArrangedSubview(effectSlider)
+        effectContainer.isHidden = true  // shown only when a blur/pixelate annotation is selected
+        toolBarStack.addArrangedSubview(effectContainer)
+
         toolBarStack.addArrangedSubview(toolbarSeparator())
         toolBarStack.addArrangedSubview(compactToolbarButton(title: L10n.text(.crop), symbol: "crop", action: #selector(toggleCropMode)))
         toolBarStack.addArrangedSubview(compactToolbarButton(title: L10n.text(.undo), symbol: "arrow.uturn.backward", action: #selector(undoTap)))
@@ -342,6 +353,15 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, Editor
         editorView.setOpacity(CGFloat(sender.doubleValue / 100))
     }
 
+    @objc private func effectChanged(_ sender: NSSlider) {
+        let v = CGFloat(sender.doubleValue)
+        if editorView.selectedIsBlur {
+            editorView.setBlurRadius(v)
+        } else if editorView.selectedIsPixelate {
+            editorView.setPixelSize(v)
+        }
+    }
+
     @objc private func closeEditor() { close() }
 
     @objc private func toggleCropMode() {
@@ -460,6 +480,17 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, Editor
         fontSizeSlider.doubleValue = Double(style.fontSize)
         opacitySlider.doubleValue = Double(style.opacity * 100)
         fontSizeContainer.isHidden = !view.selectedIsText
+
+        let isBlur = view.selectedIsBlur
+        let isPixelate = view.selectedIsPixelate
+        effectContainer.isHidden = !(isBlur || isPixelate)
+        if isBlur {
+            effectSlider.minValue = 1; effectSlider.maxValue = 50
+            effectSlider.doubleValue = Double(view.selectedEffectValue)
+        } else if isPixelate {
+            effectSlider.minValue = 2; effectSlider.maxValue = 40
+            effectSlider.doubleValue = Double(view.selectedEffectValue)
+        }
     }
     func editorViewDidChangeContent(_ view: EditorView) {
         if !lastImageSize.equalTo(view.effectiveSize) {

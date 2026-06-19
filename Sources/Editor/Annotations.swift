@@ -492,9 +492,10 @@ struct BlurAnnotation: Annotation, BoundedShapeAnnotation, Codable {
     var start: NSPoint
     var end: NSPoint
     var style: AnnotationStyle
+    var radius: CGFloat = 15
 
-    init(id: UUID = UUID(), start: NSPoint, end: NSPoint, style: AnnotationStyle = AnnotationStyle(color: .systemRed)) {
-        self.id = id; self.start = start; self.end = end; self.style = style
+    init(id: UUID = UUID(), start: NSPoint, end: NSPoint, style: AnnotationStyle = AnnotationStyle(color: .systemRed), radius: CGFloat = 15) {
+        self.id = id; self.start = start; self.end = end; self.style = style; self.radius = radius
     }
 
     var bounds: NSRect {
@@ -507,10 +508,11 @@ struct BlurAnnotation: Annotation, BoundedShapeAnnotation, Codable {
     }
     func hitTest(_ point: NSPoint) -> Bool { bounds.insetBy(dx: -6, dy: -6).contains(point) }
     func draw(in ctx: CGContext, base: NSImage) {
+        let r = radius
         RegionEffectDrawing.draw(in: ctx, base: base, rect: bounds) { ci in
             let f = CIFilter.gaussianBlur()
             f.inputImage = ci.clampedToExtent()
-            f.radius = 15
+            f.radius = Float(r)
             return f.outputImage?.cropped(to: ci.extent)
         }
     }
@@ -521,9 +523,10 @@ struct PixelateAnnotation: Annotation, BoundedShapeAnnotation, Codable {
     var start: NSPoint
     var end: NSPoint
     var style: AnnotationStyle
+    var pixelSize: CGFloat = 12
 
-    init(id: UUID = UUID(), start: NSPoint, end: NSPoint, style: AnnotationStyle = AnnotationStyle(color: .systemRed)) {
-        self.id = id; self.start = start; self.end = end; self.style = style
+    init(id: UUID = UUID(), start: NSPoint, end: NSPoint, style: AnnotationStyle = AnnotationStyle(color: .systemRed), pixelSize: CGFloat = 12) {
+        self.id = id; self.start = start; self.end = end; self.style = style; self.pixelSize = pixelSize
     }
 
     var bounds: NSRect {
@@ -536,10 +539,11 @@ struct PixelateAnnotation: Annotation, BoundedShapeAnnotation, Codable {
     }
     func hitTest(_ point: NSPoint) -> Bool { bounds.insetBy(dx: -6, dy: -6).contains(point) }
     func draw(in ctx: CGContext, base: NSImage) {
+        let s = pixelSize
         RegionEffectDrawing.draw(in: ctx, base: base, rect: bounds) { ci in
             let f = CIFilter.pixellate()
             f.inputImage = ci
-            f.scale = 12
+            f.scale = Float(s)
             f.center = CGPoint(x: ci.extent.midX, y: ci.extent.midY)
             return f.outputImage?.cropped(to: ci.extent)
         }

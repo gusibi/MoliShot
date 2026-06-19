@@ -153,6 +153,35 @@ final class EditorView: NSView {
         applyStyleToSelected { $0.opacity = max(0, min(1, opacity)) }
     }
 
+    // MARK: - Per-type effect params (blur radius / pixelate size)
+
+    var selectedIsBlur: Bool { selected is BlurAnnotation }
+    var selectedIsPixelate: Bool { selected is PixelateAnnotation }
+
+    var selectedEffectValue: CGFloat {
+        if let b = selected as? BlurAnnotation { return b.radius }
+        if let p = selected as? PixelateAnnotation { return p.pixelSize }
+        return 0
+    }
+
+    func setBlurRadius(_ r: CGFloat) {
+        guard var b = selected as? BlurAnnotation else { return }
+        b.radius = max(0, r)
+        writeBack(b)
+        commitStyleChange(b.id)
+        delegate?.editorViewDidChangeContent(self)
+        needsDisplay = true
+    }
+
+    func setPixelSize(_ s: CGFloat) {
+        guard var p = selected as? PixelateAnnotation else { return }
+        p.pixelSize = max(2, s)
+        writeBack(p)
+        commitStyleChange(p.id)
+        delegate?.editorViewDidChangeContent(self)
+        needsDisplay = true
+    }
+
     private func applyStyleToSelected(_ mutate: (inout AnnotationStyle) -> Void) {
         guard var sel = selected else { return }
         var st = sel.style
