@@ -16,12 +16,15 @@ enum AnnotationRenderer {
     /// Render `annotations` over `baseImage` into a new `NSImage`.
     /// - Parameters:
     ///   - annotations: Annotations to draw, in base-image coordinates.
+    ///   - cropRect: Optional non-destructive crop. When set, the output is
+    ///     cropped to this rect (in base-image logical coords); annotations
+    ///     outside are clipped, those inside keep their relative position.
+    ///     When nil, the full image is rendered.
     ///   - baseImage: The captured screenshot; its `cgImageRef` provides the
     ///     real pixel buffer and its `size` the logical coordinate space.
-    /// - Returns: A new `NSImage` sized to `baseImage.size` with real-pixel
-    ///   backing. Falls back to `baseImage` unchanged if no `CGImage` is
-    ///   available.
-    static func render(annotations: [Annotation], baseImage: NSImage) -> NSImage {
+    /// - Returns: A new `NSImage` with real-pixel backing. Falls back to
+    ///   `baseImage` unchanged if no `CGImage` is available.
+    static func render(annotations: [Annotation], cropRect: CGRect?, baseImage: NSImage) -> NSImage {
         guard let cg = baseImage.cgImageRef else { return baseImage }
         let size = baseImage.size
 
@@ -50,13 +53,28 @@ enum AnnotationRenderer {
         }
         graphicsContext.flushGraphics()
 
-        // Rebuild with size = logical size, cg = rep's real pixels so
-        // pngData()/cgImageRef see real pixels (no resample).
-        if let repCG = rep.cgImage {
-            return NSImage(cgImage: repCG, size: size)
+        guard let fullCG = rep.cgImage else {
+            let out = NSImage(size: size)
+            out.addRepresentation(rep)
+            return out
         }
-        let out = NSImage(size: size)
-        out.addRepresentation(rep)
-        return out
+
+        // Non-destructive crop: slice the rendered CGImage to cropRect (in
+        // pixels, with y flipped because CGImage origin is top-left while
+        // base-image coords are bottom-left / y-up).
+        if let crop = cropRect, crop.width > 0, crop.height > 0 {
+            let scale = CGFloat(fullCG.width) / size.width
+            let cropPixels = CGRect(
+                x: crop.minX * scale,
+                y: (size.height - crop.maxY) * scale,
+                width: crop.width * scale,
+                height: crop.height * scale
+            )
+            if let croppedCG = fullCG.cropping(to: cropPixels) {
+                return NSImage(cgImage: croppedCG, size: crop.size)
+            }
+        }
+
+        return NSImage(cgImage: fullCG, size: size)
     }
 }

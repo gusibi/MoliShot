@@ -59,6 +59,19 @@ final class EditorView: NSView {
     private var resizeOriginalBounds: CGRect = .zero
     private var resizeStarted = false
 
+    /// Crop editing modal. When true, mouse events draw/adjust `cropRect`;
+    /// draw renders a dim mask outside it. When false with `cropRect` set, the
+    /// canvas shows the committed (non-destructive) cropped view.
+    private(set) var cropMode = false
+    private var cropAdjust = CropAdjust.none
+    private var cropDragStart: CGPoint?
+
+    /// Which part of the crop rect a drag is adjusting.
+    private enum CropAdjust {
+        case none, move, drawing
+        case topLeft, top, topRight, right, bottomRight, bottom, bottomLeft, left
+    }
+
     private var cropRect: NSRect?
 
     private var history = HistoryStack<EditorState>()
@@ -80,12 +93,14 @@ final class EditorView: NSView {
     private func restore(_ state: EditorState) {
         annotations = state.annotations
         cropRect = state.cropRect
+        cropMode = false
         numberCounter = state.numberCounter
         if let id = state.selectedID, let ann = annotations.first(where: { $0.id == id }) {
             selected = ann
         } else {
             selected = nil
         }
+        syncFrameToCrop()
         delegate?.editorViewDidChangeContent(self)
         delegate?.editorViewDidChangeSelection(self)
         needsDisplay = true
@@ -162,27 +177,80 @@ final class EditorView: NSView {
 
     override func draw(_ dirtyRect: NSRect) {
         guard let ctx = NSGraphicsContext.current?.cgContext else { return }
-        baseImage.draw(in: bounds, from: .zero, operation: .copy, fraction: 1)
-        for ann in annotations {
-            ann.draw(in: ctx, base: baseImage)
+
+        if cropMode {
+            drawCropModal(ctx)
+            return
         }
-        if let ip = inProgress {
-            ip.draw(in: ctx, base: baseImage)
-        }
-        if let sel = selected {
-            let box = sel.bounds.insetBy(dx: -4, dy: -4)
-            ctx.setStrokeColor(NSColor.systemBlue.cgColor)
-            ctx.setLineDash(phase: 0, lengths: [4, 3])
-            ctx.setLineWidth(1)
-            ctx.stroke(box)
-            ctx.setLineDash(phase: 0, lengths: [])
-            drawHandles(for: sel, in: ctx)
-        }
+
+        // Committed crop: translate so the crop rect's origin maps to (0,0);
+        // the view's (shrunk) bounds clips the rest.
         if let crop = cropRect {
+            ctx.saveGState()
+            ctx.translateBy(x: -crop.origin.x, y: -crop.origin.y)
+            baseImage.draw(in: NSRect(origin: .zero, size: baseImage.size),
+                           from: .zero, operation: .copy, fraction: 1)
+            for ann in annotations { ann.draw(in: ctx, base: baseImage) }
+            if let ip = inProgress { ip.draw(in: ctx, base: baseImage) }
+            drawSelectionOverlay(in: ctx)
+            ctx.restoreGState()
+            return
+        }
+
+        // Full image (no crop).
+        baseImage.draw(in: bounds, from: .zero, operation: .copy, fraction: 1)
+        for ann in annotations { ann.draw(in: ctx, base: baseImage) }
+        if let ip = inProgress { ip.draw(in: ctx, base: baseImage) }
+        drawSelectionOverlay(in: ctx)
+    }
+
+    private func drawSelectionOverlay(in ctx: CGContext) {
+        guard let sel = selected else { return }
+        let box = sel.bounds.insetBy(dx: -4, dy: -4)
+        ctx.setStrokeColor(NSColor.systemBlue.cgColor)
+        ctx.setLineDash(phase: 0, lengths: [4, 3])
+        ctx.setLineWidth(1)
+        ctx.stroke(box)
+        ctx.setLineDash(phase: 0, lengths: [])
+        drawHandles(for: sel, in: ctx)
+    }
+
+    private func drawCropModal(_ ctx: CGContext) {
+        baseImage.draw(in: bounds, from: .zero, operation: .copy, fraction: 1)
+        for ann in annotations { ann.draw(in: ctx, base: baseImage) }
+
+        if let crop = cropRect {
+            // Dim everything outside the crop rect.
+            let b = bounds
+            ctx.setFillColor(NSColor.black.withAlphaComponent(0.45).cgColor)
+            ctx.fill([
+                CGRect(x: b.minX, y: b.minY, width: b.width, height: max(0, crop.minY - b.minY)),
+                CGRect(x: b.minX, y: crop.maxY, width: b.width, height: max(0, b.maxY - crop.maxY)),
+                CGRect(x: b.minX, y: crop.minY, width: max(0, crop.minX - b.minX), height: crop.height),
+                CGRect(x: crop.maxX, y: crop.minY, width: max(0, b.maxX - crop.maxX), height: crop.height),
+            ])
+            // Crop border + handles.
             ctx.setStrokeColor(NSColor.systemYellow.cgColor)
             ctx.setLineWidth(2)
             ctx.stroke(crop)
+            let r: CGFloat = 4
+            ctx.setFillColor(NSColor.white.cgColor)
+            ctx.setStrokeColor(NSColor.systemYellow.cgColor)
+            ctx.setLineWidth(1.5)
+            for hp in cropHandlePoints(crop) {
+                let rect = CGRect(x: hp.x - r, y: hp.y - r, width: r * 2, height: r * 2)
+                ctx.fillEllipse(in: rect)
+                ctx.strokeEllipse(in: rect)
+            }
         }
+    }
+
+    private func cropHandlePoints(_ c: CGRect) -> [CGPoint] {
+        [
+            CGPoint(x: c.minX, y: c.minY), CGPoint(x: c.midX, y: c.minY), CGPoint(x: c.maxX, y: c.minY),
+            CGPoint(x: c.maxX, y: c.midY), CGPoint(x: c.maxX, y: c.maxY), CGPoint(x: c.midX, y: c.maxY),
+            CGPoint(x: c.minX, y: c.maxY), CGPoint(x: c.minX, y: c.midY),
+        ]
     }
 
     // MARK: - Mouse
@@ -193,15 +261,22 @@ final class EditorView: NSView {
         dragStart = p
         lastPoint = p
 
+        if cropMode {
+            cropMouseDown(at: p)
+            return
+        }
+
+        let bp = basePoint(from: p)
+
         switch currentTool {
         case .select:
-            if let sel = selected, let h = sel.handle(at: p) {
+            if let sel = selected, let h = sel.handle(at: bp) {
                 resizeHandle = h
                 resizeOriginalBounds = sel.bounds
                 resizeStarted = false
                 return
             }
-            if let id = AnnotationHitTester.hitTest(point: p, annotations: annotations) {
+            if let id = AnnotationHitTester.hitTest(point: bp, annotations: annotations) {
                 selected = annotations.first { $0.id == id }
             } else {
                 selected = nil
@@ -211,13 +286,13 @@ final class EditorView: NSView {
             }
             delegate?.editorViewDidChangeSelection(self)
             needsDisplay = true
-        case .arrow, .rectangle, .ellipse, .line, .highlight, .blur, .pixelate, .crop:
-            inProgress = makeShape(start: p, end: p)
+        case .arrow, .rectangle, .ellipse, .line, .highlight, .blur, .pixelate:
+            inProgress = makeShape(start: bp, end: bp)
         case .pen:
-            let pen = PenAnnotation(points: [p], style: defaultStyle())
+            let pen = PenAnnotation(points: [bp], style: defaultStyle())
             inProgress = pen
         case .text:
-            let t = TextAnnotation(origin: p, text: L10n.text(.text), style: defaultStyle())
+            let t = TextAnnotation(origin: bp, text: L10n.text(.text), style: defaultStyle())
             annotations.append(t)
             selected = t
             pendingTextCreation = true
@@ -225,7 +300,7 @@ final class EditorView: NSView {
             delegate?.editorViewDidChangeContent(self)
             needsDisplay = true
         case .number:
-            let n = NumberAnnotation(center: p, number: numberCounter, style: defaultStyle())
+            let n = NumberAnnotation(center: bp, number: numberCounter, style: defaultStyle())
             numberCounter += 1
             annotations.append(n)
             selected = n
@@ -233,6 +308,8 @@ final class EditorView: NSView {
             delegate?.editorViewDidChangeContent(self)
             currentTool = .select
             needsDisplay = true
+        case .crop:
+            break  // crop is a modal, not a tool; handled via cropMode
         }
     }
 
@@ -240,8 +317,15 @@ final class EditorView: NSView {
         let p = convert(event.locationInWindow, from: nil)
         defer { lastPoint = p }
 
+        if cropMode {
+            cropMouseDragged(at: p)
+            return
+        }
+
+        let bp = basePoint(from: p)
+
         if currentTool == .select, let handle = resizeHandle, let sel = selected {
-            let resized = applyResize(to: sel, handle: handle, to: p)
+            let resized = applyResize(to: sel, handle: handle, to: bp)
             writeBack(resized)
             if !resizeStarted {
                 history.push(snapshot())
@@ -255,7 +339,8 @@ final class EditorView: NSView {
         }
 
         if currentTool == .select, var sel = selected, let last = lastPoint {
-            sel.move(by: NSSize(width: p.x - last.x, height: p.y - last.y))
+            let lastBP = basePoint(from: last)
+            sel.move(by: NSSize(width: bp.x - lastBP.x, height: bp.y - lastBP.y))
             selected = sel
             if let idx = annotations.firstIndex(where: { $0.id == sel.id }) {
                 annotations[idx] = sel
@@ -269,13 +354,13 @@ final class EditorView: NSView {
         switch currentTool {
         case .pen:
             if var pen = inProgress as? PenAnnotation {
-                pen.points.append(p)
+                pen.points.append(bp)
                 inProgress = pen
                 needsDisplay = true
             }
-        case .arrow, .rectangle, .ellipse, .line, .highlight, .blur, .pixelate, .crop:
+        case .arrow, .rectangle, .ellipse, .line, .highlight, .blur, .pixelate:
             if var shape = inProgress as? any BoundedShapeAnnotation {
-                shape.end = p
+                shape.end = bp
                 inProgress = shape
                 needsDisplay = true
             }
@@ -289,23 +374,16 @@ final class EditorView: NSView {
             lastPoint = nil
         }
 
+        if cropMode {
+            cropMouseUp()
+            return
+        }
+
         if resizeHandle != nil {
             resizeHandle = nil
             resizeStarted = false
             // A click without drag made no history entry and changed nothing;
             // a drag already coalesced its final state into the current snapshot.
-            needsDisplay = true
-            return
-        }
-
-        if currentTool == .crop, let shape = inProgress as? any BoundedShapeAnnotation {
-            let r = shape.bounds
-            if r.width > 5 && r.height > 5 {
-                cropRect = r
-                commitHistory()
-            }
-            inProgress = nil
-            currentTool = .select
             needsDisplay = true
             return
         }
@@ -335,6 +413,12 @@ final class EditorView: NSView {
     }
 
     override func keyDown(with event: NSEvent) {
+        if cropMode {
+            if event.keyCode == 36 { applyCropModal(); return }   // Return → apply
+            if event.keyCode == 53 { cancelCropMode(); return }   // Esc → cancel
+            super.keyDown(with: event)
+            return
+        }
         if event.keyCode == 51 || event.keyCode == 117 { // delete / forward delete
             if let sel = selected {
                 annotations.removeAll { $0.id == sel.id }
@@ -420,7 +504,176 @@ final class EditorView: NSView {
         }
     }
 
+    // MARK: - Crop (non-destructive modal)
+
+    /// Size the canvas should occupy: full image while editing crop or when no
+    /// crop is committed; the crop rect size once a crop is committed.
+    var effectiveSize: NSSize {
+        cropMode || cropRect == nil ? baseImage.size : cropRect!.size
+    }
+
+    /// Offset from view coordinates to base-image coordinates. Non-zero only
+    /// when a crop is committed (the view is shrunk to the crop and translated).
+    private var cropOrigin: CGPoint {
+        (cropMode || cropRect == nil) ? .zero : cropRect!.origin
+    }
+
+    /// Map a view-space point (from mouse events) to base-image coordinates.
+    private func basePoint(from viewPoint: NSPoint) -> NSPoint {
+        let o = cropOrigin
+        return NSPoint(x: viewPoint.x + o.x, y: viewPoint.y + o.y)
+    }
+
+    private func syncFrameToCrop() {
+        let newSize = effectiveSize
+        if !frame.size.equalTo(newSize) {
+            frame = NSRect(origin: .zero, size: newSize)
+            invalidateIntrinsicContentSize()
+        }
+    }
+
+    func enterCropMode() {
+        commitActiveTextEditing()
+        selected = nil
+        currentTool = .select
+        cropMode = true
+        cropRect = nil
+        syncFrameToCrop()
+        updateCursor()
+        delegate?.editorViewDidChangeContent(self)
+        needsDisplay = true
+    }
+
+    /// Apply the in-progress crop: commit cropRect, exit modal. No-op if no
+    /// valid rect was drawn.
+    @discardableResult
+    func applyCropModal() -> Bool {
+        guard cropMode else { return false }
+        guard let r = cropRect, r.width > 5, r.height > 5 else {
+            cropRect = nil
+            cropMode = false
+            syncFrameToCrop()
+            updateCursor()
+            needsDisplay = true
+            return false
+        }
+        // Normalize (origin at min corner).
+        cropRect = r
+        cropMode = false
+        cropAdjust = .none
+        cropDragStart = nil
+        commitHistory()
+        syncFrameToCrop()
+        updateCursor()
+        delegate?.editorViewDidChangeContent(self)
+        needsDisplay = true
+        return true
+    }
+
+    func cancelCropMode() {
+        guard cropMode else { return }
+        cropMode = false
+        cropRect = nil
+        cropAdjust = .none
+        cropDragStart = nil
+        syncFrameToCrop()
+        updateCursor()
+        needsDisplay = true
+    }
+
+    // MARK: - Crop modal mouse handling
+
+    private func cropMouseDown(at p: CGPoint) {
+        cropDragStart = p
+        if let crop = cropRect {
+            if let h = cropHandle(at: p, in: crop) {
+                cropAdjust = h
+            } else if crop.contains(p) {
+                cropAdjust = .move
+            } else {
+                // Start a new crop rect from scratch.
+                cropRect = rectFrom(a: p, b: p)
+                cropAdjust = .drawing
+            }
+        } else {
+            cropRect = rectFrom(a: p, b: p)
+            cropAdjust = .drawing
+        }
+        needsDisplay = true
+    }
+
+    private func cropMouseDragged(at p: CGPoint) {
+        guard var crop = cropRect, let start = cropDragStart else { return }
+        switch cropAdjust {
+        case .drawing:
+            crop = rectFrom(a: start, b: p)
+        case .move:
+            crop.origin.x += p.x - start.x
+            crop.origin.y += p.y - start.y
+            cropDragStart = p
+        case .none:
+            return
+        case .topLeft, .top, .topRight, .right, .bottomRight, .bottom, .bottomLeft, .left:
+            crop = adjustCrop(crop, handle: cropAdjust, to: p)
+        }
+        cropRect = crop
+        needsDisplay = true
+    }
+
+    private func cropMouseUp() {
+        cropAdjust = .none
+        cropDragStart = nil
+        // Discard a too-small crop rect drawn by accident.
+        if let c = cropRect, c.width < 5 || c.height < 5 {
+            cropRect = nil
+        }
+        needsDisplay = true
+    }
+
+    private func cropHandle(at p: CGPoint, in c: CGRect) -> CropAdjust? {
+        let tol: CGFloat = 8
+        let nearL = abs(p.x - c.minX) <= tol
+        let nearR = abs(p.x - c.maxX) <= tol
+        let nearB = abs(p.y - c.minY) <= tol
+        let nearT = abs(p.y - c.maxY) <= tol
+        if nearL && nearT { return .topLeft }
+        if nearR && nearT { return .topRight }
+        if nearR && nearB { return .bottomRight }
+        if nearL && nearB { return .bottomLeft }
+        if nearT { return .top }
+        if nearR { return .right }
+        if nearB { return .bottom }
+        if nearL { return .left }
+        return nil
+    }
+
+    private func adjustCrop(_ c: CGRect, handle: CropAdjust, to p: CGPoint) -> CGRect {
+        var minX = c.minX, maxX = c.maxX, minY = c.minY, maxY = c.maxY
+        switch handle {
+        case .topLeft, .top, .topRight: maxY = p.y
+        case .bottomLeft, .bottom, .bottomRight: minY = p.y
+        default: break
+        }
+        switch handle {
+        case .topLeft, .left, .bottomLeft: minX = p.x
+        case .topRight, .right, .bottomRight: maxX = p.x
+        default: break
+        }
+        if minX > maxX { Swift.swap(&minX, &maxX) }
+        if minY > maxY { Swift.swap(&minY, &maxY) }
+        return CGRect(x: minX, y: minY, width: maxX - minX, height: maxY - minY)
+    }
+
+    private func rectFrom(a: CGPoint, b: CGPoint) -> CGRect {
+        CGRect(x: min(a.x, b.x), y: min(a.y, b.y),
+               width: abs(a.x - b.x), height: abs(a.y - b.y))
+    }
+
     private func updateCursor() {
+        if cropMode {
+            NSCursor.crosshair.set()
+            return
+        }
         switch currentTool {
         case .select: NSCursor.arrow.set()
         case .text: NSCursor.iBeam.set()
@@ -464,42 +717,26 @@ final class EditorView: NSView {
         annotations.removeAll()
         selected = nil
         cropRect = nil
+        cropMode = false
         numberCounter = 1
         currentTool = .select
         commitHistory()
+        syncFrameToCrop()
         delegate?.editorViewDidChangeContent(self)
         needsDisplay = true
         return hadContent
     }
 
-    @discardableResult
-    func applyCrop() -> Bool {
-        commitActiveTextEditing()
-        guard let rect = cropRect, let cropped = renderFinalImage().cropped(to: rect) else { return false }
-        baseImage = cropped
-        frame = NSRect(origin: .zero, size: cropped.size)
-        annotations.removeAll()
-        selected = nil
-        cropRect = nil
-        currentTool = .select
-        // Crop is a destructive commit (base image changes, not tracked in
-        // EditorState). Reset history so undo cannot cross the crop boundary.
-        // Non-destructive crop (#11) will restore full undo across crops.
-        history.clear()
-        history.push(snapshot())
-        delegate?.editorViewDidChangeContent(self)
-        invalidateIntrinsicContentSize()
-        needsDisplay = true
-        return true
-    }
-
-    override var intrinsicContentSize: NSSize { baseImage.size }
+    override var intrinsicContentSize: NSSize { effectiveSize }
 
     // MARK: - Export
 
     func renderFinalImage() -> NSImage {
         commitActiveTextEditing()
-        return AnnotationRenderer.render(annotations: annotations, baseImage: baseImage)
+        // While the crop modal is open, export the full image (the in-progress
+        // crop is not committed). Once committed, cropRect is applied.
+        let crop = cropMode ? nil : cropRect
+        return AnnotationRenderer.render(annotations: annotations, cropRect: crop, baseImage: baseImage)
     }
 
     // MARK: - Text editing
@@ -513,6 +750,11 @@ final class EditorView: NSView {
     }
 
     func cancelCurrentInteraction() {
+        if cropMode {
+            cancelCropMode()
+            return
+        }
+
         if let field = editingField {
             cancelEditing(field)
             return
@@ -520,14 +762,6 @@ final class EditorView: NSView {
 
         if inProgress != nil {
             inProgress = nil
-            cropRect = nil
-            currentTool = .select
-            needsDisplay = true
-            return
-        }
-
-        if cropRect != nil {
-            cropRect = nil
             currentTool = .select
             needsDisplay = true
             return

@@ -167,7 +167,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, Editor
         toolBarStack.addArrangedSubview(compactToolbarButton(title: L10n.text(.copy), symbol: "doc.on.doc", action: #selector(copyImage)))
         toolBarStack.addArrangedSubview(toolbarSeparator())
 
-        for tool in AnnotationTool.allCases {
+        for tool in AnnotationTool.allCases where tool != .crop {
             let button = compactToolbarButton(title: tool.title, symbol: tool.symbol, action: #selector(compactToolTapped(_:)))
             button.identifier = NSUserInterfaceItemIdentifier(tool.rawValue)
             button.setButtonType(.toggle)
@@ -205,7 +205,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, Editor
         toolBarStack.addArrangedSubview(fontSizeContainer)
 
         toolBarStack.addArrangedSubview(toolbarSeparator())
-        toolBarStack.addArrangedSubview(compactToolbarButton(title: L10n.text(.crop), symbol: "crop", action: #selector(applyCrop)))
+        toolBarStack.addArrangedSubview(compactToolbarButton(title: L10n.text(.crop), symbol: "crop", action: #selector(toggleCropMode)))
         toolBarStack.addArrangedSubview(compactToolbarButton(title: L10n.text(.undo), symbol: "arrow.uturn.backward", action: #selector(undoTap)))
         toolBarStack.addArrangedSubview(compactToolbarButton(title: L10n.text(.redo), symbol: "arrow.uturn.forward", action: #selector(redoTap)))
         toolBarStack.addArrangedSubview(compactToolbarButton(title: L10n.text(.clear), symbol: "trash", action: #selector(clearTap)))
@@ -330,9 +330,12 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, Editor
 
     @objc private func closeEditor() { close() }
 
-    @objc private func applyCrop() {
-        if editorView.applyCrop() {
-            showTransientStatus(L10n.text(.cropApplied))
+    @objc private func toggleCropMode() {
+        if editorView.cropMode {
+            // Already editing — second click cancels.
+            editorView.cancelCropMode()
+        } else {
+            editorView.enterCropMode()
         }
     }
 
@@ -444,8 +447,8 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, Editor
         fontSizeContainer.isHidden = !view.selectedIsText
     }
     func editorViewDidChangeContent(_ view: EditorView) {
-        if !lastImageSize.equalTo(view.baseImage.size) {
-            lastImageSize = view.baseImage.size
+        if !lastImageSize.equalTo(view.effectiveSize) {
+            lastImageSize = view.effectiveSize
             zoomToFit()
         } else {
             updateStatusLabel()
@@ -536,7 +539,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, Editor
 
     private func zoomToFit() {
         let visibleSize = scrollView.contentSize
-        let imageSize = editorView.baseImage.size
+        let imageSize = editorView.effectiveSize
         guard visibleSize.width > 0, visibleSize.height > 0, imageSize.width > 0, imageSize.height > 0 else { return }
         let widthFit = visibleSize.width / imageSize.width
         let heightFit = visibleSize.height / imageSize.height
@@ -561,8 +564,12 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, Editor
 
     private func updateStatusLabel(tool: AnnotationTool? = nil) {
         let activeTool = tool ?? editorView.currentTool
-        let pointSize = editorView.baseImage.size
-        let pixelSize = editorView.baseImage.pixelSize ?? pointSize
+        let pointSize = editorView.effectiveSize
+        let fullPoint = editorView.baseImage.size
+        let fullPixel = editorView.baseImage.pixelSize ?? fullPoint
+        let scaleX = fullPoint.width > 0 ? fullPixel.width / fullPoint.width : 1
+        let scaleY = fullPoint.height > 0 ? fullPixel.height / fullPoint.height : 1
+        let pixelSize = NSSize(width: pointSize.width * scaleX, height: pointSize.height * scaleY)
         if let transientStatusMessage {
             statusLabel.stringValue = transientStatusMessage
         } else {
