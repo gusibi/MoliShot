@@ -280,46 +280,7 @@ final class EditorView: NSView {
 
     func renderFinalImage() -> NSImage {
         commitActiveTextEditing()
-        guard let cg = baseImage.cgImageRef else { return baseImage }
-        let size = baseImage.size
-
-        // 直接从CGImage创建位图表示，确保和原图格式一致
-        let rep = NSBitmapImageRep(cgImage: cg)
-        rep.size = size
-
-        let previousContext = NSGraphicsContext.current
-        guard let graphicsContext = NSGraphicsContext(bitmapImageRep: rep) else { return baseImage }
-        // 设置高质量插值和抗锯齿
-        graphicsContext.imageInterpolation = NSImageInterpolation.high
-        graphicsContext.shouldAntialias = true
-        NSGraphicsContext.current = graphicsContext
-        defer { NSGraphicsContext.current = previousContext }
-
-        let ctx = graphicsContext.cgContext
-        ctx.clear(NSRect(origin: .zero, size: size))
-        // 使用高质量绘制
-        baseImage.draw(
-            in: NSRect(origin: .zero, size: size),
-            from: .zero,
-            operation: .copy,
-            fraction: 1,
-            respectFlipped: true,
-            hints: [.interpolation: NSNumber(value: NSImageInterpolation.high.rawValue)]
-        )
-        for ann in annotations {
-            ann.draw(in: ctx, base: baseImage)
-        }
-        graphicsContext.flushGraphics()
-
-        // 显式重建：size=逻辑尺寸(baseImage.size)，cg=rep 的真实像素。
-        // 这样 pngData()/cgImageRef 取到的都是真实像素，导出清晰；
-        // 标注仍在逻辑坐标系绘制，位置/线宽/字号不受影响。
-        if let repCG = rep.cgImage {
-            return NSImage(cgImage: repCG, size: size)
-        }
-        let out = NSImage(size: size)
-        out.addRepresentation(rep)
-        return out
+        return AnnotationRenderer.render(annotations: annotations, baseImage: baseImage)
     }
 
     // MARK: - Text editing
