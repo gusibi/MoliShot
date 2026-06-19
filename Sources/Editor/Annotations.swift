@@ -48,9 +48,48 @@ protocol Annotation {
     var id: UUID { get }
     var bounds: CGRect { get }
     var style: AnnotationStyle { get set }
+    /// Handle positions to draw, paired with their semantic handle.
+    var handlePoints: [(ResizeHandle, CGPoint)] { get }
     func hitTest(_ point: CGPoint) -> Bool
     mutating func move(by delta: NSSize)
+    /// Returns a copy resized to the given bounds (view coordinates).
+    func resized(to newBounds: CGRect) -> any Annotation
     func draw(in ctx: CGContext, base: NSImage)
+}
+
+/// Which resize handle is under a point. Bbox handles for shapes/pen/text/
+/// number; endpoint handles for line/arrow.
+enum ResizeHandle {
+    case topLeft, top, topRight, right, bottomRight, bottom, bottomLeft, left
+    case startEndpoint, endEndpoint
+}
+
+extension Annotation {
+    /// Default 8-handle bbox layout. Line/arrow override to expose endpoints.
+    var handlePoints: [(ResizeHandle, CGPoint)] {
+        let b = bounds
+        return [
+            (.topLeft, CGPoint(x: b.minX, y: b.maxY)),
+            (.top, CGPoint(x: b.midX, y: b.maxY)),
+            (.topRight, CGPoint(x: b.maxX, y: b.maxY)),
+            (.right, CGPoint(x: b.maxX, y: b.midY)),
+            (.bottomRight, CGPoint(x: b.maxX, y: b.minY)),
+            (.bottom, CGPoint(x: b.midX, y: b.minY)),
+            (.bottomLeft, CGPoint(x: b.minX, y: b.minY)),
+            (.left, CGPoint(x: b.minX, y: b.midY)),
+        ]
+    }
+
+    /// Returns the handle under `point` (within an 8pt radius), if any.
+    func handle(at point: CGPoint) -> ResizeHandle? {
+        let tol: CGFloat = 8
+        for (handle, hp) in handlePoints {
+            if hypot(point.x - hp.x, point.y - hp.y) <= tol {
+                return handle
+            }
+        }
+        return nil
+    }
 }
 
 /// Annotations defined by two endpoints (drag to create). Unifies the
@@ -59,6 +98,20 @@ protocol Annotation {
 protocol BoundedShapeAnnotation: Annotation {
     var start: NSPoint { get set }
     var end: NSPoint { get set }
+}
+
+extension BoundedShapeAnnotation {
+    /// Default bbox resize: map start/end proportionally from old bounds to
+    /// new bounds (preserves direction). Line/arrow use endpoint handles, so
+    /// this is a fallback for them; shapes/highlight/blur/pixelate use it for
+    /// their 8 bbox handles.
+    func resized(to newBounds: CGRect) -> any Annotation {
+        var copy = self
+        let old = bounds
+        copy.start = mapPoint(start, from: old, to: newBounds)
+        copy.end = mapPoint(end, from: old, to: newBounds)
+        return copy
+    }
 }
 
 // MARK: - Shapes
@@ -144,6 +197,9 @@ struct LineAnnotation: Annotation, BoundedShapeAnnotation, Codable {
     func hitTest(_ point: NSPoint) -> Bool {
         distanceFromPoint(point, toSegment: start, end) <= strokeHitTolerance
     }
+    var handlePoints: [(ResizeHandle, CGPoint)] {
+        [(.startEndpoint, start), (.endEndpoint, end)]
+    }
     func draw(in ctx: CGContext, base: NSImage) {
         ctx.setStrokeColor(style.color.cgColor)
         ctx.setLineWidth(style.strokeWidth)
@@ -174,6 +230,9 @@ struct ArrowAnnotation: Annotation, BoundedShapeAnnotation, Codable {
     }
     func hitTest(_ point: NSPoint) -> Bool {
         distanceFromPoint(point, toSegment: start, end) <= strokeHitTolerance
+    }
+    var handlePoints: [(ResizeHandle, CGPoint)] {
+        [(.startEndpoint, start), (.endEndpoint, end)]
     }
     func draw(in ctx: CGContext, base: NSImage) {
         ctx.setStrokeColor(style.color.cgColor)
@@ -284,6 +343,13 @@ struct PenAnnotation: Annotation, Codable {
         for p in points.dropFirst() { ctx.addLine(to: p) }
         ctx.strokePath()
     }
+
+    func resized(to newBounds: CGRect) -> any Annotation {
+        var copy = self
+        let old = bounds
+        copy.points = points.map { mapPoint($0, from: old, to: newBounds) }
+        return copy
+    }
 }
 
 // MARK: - Text
@@ -315,6 +381,17 @@ struct TextAnnotation: Annotation, Codable {
     func draw(in ctx: CGContext, base: NSImage) {
         let str = NSAttributedString(string: text, attributes: attributes())
         str.draw(at: origin)
+    }
+
+    func resized(to newBounds: CGRect) -> any Annotation {
+        var copy = self
+        let old = bounds
+        copy.origin = newBounds.origin
+        if old.height > 0 {
+            // Resize = scale font size by height ratio (D14).
+            copy.style.fontSize = min(200, max(8, style.fontSize * (newBounds.height / old.height)))
+        }
+        return copy
     }
 
     private func attributes() -> [NSAttributedString.Key: Any] {
@@ -365,6 +442,13 @@ struct NumberAnnotation: Annotation, Codable {
         ])
         let size = str.size()
         str.draw(at: NSPoint(x: center.x - size.width / 2, y: center.y - size.height / 2))
+    }
+
+    func resized(to newBounds: CGRect) -> any Annotation {
+        var copy = self
+        copy.center = CGPoint(x: newBounds.midX, y: newBounds.midY)
+        copy.radius = max(6, min(newBounds.width, newBounds.height) / 2)
+        return copy
     }
 }
 
@@ -482,4 +566,14 @@ private func distanceFromPoint(_ p: CGPoint, toSegment a: CGPoint, _ b: CGPoint)
     let px = a.x + t * dx
     let py = a.y + t * dy
     return hypot(p.x - px, p.y - py)
+}
+
+/// Map a point from `oldBounds` to `newBounds` by relative position (affine
+/// scale + translate). Used by bbox resize for shapes/pen and as a fallback.
+private func mapPoint(_ p: CGPoint, from oldBounds: CGRect, to newBounds: CGRect) -> CGPoint {
+    guard oldBounds.width > 0, oldBounds.height > 0 else { return newBounds.origin }
+    let relX = (p.x - oldBounds.minX) / oldBounds.width
+    let relY = (p.y - oldBounds.minY) / oldBounds.height
+    return CGPoint(x: newBounds.minX + relX * newBounds.width,
+                   y: newBounds.minY + relY * newBounds.height)
 }

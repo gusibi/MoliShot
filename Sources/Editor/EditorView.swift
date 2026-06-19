@@ -55,6 +55,10 @@ final class EditorView: NSView {
     private var pendingTextCreation = false
     private var styleCoalesceID: UUID?
 
+    private var resizeHandle: ResizeHandle?
+    private var resizeOriginalBounds: CGRect = .zero
+    private var resizeStarted = false
+
     private var cropRect: NSRect?
 
     private var history = HistoryStack<EditorState>()
@@ -172,6 +176,7 @@ final class EditorView: NSView {
             ctx.setLineWidth(1)
             ctx.stroke(box)
             ctx.setLineDash(phase: 0, lengths: [])
+            drawHandles(for: sel, in: ctx)
         }
         if let crop = cropRect {
             ctx.setStrokeColor(NSColor.systemYellow.cgColor)
@@ -190,6 +195,12 @@ final class EditorView: NSView {
 
         switch currentTool {
         case .select:
+            if let sel = selected, let h = sel.handle(at: p) {
+                resizeHandle = h
+                resizeOriginalBounds = sel.bounds
+                resizeStarted = false
+                return
+            }
             if let id = AnnotationHitTester.hitTest(point: p, annotations: annotations) {
                 selected = annotations.first { $0.id == id }
             } else {
@@ -229,6 +240,20 @@ final class EditorView: NSView {
         let p = convert(event.locationInWindow, from: nil)
         defer { lastPoint = p }
 
+        if currentTool == .select, let handle = resizeHandle, let sel = selected {
+            let resized = applyResize(to: sel, handle: handle, to: p)
+            writeBack(resized)
+            if !resizeStarted {
+                history.push(snapshot())
+                resizeStarted = true
+            } else {
+                history.replaceCurrent(snapshot())
+            }
+            delegate?.editorViewDidChangeContent(self)
+            needsDisplay = true
+            return
+        }
+
         if currentTool == .select, var sel = selected, let last = lastPoint {
             sel.move(by: NSSize(width: p.x - last.x, height: p.y - last.y))
             selected = sel
@@ -262,6 +287,15 @@ final class EditorView: NSView {
         defer {
             dragStart = nil
             lastPoint = nil
+        }
+
+        if resizeHandle != nil {
+            resizeHandle = nil
+            resizeStarted = false
+            // A click without drag made no history entry and changed nothing;
+            // a drag already coalesced its final state into the current snapshot.
+            needsDisplay = true
+            return
         }
 
         if currentTool == .crop, let shape = inProgress as? any BoundedShapeAnnotation {
@@ -334,6 +368,56 @@ final class EditorView: NSView {
 
     private func defaultStyle() -> AnnotationStyle {
         AnnotationStyle(color: strokeColor, strokeWidth: strokeWidth, fontSize: fontSize)
+    }
+
+    // MARK: - Resize
+
+    private func applyResize(to ann: Annotation, handle: ResizeHandle, to p: CGPoint) -> Annotation {
+        switch handle {
+        case .startEndpoint:
+            if var b = ann as? any BoundedShapeAnnotation { b.start = p; return b }
+            return ann
+        case .endEndpoint:
+            if var b = ann as? any BoundedShapeAnnotation { b.end = p; return b }
+            return ann
+        default:
+            let newBounds = resizedBounds(from: resizeOriginalBounds, handle: handle, to: p)
+            return ann.resized(to: newBounds)
+        }
+    }
+
+    /// Compute the new bbox by moving the dragged handle's edge(s) to `p`,
+    /// anchoring the opposite side. Prevents inversion and enforces a 1pt min.
+    private func resizedBounds(from original: CGRect, handle: ResizeHandle, to p: CGPoint) -> CGRect {
+        var minX = original.minX, maxX = original.maxX, minY = original.minY, maxY = original.maxY
+        switch handle {
+        case .topLeft, .top, .topRight: maxY = p.y
+        case .bottomLeft, .bottom, .bottomRight: minY = p.y
+        default: break
+        }
+        switch handle {
+        case .topLeft, .left, .bottomLeft: minX = p.x
+        case .topRight, .right, .bottomRight: maxX = p.x
+        default: break
+        }
+        if minX > maxX { Swift.swap(&minX, &maxX) }
+        if minY > maxY { Swift.swap(&minY, &maxY) }
+        let minSize: CGFloat = 1
+        if maxX - minX < minSize { maxX = minX + minSize }
+        if maxY - minY < minSize { maxY = minY + minSize }
+        return CGRect(x: minX, y: minY, width: maxX - minX, height: maxY - minY)
+    }
+
+    private func drawHandles(for ann: Annotation, in ctx: CGContext) {
+        let r: CGFloat = 4
+        ctx.setFillColor(NSColor.white.cgColor)
+        ctx.setStrokeColor(NSColor.systemBlue.cgColor)
+        ctx.setLineWidth(1.5)
+        for (_, hp) in ann.handlePoints {
+            let rect = CGRect(x: hp.x - r, y: hp.y - r, width: r * 2, height: r * 2)
+            ctx.fillEllipse(in: rect)
+            ctx.strokeEllipse(in: rect)
+        }
     }
 
     private func updateCursor() {
