@@ -40,65 +40,111 @@ enum AnnotationTool: String, CaseIterable {
     }
 }
 
-/// Base class for all annotations. Uses reference semantics so the editor can mutate
-/// a selected annotation by identity.
-class Annotation {
-    var id = UUID()
-    var color: NSColor = .systemRed
-    var strokeWidth: CGFloat = 3
+/// Value-type annotation model. Each annotation carries a stable `id` (UUID)
+/// so selection and undo snapshots can track it across history, and a shared
+/// `style`. Selection-by-identity replaces the previous reference-semantics
+/// mutation; callers copy-out, mutate, and write back by id.
+protocol Annotation {
+    var id: UUID { get }
+    var bounds: CGRect { get }
+    var style: AnnotationStyle { get set }
+    func hitTest(_ point: CGPoint) -> Bool
+    mutating func move(by delta: NSSize)
+    func draw(in ctx: CGContext, base: NSImage)
+}
 
-    func draw(in ctx: CGContext, base: NSImage) {}
-    func hitTest(_ point: NSPoint) -> Bool { false }
-    func move(by delta: NSSize) {}
-    var boundingBox: NSRect { .zero }
+/// Annotations defined by two endpoints (drag to create). Unifies the
+/// previously class-inherited ShapeAnnotation family with blur/pixelate,
+/// which are now standalone structs.
+protocol BoundedShapeAnnotation: Annotation {
+    var start: NSPoint { get set }
+    var end: NSPoint { get set }
 }
 
 // MARK: - Shapes
 
-class ShapeAnnotation: Annotation {
+struct RectAnnotation: Annotation, BoundedShapeAnnotation, Codable {
+    let id: UUID
     var start: NSPoint
     var end: NSPoint
+    var style: AnnotationStyle
 
-    init(start: NSPoint, end: NSPoint) {
+    init(id: UUID = UUID(), start: NSPoint, end: NSPoint, style: AnnotationStyle = AnnotationStyle(color: .systemRed)) {
+        self.id = id
         self.start = start
         self.end = end
+        self.style = style
     }
 
-    override var boundingBox: NSRect {
+    var bounds: NSRect {
         NSRect(x: min(start.x, end.x), y: min(start.y, end.y),
                width: abs(end.x - start.x), height: abs(end.y - start.y))
     }
 
-    override func move(by delta: NSSize) {
+    mutating func move(by delta: NSSize) {
         start = NSPoint(x: start.x + delta.width, y: start.y + delta.height)
         end = NSPoint(x: end.x + delta.width, y: end.y + delta.height)
     }
 
-    override func hitTest(_ point: NSPoint) -> Bool {
-        boundingBox.insetBy(dx: -6, dy: -6).contains(point)
+    func hitTest(_ point: NSPoint) -> Bool {
+        bounds.insetBy(dx: -6, dy: -6).contains(point)
+    }
+
+    func draw(in ctx: CGContext, base: NSImage) {
+        ctx.setStrokeColor(style.color.cgColor)
+        ctx.setLineWidth(style.strokeWidth)
+        ctx.stroke(bounds)
     }
 }
 
-final class RectAnnotation: ShapeAnnotation {
-    override func draw(in ctx: CGContext, base: NSImage) {
-        ctx.setStrokeColor(color.cgColor)
-        ctx.setLineWidth(strokeWidth)
-        ctx.stroke(boundingBox)
+struct EllipseAnnotation: Annotation, BoundedShapeAnnotation, Codable {
+    let id: UUID
+    var start: NSPoint
+    var end: NSPoint
+    var style: AnnotationStyle
+
+    init(id: UUID = UUID(), start: NSPoint, end: NSPoint, style: AnnotationStyle = AnnotationStyle(color: .systemRed)) {
+        self.id = id; self.start = start; self.end = end; self.style = style
+    }
+
+    var bounds: NSRect {
+        NSRect(x: min(start.x, end.x), y: min(start.y, end.y),
+               width: abs(end.x - start.x), height: abs(end.y - start.y))
+    }
+    mutating func move(by delta: NSSize) {
+        start = NSPoint(x: start.x + delta.width, y: start.y + delta.height)
+        end = NSPoint(x: end.x + delta.width, y: end.y + delta.height)
+    }
+    func hitTest(_ point: NSPoint) -> Bool { bounds.insetBy(dx: -6, dy: -6).contains(point) }
+    func draw(in ctx: CGContext, base: NSImage) {
+        ctx.setStrokeColor(style.color.cgColor)
+        ctx.setLineWidth(style.strokeWidth)
+        ctx.strokeEllipse(in: bounds)
     }
 }
 
-final class EllipseAnnotation: ShapeAnnotation {
-    override func draw(in ctx: CGContext, base: NSImage) {
-        ctx.setStrokeColor(color.cgColor)
-        ctx.setLineWidth(strokeWidth)
-        ctx.strokeEllipse(in: boundingBox)
-    }
-}
+struct LineAnnotation: Annotation, BoundedShapeAnnotation, Codable {
+    let id: UUID
+    var start: NSPoint
+    var end: NSPoint
+    var style: AnnotationStyle
 
-final class LineAnnotation: ShapeAnnotation {
-    override func draw(in ctx: CGContext, base: NSImage) {
-        ctx.setStrokeColor(color.cgColor)
-        ctx.setLineWidth(strokeWidth)
+    init(id: UUID = UUID(), start: NSPoint, end: NSPoint, style: AnnotationStyle = AnnotationStyle(color: .systemRed)) {
+        self.id = id; self.start = start; self.end = end; self.style = style
+    }
+
+    var bounds: NSRect {
+        NSRect(x: min(start.x, end.x), y: min(start.y, end.y),
+               width: abs(end.x - start.x), height: abs(end.y - start.y))
+    }
+    mutating func move(by delta: NSSize) {
+        start = NSPoint(x: start.x + delta.width, y: start.y + delta.height)
+        end = NSPoint(x: end.x + delta.width, y: end.y + delta.height)
+    }
+    func hitTest(_ point: NSPoint) -> Bool { bounds.insetBy(dx: -6, dy: -6).contains(point) }
+    func draw(in ctx: CGContext, base: NSImage) {
+        ctx.setStrokeColor(style.color.cgColor)
+        ctx.setLineWidth(style.strokeWidth)
         ctx.setLineCap(.round)
         ctx.move(to: start)
         ctx.addLine(to: end)
@@ -106,17 +152,35 @@ final class LineAnnotation: ShapeAnnotation {
     }
 }
 
-final class ArrowAnnotation: ShapeAnnotation {
-    override func draw(in ctx: CGContext, base: NSImage) {
-        ctx.setStrokeColor(color.cgColor)
-        ctx.setFillColor(color.cgColor)
-        ctx.setLineWidth(strokeWidth)
+struct ArrowAnnotation: Annotation, BoundedShapeAnnotation, Codable {
+    let id: UUID
+    var start: NSPoint
+    var end: NSPoint
+    var style: AnnotationStyle
+
+    init(id: UUID = UUID(), start: NSPoint, end: NSPoint, style: AnnotationStyle = AnnotationStyle(color: .systemRed)) {
+        self.id = id; self.start = start; self.end = end; self.style = style
+    }
+
+    var bounds: NSRect {
+        NSRect(x: min(start.x, end.x), y: min(start.y, end.y),
+               width: abs(end.x - start.x), height: abs(end.y - start.y))
+    }
+    mutating func move(by delta: NSSize) {
+        start = NSPoint(x: start.x + delta.width, y: start.y + delta.height)
+        end = NSPoint(x: end.x + delta.width, y: end.y + delta.height)
+    }
+    func hitTest(_ point: NSPoint) -> Bool { bounds.insetBy(dx: -6, dy: -6).contains(point) }
+    func draw(in ctx: CGContext, base: NSImage) {
+        ctx.setStrokeColor(style.color.cgColor)
+        ctx.setFillColor(style.color.cgColor)
+        ctx.setLineWidth(style.strokeWidth)
         ctx.setLineCap(.round)
 
         let dx = end.x - start.x
         let dy = end.y - start.y
         let angle = atan2(dy, dx)
-        let arrowLen: CGFloat = max(strokeWidth * 4, 14)
+        let arrowLen: CGFloat = max(style.strokeWidth * 4, 14)
         let arrowAngle: CGFloat = .pi / 6
 
         let shaftEnd = NSPoint(
@@ -143,21 +207,43 @@ final class ArrowAnnotation: ShapeAnnotation {
     }
 }
 
-final class HighlightAnnotation: ShapeAnnotation {
-    override func draw(in ctx: CGContext, base: NSImage) {
-        ctx.setFillColor(color.withAlphaComponent(0.4).cgColor)
-        ctx.fill(boundingBox)
+struct HighlightAnnotation: Annotation, BoundedShapeAnnotation, Codable {
+    let id: UUID
+    var start: NSPoint
+    var end: NSPoint
+    var style: AnnotationStyle
+
+    init(id: UUID = UUID(), start: NSPoint, end: NSPoint, style: AnnotationStyle = AnnotationStyle(color: .systemRed)) {
+        self.id = id; self.start = start; self.end = end; self.style = style
+    }
+
+    var bounds: NSRect {
+        NSRect(x: min(start.x, end.x), y: min(start.y, end.y),
+               width: abs(end.x - start.x), height: abs(end.y - start.y))
+    }
+    mutating func move(by delta: NSSize) {
+        start = NSPoint(x: start.x + delta.width, y: start.y + delta.height)
+        end = NSPoint(x: end.x + delta.width, y: end.y + delta.height)
+    }
+    func hitTest(_ point: NSPoint) -> Bool { bounds.insetBy(dx: -6, dy: -6).contains(point) }
+    func draw(in ctx: CGContext, base: NSImage) {
+        ctx.setFillColor(style.color.withAlphaComponent(0.4).cgColor)
+        ctx.fill(bounds)
     }
 }
 
 // MARK: - Pen
 
-final class PenAnnotation: Annotation {
+struct PenAnnotation: Annotation, Codable {
+    let id: UUID
     var points: [NSPoint]
+    var style: AnnotationStyle
 
-    init(points: [NSPoint] = []) { self.points = points }
+    init(id: UUID = UUID(), points: [NSPoint] = [], style: AnnotationStyle = AnnotationStyle(color: .systemRed)) {
+        self.id = id; self.points = points; self.style = style
+    }
 
-    override var boundingBox: NSRect {
+    var bounds: NSRect {
         guard let first = points.first else { return .zero }
         var minX = first.x, minY = first.y, maxX = first.x, maxY = first.y
         for p in points {
@@ -167,18 +253,18 @@ final class PenAnnotation: Annotation {
         return NSRect(x: minX, y: minY, width: maxX - minX, height: maxY - minY)
     }
 
-    override func move(by delta: NSSize) {
+    mutating func move(by delta: NSSize) {
         points = points.map { NSPoint(x: $0.x + delta.width, y: $0.y + delta.height) }
     }
 
-    override func hitTest(_ point: NSPoint) -> Bool {
-        boundingBox.insetBy(dx: -6, dy: -6).contains(point)
+    func hitTest(_ point: NSPoint) -> Bool {
+        bounds.insetBy(dx: -6, dy: -6).contains(point)
     }
 
-    override func draw(in ctx: CGContext, base: NSImage) {
+    func draw(in ctx: CGContext, base: NSImage) {
         guard points.count > 1 else { return }
-        ctx.setStrokeColor(color.cgColor)
-        ctx.setLineWidth(strokeWidth)
+        ctx.setStrokeColor(style.color.cgColor)
+        ctx.setLineWidth(style.strokeWidth)
         ctx.setLineCap(.round)
         ctx.setLineJoin(.round)
         ctx.move(to: points[0])
@@ -189,74 +275,76 @@ final class PenAnnotation: Annotation {
 
 // MARK: - Text
 
-final class TextAnnotation: Annotation {
+struct TextAnnotation: Annotation, Codable {
+    let id: UUID
     var origin: NSPoint
     var text: String
-    var fontSize: CGFloat = 20
+    var style: AnnotationStyle
 
-    init(origin: NSPoint, text: String = L10n.text(.text)) {
-        self.origin = origin
-        self.text = text
+    init(id: UUID = UUID(), origin: NSPoint, text: String = L10n.text(.text), style: AnnotationStyle = AnnotationStyle(color: .systemRed)) {
+        self.id = id; self.origin = origin; self.text = text; self.style = style
     }
 
-    override var boundingBox: NSRect {
+    var bounds: NSRect {
         let attrs = attributes()
         let size = (text as NSString).size(withAttributes: attrs)
         return NSRect(origin: origin, size: size)
     }
 
-    override func move(by delta: NSSize) {
+    mutating func move(by delta: NSSize) {
         origin = NSPoint(x: origin.x + delta.width, y: origin.y + delta.height)
     }
 
-    override func hitTest(_ point: NSPoint) -> Bool {
-        boundingBox.insetBy(dx: -4, dy: -4).contains(point)
+    func hitTest(_ point: NSPoint) -> Bool {
+        bounds.insetBy(dx: -4, dy: -4).contains(point)
     }
 
-    override func draw(in ctx: CGContext, base: NSImage) {
-        let attrs = attributes()
-        let str = NSAttributedString(string: text, attributes: attrs)
+    func draw(in ctx: CGContext, base: NSImage) {
+        let str = NSAttributedString(string: text, attributes: attributes())
         str.draw(at: origin)
     }
 
     private func attributes() -> [NSAttributedString.Key: Any] {
         return [
-            .font: NSFont.systemFont(ofSize: fontSize, weight: .semibold),
-            .foregroundColor: color
+            .font: NSFont.systemFont(ofSize: style.fontSize, weight: .semibold),
+            .foregroundColor: style.color
         ]
     }
 }
 
-final class NumberAnnotation: Annotation {
+// MARK: - Number
+
+struct NumberAnnotation: Annotation, Codable {
+    let id: UUID
     var center: NSPoint
     var number: Int
     var radius: CGFloat = 14
+    var style: AnnotationStyle
 
-    init(center: NSPoint, number: Int) {
-        self.center = center
-        self.number = number
+    init(id: UUID = UUID(), center: NSPoint, number: Int, style: AnnotationStyle = AnnotationStyle(color: .systemRed)) {
+        self.id = id; self.center = center; self.number = number; self.style = style
     }
 
-    override var boundingBox: NSRect {
+    var bounds: NSRect {
         NSRect(x: center.x - radius, y: center.y - radius, width: radius * 2, height: radius * 2)
     }
 
-    override func move(by delta: NSSize) {
+    mutating func move(by delta: NSSize) {
         center = NSPoint(x: center.x + delta.width, y: center.y + delta.height)
     }
 
-    override func hitTest(_ point: NSPoint) -> Bool {
+    func hitTest(_ point: NSPoint) -> Bool {
         let dx = point.x - center.x
         let dy = point.y - center.y
         return dx * dx + dy * dy <= (radius + 4) * (radius + 4)
     }
 
-    override func draw(in ctx: CGContext, base: NSImage) {
-        ctx.setFillColor(color.cgColor)
-        ctx.fillEllipse(in: boundingBox)
+    func draw(in ctx: CGContext, base: NSImage) {
+        ctx.setFillColor(style.color.cgColor)
+        ctx.fillEllipse(in: bounds)
         ctx.setStrokeColor(NSColor.white.cgColor)
         ctx.setLineWidth(2)
-        ctx.strokeEllipse(in: boundingBox)
+        ctx.strokeEllipse(in: bounds)
 
         let str = NSAttributedString(string: "\(number)", attributes: [
             .font: NSFont.boldSystemFont(ofSize: radius * 1.1),
@@ -269,10 +357,17 @@ final class NumberAnnotation: Annotation {
 
 // MARK: - Blur / Pixelate
 
-class RegionEffectAnnotation: ShapeAnnotation {
-    override func draw(in ctx: CGContext, base: NSImage) {
+/// Shared CoreImage region-effect drawing for blur/pixelate. Kept as a free
+/// helper so the concrete structs stay Codable (no stored closures) while
+/// avoiding draw-code duplication.
+private enum RegionEffectDrawing {
+    static func draw(
+        in ctx: CGContext,
+        base: NSImage,
+        rect: NSRect,
+        apply: (CIImage) -> CIImage?
+    ) {
         guard let cg = base.cgImageRef else { return }
-        let rect = boundingBox
         guard rect.width > 0, rect.height > 0 else { return }
 
         let scaleX = CGFloat(cg.width) / base.size.width
@@ -285,7 +380,7 @@ class RegionEffectAnnotation: ShapeAnnotation {
         )
         guard let crop = cg.cropping(to: source) else { return }
         let ci = CIImage(cgImage: crop)
-        guard let processed = apply(filter: ci) else { return }
+        guard let processed = apply(ci) else { return }
         let context = CIContext()
         guard let out = context.createCGImage(processed, from: processed.extent) else { return }
 
@@ -293,25 +388,63 @@ class RegionEffectAnnotation: ShapeAnnotation {
         ctx.draw(out, in: rect)
         ctx.restoreGState()
     }
-
-    func apply(filter ci: CIImage) -> CIImage? { ci }
 }
 
-final class BlurAnnotation: RegionEffectAnnotation {
-    override func apply(filter ci: CIImage) -> CIImage? {
-        let f = CIFilter.gaussianBlur()
-        f.inputImage = ci.clampedToExtent()
-        f.radius = 15
-        return f.outputImage?.cropped(to: ci.extent)
+struct BlurAnnotation: Annotation, BoundedShapeAnnotation, Codable {
+    let id: UUID
+    var start: NSPoint
+    var end: NSPoint
+    var style: AnnotationStyle
+
+    init(id: UUID = UUID(), start: NSPoint, end: NSPoint, style: AnnotationStyle = AnnotationStyle(color: .systemRed)) {
+        self.id = id; self.start = start; self.end = end; self.style = style
+    }
+
+    var bounds: NSRect {
+        NSRect(x: min(start.x, end.x), y: min(start.y, end.y),
+               width: abs(end.x - start.x), height: abs(end.y - start.y))
+    }
+    mutating func move(by delta: NSSize) {
+        start = NSPoint(x: start.x + delta.width, y: start.y + delta.height)
+        end = NSPoint(x: end.x + delta.width, y: end.y + delta.height)
+    }
+    func hitTest(_ point: NSPoint) -> Bool { bounds.insetBy(dx: -6, dy: -6).contains(point) }
+    func draw(in ctx: CGContext, base: NSImage) {
+        RegionEffectDrawing.draw(in: ctx, base: base, rect: bounds) { ci in
+            let f = CIFilter.gaussianBlur()
+            f.inputImage = ci.clampedToExtent()
+            f.radius = 15
+            return f.outputImage?.cropped(to: ci.extent)
+        }
     }
 }
 
-final class PixelateAnnotation: RegionEffectAnnotation {
-    override func apply(filter ci: CIImage) -> CIImage? {
-        let f = CIFilter.pixellate()
-        f.inputImage = ci
-        f.scale = 12
-        f.center = CGPoint(x: ci.extent.midX, y: ci.extent.midY)
-        return f.outputImage?.cropped(to: ci.extent)
+struct PixelateAnnotation: Annotation, BoundedShapeAnnotation, Codable {
+    let id: UUID
+    var start: NSPoint
+    var end: NSPoint
+    var style: AnnotationStyle
+
+    init(id: UUID = UUID(), start: NSPoint, end: NSPoint, style: AnnotationStyle = AnnotationStyle(color: .systemRed)) {
+        self.id = id; self.start = start; self.end = end; self.style = style
+    }
+
+    var bounds: NSRect {
+        NSRect(x: min(start.x, end.x), y: min(start.y, end.y),
+               width: abs(end.x - start.x), height: abs(end.y - start.y))
+    }
+    mutating func move(by delta: NSSize) {
+        start = NSPoint(x: start.x + delta.width, y: start.y + delta.height)
+        end = NSPoint(x: end.x + delta.width, y: end.y + delta.height)
+    }
+    func hitTest(_ point: NSPoint) -> Bool { bounds.insetBy(dx: -6, dy: -6).contains(point) }
+    func draw(in ctx: CGContext, base: NSImage) {
+        RegionEffectDrawing.draw(in: ctx, base: base, rect: bounds) { ci in
+            let f = CIFilter.pixellate()
+            f.inputImage = ci
+            f.scale = 12
+            f.center = CGPoint(x: ci.extent.midX, y: ci.extent.midY)
+            return f.outputImage?.cropped(to: ci.extent)
+        }
     }
 }

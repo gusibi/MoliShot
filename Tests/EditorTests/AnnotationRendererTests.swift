@@ -20,8 +20,8 @@ final class AnnotationRendererTests: XCTestCase {
     /// proving the annotation draw path runs through the renderer.
     func testRenderWithAnnotationModifiesPixels() {
         let base = Self.solidImage(size: NSSize(width: 24, height: 16), color: .white)
-        let highlight = HighlightAnnotation(start: .zero, end: NSPoint(x: 24, y: 16))
-        highlight.color = .red
+        let highlight = HighlightAnnotation(start: .zero, end: NSPoint(x: 24, y: 16),
+                                            style: AnnotationStyle(color: .red))
 
         let out = AnnotationRenderer.render(annotations: [highlight], baseImage: base)
 

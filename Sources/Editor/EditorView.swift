@@ -62,7 +62,7 @@ final class EditorView: NSView {
             ip.draw(in: ctx, base: baseImage)
         }
         if let sel = selected {
-            let box = sel.boundingBox.insetBy(dx: -4, dy: -4)
+            let box = sel.bounds.insetBy(dx: -4, dy: -4)
             ctx.setStrokeColor(NSColor.systemBlue.cgColor)
             ctx.setLineDash(phase: 0, lengths: [4, 3])
             ctx.setLineWidth(1)
@@ -99,23 +99,18 @@ final class EditorView: NSView {
         case .arrow, .rectangle, .ellipse, .line, .highlight, .blur, .pixelate, .crop:
             inProgress = makeShape(start: p, end: p)
         case .pen:
-            let pen = PenAnnotation(points: [p])
-            pen.color = strokeColor
-            pen.strokeWidth = strokeWidth
+            let pen = PenAnnotation(points: [p], style: defaultStyle())
             inProgress = pen
         case .text:
-            let t = TextAnnotation(origin: p, text: L10n.text(.text))
-            t.color = strokeColor
-            t.fontSize = fontSize
+            let t = TextAnnotation(origin: p, text: L10n.text(.text), style: defaultStyle())
             annotations.append(t)
             selected = t
             beginEditingText(t)
             delegate?.editorViewDidChangeContent(self)
             needsDisplay = true
         case .number:
-            let n = NumberAnnotation(center: p, number: numberCounter)
+            let n = NumberAnnotation(center: p, number: numberCounter, style: defaultStyle())
             numberCounter += 1
-            n.color = strokeColor
             annotations.append(n)
             selected = n
             delegate?.editorViewDidChangeContent(self)
@@ -128,8 +123,12 @@ final class EditorView: NSView {
         let p = convert(event.locationInWindow, from: nil)
         defer { lastPoint = p }
 
-        if currentTool == .select, let sel = selected, let last = lastPoint {
+        if currentTool == .select, var sel = selected, let last = lastPoint {
             sel.move(by: NSSize(width: p.x - last.x, height: p.y - last.y))
+            selected = sel
+            if let idx = annotations.firstIndex(where: { $0.id == sel.id }) {
+                annotations[idx] = sel
+            }
             delegate?.editorViewDidChangeContent(self)
             needsDisplay = true
             return
@@ -137,13 +136,15 @@ final class EditorView: NSView {
 
         switch currentTool {
         case .pen:
-            if let pen = inProgress as? PenAnnotation {
+            if var pen = inProgress as? PenAnnotation {
                 pen.points.append(p)
+                inProgress = pen
                 needsDisplay = true
             }
         case .arrow, .rectangle, .ellipse, .line, .highlight, .blur, .pixelate, .crop:
-            if let shape = inProgress as? ShapeAnnotation {
+            if var shape = inProgress as? any BoundedShapeAnnotation {
                 shape.end = p
+                inProgress = shape
                 needsDisplay = true
             }
         default: break
@@ -156,8 +157,8 @@ final class EditorView: NSView {
             lastPoint = nil
         }
 
-        if currentTool == .crop, let shape = inProgress as? ShapeAnnotation {
-            let r = shape.boundingBox
+        if currentTool == .crop, let shape = inProgress as? any BoundedShapeAnnotation {
+            let r = shape.bounds
             if r.width > 5 && r.height > 5 {
                 cropRect = r
             }
@@ -168,8 +169,8 @@ final class EditorView: NSView {
         }
 
         if let ip = inProgress {
-            if let shape = ip as? ShapeAnnotation {
-                if shape.boundingBox.width > 2 && shape.boundingBox.height > 2 {
+            if let shape = ip as? any BoundedShapeAnnotation {
+                if shape.bounds.width > 2 && shape.bounds.height > 2 {
                     annotations.append(shape)
                 }
             } else if let pen = ip as? PenAnnotation, pen.points.count > 1 {
@@ -201,21 +202,22 @@ final class EditorView: NSView {
     }
 
     private func makeShape(start: NSPoint, end: NSPoint) -> Annotation {
-        let annotation: ShapeAnnotation
+        let style = defaultStyle()
         switch currentTool {
-        case .arrow: annotation = ArrowAnnotation(start: start, end: end)
-        case .rectangle: annotation = RectAnnotation(start: start, end: end)
-        case .ellipse: annotation = EllipseAnnotation(start: start, end: end)
-        case .line: annotation = LineAnnotation(start: start, end: end)
-        case .highlight: annotation = HighlightAnnotation(start: start, end: end)
-        case .blur: annotation = BlurAnnotation(start: start, end: end)
-        case .pixelate: annotation = PixelateAnnotation(start: start, end: end)
-        case .crop: annotation = RectAnnotation(start: start, end: end)
-        default: annotation = RectAnnotation(start: start, end: end)
+        case .arrow: return ArrowAnnotation(start: start, end: end, style: style)
+        case .rectangle: return RectAnnotation(start: start, end: end, style: style)
+        case .ellipse: return EllipseAnnotation(start: start, end: end, style: style)
+        case .line: return LineAnnotation(start: start, end: end, style: style)
+        case .highlight: return HighlightAnnotation(start: start, end: end, style: style)
+        case .blur: return BlurAnnotation(start: start, end: end, style: style)
+        case .pixelate: return PixelateAnnotation(start: start, end: end, style: style)
+        case .crop: return RectAnnotation(start: start, end: end, style: style)
+        default: return RectAnnotation(start: start, end: end, style: style)
         }
-        annotation.color = strokeColor
-        annotation.strokeWidth = strokeWidth
-        return annotation
+    }
+
+    private func defaultStyle() -> AnnotationStyle {
+        AnnotationStyle(color: strokeColor, strokeWidth: strokeWidth, fontSize: fontSize)
     }
 
     private func updateCursor() {
@@ -333,11 +335,11 @@ final class EditorView: NSView {
 
     private func beginEditingText(_ annotation: TextAnnotation) {
         commitActiveTextEditing()
-        let box = annotation.boundingBox
+        let box = annotation.bounds
         let tf = EscapableTextField(frame: box.insetBy(dx: -4, dy: -4))
         tf.stringValue = annotation.text
-        tf.font = NSFont.systemFont(ofSize: annotation.fontSize, weight: .semibold)
-        tf.textColor = annotation.color
+        tf.font = NSFont.systemFont(ofSize: annotation.style.fontSize, weight: .semibold)
+        tf.textColor = annotation.style.color
         tf.backgroundColor = NSColor.adaptive(
             light: NSColor.white.withAlphaComponent(0.15),
             dark: NSColor.black.withAlphaComponent(0.25)
@@ -354,7 +356,9 @@ final class EditorView: NSView {
         addSubview(tf)
         window?.makeFirstResponder(tf)
         editingField = tf
-        objc_setAssociatedObject(tf, &textAnnotationKey, annotation, .OBJC_ASSOCIATION_ASSIGN)
+        // Retain the struct copy (boxed) so commit/cancel can read it back;
+        // ASSIGN is for weak object references and would not retain a value type.
+        objc_setAssociatedObject(tf, &textAnnotationKey, annotation, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
     }
 
     @objc private func textFieldAction(_ sender: NSTextField) {
@@ -363,7 +367,14 @@ final class EditorView: NSView {
 
     private func commitEditing(_ sender: NSTextField) {
         if let ann = objc_getAssociatedObject(sender, &textAnnotationKey) as? TextAnnotation {
-            ann.text = sender.stringValue.isEmpty ? L10n.text(.text) : sender.stringValue
+            var copy = ann
+            copy.text = sender.stringValue.isEmpty ? L10n.text(.text) : sender.stringValue
+            if let idx = annotations.firstIndex(where: { $0.id == copy.id }) {
+                annotations[idx] = copy
+            }
+            if selected?.id == copy.id {
+                selected = copy
+            }
         }
         sender.removeFromSuperview()
         editingField = nil
