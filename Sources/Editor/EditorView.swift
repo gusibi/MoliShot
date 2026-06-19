@@ -149,6 +149,10 @@ final class EditorView: NSView {
         applyStyleToSelected { $0.fontSize = size }
     }
 
+    func setOpacity(_ opacity: CGFloat) {
+        applyStyleToSelected { $0.opacity = max(0, min(1, opacity)) }
+    }
+
     private func applyStyleToSelected(_ mutate: (inout AnnotationStyle) -> Void) {
         guard var sel = selected else { return }
         var st = sel.style
@@ -190,8 +194,7 @@ final class EditorView: NSView {
             ctx.translateBy(x: -crop.origin.x, y: -crop.origin.y)
             baseImage.draw(in: NSRect(origin: .zero, size: baseImage.size),
                            from: .zero, operation: .copy, fraction: 1)
-            for ann in annotations { ann.draw(in: ctx, base: baseImage) }
-            if let ip = inProgress { ip.draw(in: ctx, base: baseImage) }
+            drawAnnotations(in: ctx)
             drawSelectionOverlay(in: ctx)
             ctx.restoreGState()
             return
@@ -199,9 +202,24 @@ final class EditorView: NSView {
 
         // Full image (no crop).
         baseImage.draw(in: bounds, from: .zero, operation: .copy, fraction: 1)
-        for ann in annotations { ann.draw(in: ctx, base: baseImage) }
-        if let ip = inProgress { ip.draw(in: ctx, base: baseImage) }
+        drawAnnotations(in: ctx)
         drawSelectionOverlay(in: ctx)
+    }
+
+    /// Draw committed + in-progress annotations, each with its own opacity.
+    private func drawAnnotations(in ctx: CGContext) {
+        for ann in annotations {
+            ctx.saveGState()
+            ctx.setAlpha(ann.style.opacity)
+            ann.draw(in: ctx, base: baseImage)
+            ctx.restoreGState()
+        }
+        if let ip = inProgress {
+            ctx.saveGState()
+            ctx.setAlpha(ip.style.opacity)
+            ip.draw(in: ctx, base: baseImage)
+            ctx.restoreGState()
+        }
     }
 
     private func drawSelectionOverlay(in ctx: CGContext) {

@@ -17,6 +17,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, Editor
     private let strokeSlider = NSSlider()
     private let fontSizeSlider = NSSlider()
     private let fontSizeContainer = NSStackView()  // hides font size when not editing text
+    private let opacitySlider = NSSlider()
 
     private var eventMonitor: Any?
     private var lastImageSize: NSSize
@@ -204,6 +205,15 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, Editor
         fontSizeContainer.isHidden = true  // shown only when a text annotation is selected
         toolBarStack.addArrangedSubview(fontSizeContainer)
 
+        opacitySlider.doubleValue = 100
+        opacitySlider.minValue = 0
+        opacitySlider.maxValue = 100
+        opacitySlider.controlSize = .regular
+        opacitySlider.target = self
+        opacitySlider.action = #selector(opacityChanged(_:))
+        opacitySlider.widthAnchor.constraint(equalToConstant: 60).isActive = true
+        toolBarStack.addArrangedSubview(opacitySlider)
+
         toolBarStack.addArrangedSubview(toolbarSeparator())
         toolBarStack.addArrangedSubview(compactToolbarButton(title: L10n.text(.crop), symbol: "crop", action: #selector(toggleCropMode)))
         toolBarStack.addArrangedSubview(compactToolbarButton(title: L10n.text(.undo), symbol: "arrow.uturn.backward", action: #selector(undoTap)))
@@ -328,6 +338,10 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, Editor
         editorView.setFontSize(CGFloat(sender.doubleValue))
     }
 
+    @objc private func opacityChanged(_ sender: NSSlider) {
+        editorView.setOpacity(CGFloat(sender.doubleValue / 100))
+    }
+
     @objc private func closeEditor() { close() }
 
     @objc private func toggleCropMode() {
@@ -444,6 +458,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, Editor
         colorWell.color = style.color
         strokeSlider.doubleValue = Double(style.strokeWidth)
         fontSizeSlider.doubleValue = Double(style.fontSize)
+        opacitySlider.doubleValue = Double(style.opacity * 100)
         fontSizeContainer.isHidden = !view.selectedIsText
     }
     func editorViewDidChangeContent(_ view: EditorView) {

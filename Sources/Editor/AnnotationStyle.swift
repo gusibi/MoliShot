@@ -10,15 +10,17 @@ struct AnnotationStyle: Codable, Equatable {
     var color: NSColor
     var strokeWidth: CGFloat
     var fontSize: CGFloat
+    var opacity: CGFloat
 
-    init(color: NSColor, strokeWidth: CGFloat = 3, fontSize: CGFloat = 20) {
+    init(color: NSColor, strokeWidth: CGFloat = 3, fontSize: CGFloat = 20, opacity: CGFloat = 1) {
         self.color = color.usingColorSpace(.sRGB) ?? color
         self.strokeWidth = strokeWidth
         self.fontSize = fontSize
+        self.opacity = max(0, min(1, opacity))
     }
 
     private enum CodingKeys: String, CodingKey {
-        case red, green, blue, alpha, strokeWidth, fontSize
+        case red, green, blue, alpha, strokeWidth, fontSize, opacity
     }
 
     init(from decoder: Decoder) throws {
@@ -31,6 +33,7 @@ struct AnnotationStyle: Codable, Equatable {
                              blue: CGFloat(b), alpha: CGFloat(a))
         self.strokeWidth = try c.decode(CGFloat.self, forKey: .strokeWidth)
         self.fontSize = try c.decode(CGFloat.self, forKey: .fontSize)
+        self.opacity = try c.decodeIfPresent(CGFloat.self, forKey: .opacity) ?? 1
     }
 
     func encode(to encoder: Encoder) throws {
@@ -42,6 +45,7 @@ struct AnnotationStyle: Codable, Equatable {
         try c.encode(Double(srgb.alphaComponent), forKey: .alpha)
         try c.encode(strokeWidth, forKey: .strokeWidth)
         try c.encode(fontSize, forKey: .fontSize)
+        try c.encode(opacity, forKey: .opacity)
     }
 
     static func == (lhs: AnnotationStyle, rhs: AnnotationStyle) -> Bool {
@@ -54,5 +58,6 @@ struct AnnotationStyle: Codable, Equatable {
             && abs(l.alphaComponent - r.alphaComponent) < eps
             && lhs.strokeWidth == rhs.strokeWidth
             && lhs.fontSize == rhs.fontSize
+            && abs(lhs.opacity - rhs.opacity) < eps
     }
 }

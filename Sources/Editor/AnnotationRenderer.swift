@@ -49,7 +49,10 @@ enum AnnotationRenderer {
             hints: [.interpolation: NSNumber(value: NSImageInterpolation.high.rawValue)]
         )
         for ann in annotations {
+            ctx.saveGState()
+            ctx.setAlpha(ann.style.opacity)
             ann.draw(in: ctx, base: baseImage)
+            ctx.restoreGState()
         }
         graphicsContext.flushGraphics()
 
