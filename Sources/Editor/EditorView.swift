@@ -86,7 +86,11 @@ final class EditorView: NSView {
 
         switch currentTool {
         case .select:
-            selected = annotations.reversed().first { $0.hitTest(p) }
+            if let id = AnnotationHitTester.hitTest(point: p, annotations: annotations) {
+                selected = annotations.first { $0.id == id }
+            } else {
+                selected = nil
+            }
             if event.clickCount == 2, let text = selected as? TextAnnotation {
                 beginEditingText(text)
             }
