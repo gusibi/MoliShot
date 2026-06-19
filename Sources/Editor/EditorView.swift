@@ -153,6 +153,32 @@ final class EditorView: NSView {
         applyStyleToSelected { $0.opacity = max(0, min(1, opacity)) }
     }
 
+    // MARK: - Fill colour (rect / ellipse / highlight)
+
+    var selectedSupportsFill: Bool {
+        selected is RectAnnotation || selected is EllipseAnnotation || selected is HighlightAnnotation
+    }
+
+    var effectiveFillColor: NSColor? {
+        selectedSupportsFill ? selected?.style.fillColor : nil
+    }
+
+    func setFillColor(_ color: NSColor?) {
+        applyStyleToSelected { $0.fillColor = color?.usingColorSpace(.sRGB) }
+    }
+
+    /// Toggle fill on/off. When turning on with no current fill, default to
+    /// the stroke colour at 50% alpha.
+    func setFillEnabled(_ enabled: Bool) {
+        applyStyleToSelected {
+            if enabled {
+                $0.fillColor = $0.fillColor ?? $0.color.withAlphaComponent(0.5)
+            } else {
+                $0.fillColor = nil
+            }
+        }
+    }
+
     // MARK: - Per-type effect params (blur radius / pixelate size)
 
     var selectedIsBlur: Bool { selected is BlurAnnotation }

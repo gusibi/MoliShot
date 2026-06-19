@@ -144,6 +144,10 @@ struct RectAnnotation: Annotation, BoundedShapeAnnotation, Codable {
     }
 
     func draw(in ctx: CGContext, base: NSImage) {
+        if let fill = style.fillColor {
+            ctx.setFillColor(fill.cgColor)
+            ctx.fill(bounds)
+        }
         ctx.setStrokeColor(style.color.cgColor)
         ctx.setLineWidth(style.strokeWidth)
         ctx.stroke(bounds)
@@ -170,6 +174,10 @@ struct EllipseAnnotation: Annotation, BoundedShapeAnnotation, Codable {
     }
     func hitTest(_ point: NSPoint) -> Bool { bounds.insetBy(dx: -6, dy: -6).contains(point) }
     func draw(in ctx: CGContext, base: NSImage) {
+        if let fill = style.fillColor {
+            ctx.setFillColor(fill.cgColor)
+            ctx.fillEllipse(in: bounds)
+        }
         ctx.setStrokeColor(style.color.cgColor)
         ctx.setLineWidth(style.strokeWidth)
         ctx.strokeEllipse(in: bounds)
@@ -290,7 +298,9 @@ struct HighlightAnnotation: Annotation, BoundedShapeAnnotation, Codable {
     }
     func hitTest(_ point: NSPoint) -> Bool { bounds.insetBy(dx: -6, dy: -6).contains(point) }
     func draw(in ctx: CGContext, base: NSImage) {
-        ctx.setFillColor(style.color.withAlphaComponent(0.4).cgColor)
+        // Fill: explicit fillColor if set, else the stroke colour at 40% (legacy highlight).
+        let fill = style.fillColor ?? style.color.withAlphaComponent(0.4)
+        ctx.setFillColor(fill.cgColor)
         ctx.fill(bounds)
     }
 }

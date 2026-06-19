@@ -20,6 +20,9 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, Editor
     private let opacitySlider = NSSlider()
     private let effectSlider = NSSlider()
     private let effectContainer = NSStackView()  // blur radius / pixelate size, conditional
+    private let fillWell = NSColorWell(frame: NSRect(x: 0, y: 0, width: 28, height: 24))
+    private let fillCheckbox = NSButton(checkboxWithTitle: "", target: nil, action: nil)
+    private let fillContainer = NSStackView()  // fill colour + on/off, conditional
 
     private var eventMonitor: Any?
     private var lastImageSize: NSSize
@@ -225,6 +228,18 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, Editor
         effectContainer.isHidden = true  // shown only when a blur/pixelate annotation is selected
         toolBarStack.addArrangedSubview(effectContainer)
 
+        fillWell.controlSize = .regular
+        fillWell.target = self
+        fillWell.action = #selector(fillColorChanged(_:))
+        fillCheckbox.setButtonType(.switch)
+        fillCheckbox.target = self
+        fillCheckbox.action = #selector(fillToggleChanged(_:))
+        fillContainer.orientation = .horizontal
+        fillContainer.addArrangedSubview(fillCheckbox)
+        fillContainer.addArrangedSubview(fillWell)
+        fillContainer.isHidden = true  // shown only for rect/ellipse/highlight
+        toolBarStack.addArrangedSubview(fillContainer)
+
         toolBarStack.addArrangedSubview(toolbarSeparator())
         toolBarStack.addArrangedSubview(compactToolbarButton(title: L10n.text(.crop), symbol: "crop", action: #selector(toggleCropMode)))
         toolBarStack.addArrangedSubview(compactToolbarButton(title: L10n.text(.undo), symbol: "arrow.uturn.backward", action: #selector(undoTap)))
@@ -362,6 +377,14 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, Editor
         }
     }
 
+    @objc private func fillColorChanged(_ sender: NSColorWell) {
+        editorView.setFillColor(sender.color)
+    }
+
+    @objc private func fillToggleChanged(_ sender: NSButton) {
+        editorView.setFillEnabled(sender.state == .on)
+    }
+
     @objc private func closeEditor() { close() }
 
     @objc private func toggleCropMode() {
@@ -490,6 +513,14 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, Editor
         } else if isPixelate {
             effectSlider.minValue = 2; effectSlider.maxValue = 40
             effectSlider.doubleValue = Double(view.selectedEffectValue)
+        }
+
+        let supportsFill = view.selectedSupportsFill
+        fillContainer.isHidden = !supportsFill
+        if supportsFill {
+            let fc = view.effectiveFillColor
+            fillCheckbox.state = fc == nil ? .off : .on
+            fillWell.color = fc ?? view.effectiveStyle.color
         }
     }
     func editorViewDidChangeContent(_ view: EditorView) {
