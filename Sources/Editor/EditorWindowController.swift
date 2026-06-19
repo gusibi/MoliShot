@@ -489,9 +489,18 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, Editor
 
             let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
             if flags == [.command, .shift] {
-                if event.charactersIgnoringModifiers == "z" {
+                switch event.charactersIgnoringModifiers {
+                case "z":
                     self.redoTap()
                     return nil
+                case "]":
+                    self.editorView.bringToFront()
+                    return nil
+                case "[":
+                    self.editorView.sendToBack()
+                    return nil
+                default:
+                    break
                 }
             } else if flags == [.command] {
                 switch event.charactersIgnoringModifiers {
@@ -515,6 +524,12 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, Editor
                     return nil
                 case "z":
                     self.undoTap()
+                    return nil
+                case "]":
+                    self.editorView.bringForward()
+                    return nil
+                case "[":
+                    self.editorView.sendBackward()
                     return nil
                 default:
                     break

@@ -710,6 +710,45 @@ final class EditorView: NSView {
     var canUndo: Bool { history.canUndo || editingField != nil || inProgress != nil }
     var canRedo: Bool { history.canRedo }
 
+    // MARK: - Z-order
+
+    /// Annotations are drawn in array order, so the last element is on top.
+    /// Reordering the array changes stacking. Each op pushes history.
+    @discardableResult
+    func bringForward() -> Bool { reorder(delta: 1) }
+
+    @discardableResult
+    func sendBackward() -> Bool { reorder(delta: -1) }
+
+    @discardableResult
+    func bringToFront() -> Bool { reorder(toFront: true) }
+
+    @discardableResult
+    func sendToBack() -> Bool { reorder(toFront: false) }
+
+    @discardableResult
+    private func reorder(delta: Int) -> Bool {
+        guard let sel = selected, let idx = annotations.firstIndex(where: { $0.id == sel.id }) else { return false }
+        let target = idx + delta
+        guard target >= 0, target < annotations.count else { return false }
+        annotations.swapAt(idx, target)
+        commitHistory()
+        delegate?.editorViewDidChangeContent(self)
+        needsDisplay = true
+        return true
+    }
+
+    @discardableResult
+    private func reorder(toFront: Bool) -> Bool {
+        guard let sel = selected, let idx = annotations.firstIndex(where: { $0.id == sel.id }) else { return false }
+        let ann = annotations.remove(at: idx)
+        if toFront { annotations.append(ann) } else { annotations.insert(ann, at: 0) }
+        commitHistory()
+        delegate?.editorViewDidChangeContent(self)
+        needsDisplay = true
+        return true
+    }
+
     @discardableResult
     func clearAll() -> Bool {
         commitActiveTextEditing()
