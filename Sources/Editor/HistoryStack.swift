@@ -33,6 +33,15 @@ final class HistoryStack<T> {
         redoStack.removeAll(keepingCapacity: false)
     }
 
+    /// Replace the current state in place without adding an undo entry.
+    /// Use to coalesce a stream of related changes (e.g. a continuous slider
+    /// drag) into a single undo step: the first tick `push`es, subsequent
+    /// ticks `replaceCurrent`. Clears the redo branch.
+    func replaceCurrent(_ state: T) {
+        current = state
+        redoStack.removeAll(keepingCapacity: false)
+    }
+
     /// Move one step back. Returns the previous state, or nil if at baseline.
     func undo() -> T? {
         guard let prev = undoStack.popLast() else { return nil }

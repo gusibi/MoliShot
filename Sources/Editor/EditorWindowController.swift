@@ -13,6 +13,11 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, Editor
     private let zoomLabel = NSTextField(labelWithString: "")
     private var toolButtons: [AnnotationTool: NSButton] = [:]
 
+    private let colorWell = NSColorWell(frame: NSRect(x: 0, y: 0, width: 28, height: 24))
+    private let strokeSlider = NSSlider()
+    private let fontSizeSlider = NSSlider()
+    private let fontSizeContainer = NSStackView()  // hides font size when not editing text
+
     private var eventMonitor: Any?
     private var lastImageSize: NSSize
     private var transientStatusTimer: Timer?
@@ -172,17 +177,32 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, Editor
 
         toolBarStack.addArrangedSubview(toolbarSeparator())
 
-        let colorWell = NSColorWell(frame: NSRect(x: 0, y: 0, width: 28, height: 24))
         colorWell.controlSize = .regular
         colorWell.color = editorView.strokeColor
         colorWell.target = self
         colorWell.action = #selector(colorChanged(_:))
         toolBarStack.addArrangedSubview(colorWell)
 
-        let stroke = NSSlider(value: Double(editorView.strokeWidth), minValue: 1, maxValue: 12, target: self, action: #selector(strokeChanged(_:)))
-        stroke.controlSize = .regular
-        stroke.widthAnchor.constraint(equalToConstant: 78).isActive = true
-        toolBarStack.addArrangedSubview(stroke)
+        strokeSlider.doubleValue = Double(editorView.strokeWidth)
+        strokeSlider.minValue = 1
+        strokeSlider.maxValue = 12
+        strokeSlider.controlSize = .regular
+        strokeSlider.target = self
+        strokeSlider.action = #selector(strokeChanged(_:))
+        strokeSlider.widthAnchor.constraint(equalToConstant: 78).isActive = true
+        toolBarStack.addArrangedSubview(strokeSlider)
+
+        fontSizeSlider.doubleValue = Double(editorView.fontSize)
+        fontSizeSlider.minValue = 8
+        fontSizeSlider.maxValue = 72
+        fontSizeSlider.controlSize = .regular
+        fontSizeSlider.target = self
+        fontSizeSlider.action = #selector(fontSizeChanged(_:))
+        fontSizeSlider.widthAnchor.constraint(equalToConstant: 78).isActive = true
+        fontSizeContainer.orientation = .horizontal
+        fontSizeContainer.addArrangedSubview(fontSizeSlider)
+        fontSizeContainer.isHidden = true  // shown only when a text annotation is selected
+        toolBarStack.addArrangedSubview(fontSizeContainer)
 
         toolBarStack.addArrangedSubview(toolbarSeparator())
         toolBarStack.addArrangedSubview(compactToolbarButton(title: L10n.text(.crop), symbol: "crop", action: #selector(applyCrop)))
@@ -297,11 +317,15 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, Editor
     }
 
     @objc private func colorChanged(_ sender: NSColorWell) {
-        editorView.strokeColor = sender.color
+        editorView.setStrokeColor(sender.color)
     }
 
     @objc private func strokeChanged(_ sender: NSSlider) {
-        editorView.strokeWidth = CGFloat(sender.doubleValue)
+        editorView.setStrokeWidth(CGFloat(sender.doubleValue))
+    }
+
+    @objc private func fontSizeChanged(_ sender: NSSlider) {
+        editorView.setFontSize(CGFloat(sender.doubleValue))
     }
 
     @objc private func closeEditor() { close() }
@@ -406,6 +430,18 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, Editor
 
     func editorViewDidChangeSelection(_ view: EditorView) {
         updateStatusLabel()
+        syncStyleControls(to: view)
+    }
+
+    /// Reflect the effective style (selection's, or defaults) in the color,
+    /// stroke, and font-size controls; hide font size unless a text annotation
+    /// is selected.
+    private func syncStyleControls(to view: EditorView) {
+        let style = view.effectiveStyle
+        colorWell.color = style.color
+        strokeSlider.doubleValue = Double(style.strokeWidth)
+        fontSizeSlider.doubleValue = Double(style.fontSize)
+        fontSizeContainer.isHidden = !view.selectedIsText
     }
     func editorViewDidChangeContent(_ view: EditorView) {
         if !lastImageSize.equalTo(view.baseImage.size) {

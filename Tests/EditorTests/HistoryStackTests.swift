@@ -133,4 +133,31 @@ final class HistoryStackTests: XCTestCase {
         stack.push(Step(n: 10))
         XCTAssertEqual(stack.undo(), Step(n: 9))
     }
+
+    // MARK: - replaceCurrent (coalescing)
+
+    func testReplaceCurrentCoalescesWithoutNewUndoEntry() {
+        let stack = HistoryStack<Step>()
+        stack.push(Step(n: 0))
+        stack.push(Step(n: 1))  // undoStack=[0], current=1
+
+        // Simulate a continuous drag: subsequent ticks replace current.
+        stack.replaceCurrent(Step(n: 2))
+        stack.replaceCurrent(Step(n: 3))
+
+        // One undo step back to the pre-drag state, not three.
+        XCTAssertEqual(stack.undo(), Step(n: 0))
+        XCTAssertNil(stack.undo(), "coalesced changes must not create extra undo entries")
+    }
+
+    func testReplaceCurrentClearsRedo() {
+        let stack = HistoryStack<Step>()
+        stack.push(Step(n: 0))
+        stack.push(Step(n: 1))
+        _ = stack.undo()
+        XCTAssertTrue(stack.canRedo)
+
+        stack.replaceCurrent(Step(n: 9))
+        XCTAssertFalse(stack.canRedo, "replaceCurrent must discard the redo branch")
+    }
 }

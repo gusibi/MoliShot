@@ -53,6 +53,7 @@ final class EditorView: NSView {
     private var numberCounter: Int = 1
     private var didDragMove = false
     private var pendingTextCreation = false
+    private var styleCoalesceID: UUID?
 
     private var cropRect: NSRect?
 
@@ -89,6 +90,65 @@ final class EditorView: NSView {
     /// Checkpoint the current state after an atomic operation.
     private func commitHistory() {
         history.push(snapshot())
+        styleCoalesceID = nil
+    }
+
+    /// Checkpoint a style change, coalescing consecutive changes to the same
+    /// annotation (e.g. a continuous slider drag) into a single undo step.
+    private func commitStyleChange(_ id: UUID) {
+        if styleCoalesceID == id {
+            history.replaceCurrent(snapshot())
+        } else {
+            history.push(snapshot())
+            styleCoalesceID = id
+        }
+    }
+
+    private func writeBack(_ ann: Annotation) {
+        if let idx = annotations.firstIndex(where: { $0.id == ann.id }) {
+            annotations[idx] = ann
+        }
+        if selected?.id == ann.id {
+            selected = ann
+        }
+    }
+
+    // MARK: - Style editing (applies to selection, else defaults)
+
+    func setStrokeColor(_ color: NSColor) {
+        strokeColor = color
+        applyStyleToSelected { $0.color = color }
+    }
+
+    func setStrokeWidth(_ width: CGFloat) {
+        strokeWidth = width
+        applyStyleToSelected { $0.strokeWidth = width }
+    }
+
+    func setFontSize(_ size: CGFloat) {
+        fontSize = size
+        applyStyleToSelected { $0.fontSize = size }
+    }
+
+    private func applyStyleToSelected(_ mutate: (inout AnnotationStyle) -> Void) {
+        guard var sel = selected else { return }
+        var st = sel.style
+        mutate(&st)
+        sel.style = st
+        writeBack(sel)
+        commitStyleChange(sel.id)
+        delegate?.editorViewDidChangeContent(self)
+        needsDisplay = true
+    }
+
+    /// Whether the selection is a text annotation (font size has visible effect).
+    var selectedIsText: Bool { selected is TextAnnotation }
+
+    /// Current effective style for the controls: the selected annotation's
+    /// style, or the default style for new annotations when nothing is selected.
+    var effectiveStyle: AnnotationStyle {
+        if let sel = selected { return sel.style }
+        return AnnotationStyle(color: strokeColor, strokeWidth: strokeWidth, fontSize: fontSize)
     }
 
     required init?(coder: NSCoder) { fatalError() }
