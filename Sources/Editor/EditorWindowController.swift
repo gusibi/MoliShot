@@ -187,6 +187,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, Editor
         toolBarStack.addArrangedSubview(toolbarSeparator())
         toolBarStack.addArrangedSubview(compactToolbarButton(title: L10n.text(.crop), symbol: "crop", action: #selector(applyCrop)))
         toolBarStack.addArrangedSubview(compactToolbarButton(title: L10n.text(.undo), symbol: "arrow.uturn.backward", action: #selector(undoTap)))
+        toolBarStack.addArrangedSubview(compactToolbarButton(title: L10n.text(.redo), symbol: "arrow.uturn.forward", action: #selector(redoTap)))
         toolBarStack.addArrangedSubview(compactToolbarButton(title: L10n.text(.clear), symbol: "trash", action: #selector(clearTap)))
 
         toolBarStack.addArrangedSubview(toolbarSeparator())
@@ -317,10 +318,23 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, Editor
             showTransientStatus(L10n.text(.editingCancelled))
         case .cancelledPendingInteraction:
             showTransientStatus(L10n.text(.selectionCancelled))
-        case .removedAnnotation:
+        case .undid:
             showTransientStatus(L10n.text(.undoApplied))
         case .nothingToUndo:
             showTransientStatus(L10n.text(.nothingToUndo))
+        case .redid, .nothingToRedo:
+            break
+        }
+    }
+
+    @objc private func redoTap() {
+        switch editorView.redo() {
+        case .redid:
+            showTransientStatus(L10n.text(.redoApplied))
+        case .nothingToRedo:
+            showTransientStatus(L10n.text(.nothingToRedo))
+        case .cancelledTextEditing, .cancelledPendingInteraction, .undid, .nothingToUndo:
+            break
         }
     }
 
@@ -434,7 +448,13 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, Editor
             guard let self = self, self.window?.isKeyWindow == true else { return event }
             if self.window?.firstResponder is NSTextView { return event }
 
-            if event.modifierFlags.intersection(.deviceIndependentFlagsMask) == [.command] {
+            let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+            if flags == [.command, .shift] {
+                if event.charactersIgnoringModifiers == "z" {
+                    self.redoTap()
+                    return nil
+                }
+            } else if flags == [.command] {
                 switch event.charactersIgnoringModifiers {
                 case "+", "=":
                     self.zoomIn()

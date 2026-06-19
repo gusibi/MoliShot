@@ -9,8 +9,21 @@ protocol EditorViewDelegate: AnyObject {
 enum EditorUndoResult {
     case cancelledTextEditing
     case cancelledPendingInteraction
-    case removedAnnotation
+    case undid
+    case redid
     case nothingToUndo
+    case nothingToRedo
+}
+
+/// Snapshot of editor state for undo/redo. `selectedID` tracks selection
+/// across snapshots by identity (stable UUID) rather than index, so undo can
+/// re-resolve the selected annotation if it still exists. `numberCounter`
+/// is included so undoing a number annotation creation restores the counter.
+struct EditorState {
+    var annotations: [Annotation]
+    var cropRect: NSRect?
+    var selectedID: UUID?
+    var numberCounter: Int
 }
 
 final class EditorView: NSView {
@@ -38,13 +51,44 @@ final class EditorView: NSView {
     private var dragStart: NSPoint?
     private var lastPoint: NSPoint?
     private var numberCounter: Int = 1
+    private var didDragMove = false
+    private var pendingTextCreation = false
 
     private var cropRect: NSRect?
+
+    private var history = HistoryStack<EditorState>()
 
     init(image: NSImage) {
         self.baseImage = image
         super.init(frame: NSRect(origin: .zero, size: image.size))
         wantsLayer = true
+        history.push(snapshot())  // baseline state
+    }
+
+    // MARK: - History
+
+    private func snapshot() -> EditorState {
+        EditorState(annotations: annotations, cropRect: cropRect,
+                    selectedID: selected?.id, numberCounter: numberCounter)
+    }
+
+    private func restore(_ state: EditorState) {
+        annotations = state.annotations
+        cropRect = state.cropRect
+        numberCounter = state.numberCounter
+        if let id = state.selectedID, let ann = annotations.first(where: { $0.id == id }) {
+            selected = ann
+        } else {
+            selected = nil
+        }
+        delegate?.editorViewDidChangeContent(self)
+        delegate?.editorViewDidChangeSelection(self)
+        needsDisplay = true
+    }
+
+    /// Checkpoint the current state after an atomic operation.
+    private func commitHistory() {
+        history.push(snapshot())
     }
 
     required init?(coder: NSCoder) { fatalError() }
@@ -105,6 +149,7 @@ final class EditorView: NSView {
             let t = TextAnnotation(origin: p, text: L10n.text(.text), style: defaultStyle())
             annotations.append(t)
             selected = t
+            pendingTextCreation = true
             beginEditingText(t)
             delegate?.editorViewDidChangeContent(self)
             needsDisplay = true
@@ -113,6 +158,7 @@ final class EditorView: NSView {
             numberCounter += 1
             annotations.append(n)
             selected = n
+            commitHistory()
             delegate?.editorViewDidChangeContent(self)
             currentTool = .select
             needsDisplay = true
@@ -129,6 +175,7 @@ final class EditorView: NSView {
             if let idx = annotations.firstIndex(where: { $0.id == sel.id }) {
                 annotations[idx] = sel
             }
+            didDragMove = true
             delegate?.editorViewDidChangeContent(self)
             needsDisplay = true
             return
@@ -161,6 +208,7 @@ final class EditorView: NSView {
             let r = shape.bounds
             if r.width > 5 && r.height > 5 {
                 cropRect = r
+                commitHistory()
             }
             inProgress = nil
             currentTool = .select
@@ -172,15 +220,22 @@ final class EditorView: NSView {
             if let shape = ip as? any BoundedShapeAnnotation {
                 if shape.bounds.width > 2 && shape.bounds.height > 2 {
                     annotations.append(shape)
+                    commitHistory()
                 }
             } else if let pen = ip as? PenAnnotation, pen.points.count > 1 {
                 annotations.append(pen)
+                commitHistory()
             }
             delegate?.editorViewDidChangeContent(self)
             inProgress = nil
             if currentTool != .select && currentTool != .pen {
                 currentTool = .select
             }
+        }
+
+        if didDragMove {
+            commitHistory()
+            didDragMove = false
         }
         needsDisplay = true
     }
@@ -190,6 +245,7 @@ final class EditorView: NSView {
             if let sel = selected {
                 annotations.removeAll { $0.id == sel.id }
                 selected = nil
+                commitHistory()
                 delegate?.editorViewDidChangeContent(self)
                 delegate?.editorViewDidChangeSelection(self)
                 needsDisplay = true
@@ -236,19 +292,26 @@ final class EditorView: NSView {
             cancelCurrentInteraction()
             return .cancelledTextEditing
         }
-        if inProgress != nil || cropRect != nil {
+        if inProgress != nil {
             cancelCurrentInteraction()
             return .cancelledPendingInteraction
         }
-        guard !annotations.isEmpty else { return .nothingToUndo }
-        annotations.removeLast()
-        selected = nil
+        guard let prev = history.undo() else { return .nothingToUndo }
+        restore(prev)
         currentTool = .select
-        delegate?.editorViewDidChangeContent(self)
-        delegate?.editorViewDidChangeSelection(self)
-        needsDisplay = true
-        return .removedAnnotation
+        return .undid
     }
+
+    @discardableResult
+    func redo() -> EditorUndoResult {
+        if editingField != nil { return .nothingToRedo }
+        guard let next = history.redo() else { return .nothingToRedo }
+        restore(next)
+        return .redid
+    }
+
+    var canUndo: Bool { history.canUndo || editingField != nil || inProgress != nil }
+    var canRedo: Bool { history.canRedo }
 
     @discardableResult
     func clearAll() -> Bool {
@@ -259,6 +322,7 @@ final class EditorView: NSView {
         cropRect = nil
         numberCounter = 1
         currentTool = .select
+        commitHistory()
         delegate?.editorViewDidChangeContent(self)
         needsDisplay = true
         return hadContent
@@ -274,6 +338,11 @@ final class EditorView: NSView {
         selected = nil
         cropRect = nil
         currentTool = .select
+        // Crop is a destructive commit (base image changes, not tracked in
+        // EditorState). Reset history so undo cannot cross the crop boundary.
+        // Non-destructive crop (#11) will restore full undo across crops.
+        history.clear()
+        history.push(snapshot())
         delegate?.editorViewDidChangeContent(self)
         invalidateIntrinsicContentSize()
         needsDisplay = true
@@ -369,13 +438,18 @@ final class EditorView: NSView {
         if let ann = objc_getAssociatedObject(sender, &textAnnotationKey) as? TextAnnotation {
             var copy = ann
             copy.text = sender.stringValue.isEmpty ? L10n.text(.text) : sender.stringValue
+            let changed = pendingTextCreation || copy.text != ann.text
             if let idx = annotations.firstIndex(where: { $0.id == copy.id }) {
                 annotations[idx] = copy
             }
             if selected?.id == copy.id {
                 selected = copy
             }
+            if changed {
+                commitHistory()
+            }
         }
+        pendingTextCreation = false
         sender.removeFromSuperview()
         editingField = nil
         delegate?.editorViewDidChangeContent(self)
@@ -393,6 +467,7 @@ final class EditorView: NSView {
             delegate?.editorViewDidChangeSelection(self)
             delegate?.editorViewDidChangeContent(self)
         }
+        pendingTextCreation = false
         sender.removeFromSuperview()
         editingField = nil
         currentTool = .select

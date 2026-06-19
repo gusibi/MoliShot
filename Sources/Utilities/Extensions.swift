@@ -207,6 +207,7 @@ enum L10nKey {
     case highlight
     case crop
     case undo
+    case redo
     case clear
     case fit
     case ocr
@@ -263,7 +264,9 @@ enum L10nKey {
     case editingCancelled
     case selectionCancelled
     case undoApplied
+    case redoApplied
     case nothingToUndo
+    case nothingToRedo
     case clearedAnnotations
     case pinCreated
     case scrollInstruction
@@ -366,6 +369,7 @@ enum L10n {
         case .highlight: return "Highlight"
         case .crop: return "Crop"
         case .undo: return "Undo"
+        case .redo: return "Redo"
         case .clear: return "Clear"
         case .fit: return "Fit"
         case .ocr: return "OCR"
@@ -422,7 +426,9 @@ enum L10n {
         case .editingCancelled: return "Text editing cancelled"
         case .selectionCancelled: return "Selection cancelled"
         case .undoApplied: return "Undo applied"
+        case .redoApplied: return "Redo applied"
         case .nothingToUndo: return "Nothing to undo"
+        case .nothingToRedo: return "Nothing to redo"
         case .clearedAnnotations: return "Annotations cleared"
         case .pinCreated: return "Pinned image created"
         case .scrollInstruction: return "Scroll the content manually, then click Done."
@@ -471,6 +477,7 @@ enum L10n {
         case .highlight: return "高亮"
         case .crop: return "裁剪"
         case .undo: return "撤销"
+        case .redo: return "重做"
         case .clear: return "清空"
         case .fit: return "适合窗口"
         case .ocr: return "识别文字"
@@ -527,7 +534,9 @@ enum L10n {
         case .editingCancelled: return "已取消文字编辑"
         case .selectionCancelled: return "已取消当前操作"
         case .undoApplied: return "已撤销"
+        case .redoApplied: return "已重做"
         case .nothingToUndo: return "没有可撤销的内容"
+        case .nothingToRedo: return "没有可重做的内容"
         case .clearedAnnotations: return "已清空标注"
         case .pinCreated: return "已创建贴图窗口"
         case .scrollInstruction: return "手动滚动内容，然后点击完成。"
