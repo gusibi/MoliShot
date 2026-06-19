@@ -311,6 +311,12 @@ final class EditorView: NSView {
         }
         graphicsContext.flushGraphics()
 
+        // 显式重建：size=逻辑尺寸(baseImage.size)，cg=rep 的真实像素。
+        // 这样 pngData()/cgImageRef 取到的都是真实像素，导出清晰；
+        // 标注仍在逻辑坐标系绘制，位置/线宽/字号不受影响。
+        if let repCG = rep.cgImage {
+            return NSImage(cgImage: repCG, size: size)
+        }
         let out = NSImage(size: size)
         out.addRepresentation(rep)
         return out

@@ -2,17 +2,13 @@ import AppKit
 import CoreGraphics
 
 extension NSImage {
+    /// 返回底层 CGImage 的真实像素，不做任何重采样。
+    /// NSImage 由 `NSImage(cgImage:size:)` 构造时，size 为逻辑尺寸（points），
+    /// 底层 CGImage 为真实像素（points × 显示 scale）。这里直接取像素，
+    /// 不再依赖 NSScreen.main 的 backingScaleFactor，避免多屏下重采样导致的模糊。
     var cgImageRef: CGImage? {
         var rect = NSRect(origin: .zero, size: size)
-        // 添加高分辨率提示，确保获取最佳质量的CGImage
-        let scale = NSScreen.main?.backingScaleFactor ?? 2.0
-        let transform = NSAffineTransform()
-        transform.scale(by: scale)
-        let hints: [NSImageRep.HintKey: Any] = [
-            .ctm: transform,
-            .interpolation: NSNumber(value: NSImageInterpolation.high.rawValue)
-        ]
-        return cgImage(forProposedRect: &rect, context: nil, hints: hints)
+        return cgImage(forProposedRect: &rect, context: nil, hints: nil)
     }
 
     var pixelSize: NSSize? {
@@ -21,21 +17,16 @@ extension NSImage {
     }
 
     convenience init(cgImage: CGImage) {
-        // 自动检测屏幕缩放因子，创建正确尺寸的NSImage
-        let scale = NSScreen.main?.backingScaleFactor ?? 2.0
-        let size = NSSize(
-            width: CGFloat(cgImage.width) / scale,
-            height: CGFloat(cgImage.height) / scale
-        )
-        self.init(cgImage: cgImage, size: size)
+        // size 设为像素尺寸（1:1 逻辑），避免依赖 NSScreen.main 的缩放因子
+        self.init(cgImage: cgImage, size: NSSize(width: cgImage.width, height: cgImage.height))
     }
 
     func pngData() -> Data? {
         guard let cg = cgImageRef else { return nil }
+        // NSBitmapImageRep(cgImage:) 保留 CGImage 的真实像素且不重采样；
+        // rep.size 设为像素尺寸，保证 PNG 输出像素 = 捕获的真实分辨率。
         let rep = NSBitmapImageRep(cgImage: cg)
-        // 设置正确的尺寸，保持Retina分辨率
-        rep.size = size
-        // 使用最高质量的PNG压缩，0.0 = 无压缩（质量最高）
+        rep.size = NSSize(width: cg.width, height: cg.height)
         return rep.representation(using: .png, properties: [.compressionFactor: 0.0])
     }
 
@@ -56,9 +47,7 @@ extension NSImage {
 extension NSPasteboard {
     func writeImage(_ image: NSImage) {
         clearContents()
-        if let tiffData = image.tiffRepresentation {
-            setData(tiffData, forType: .tiff)
-        }
+        // 只写 PNG（真实像素分辨率），避免 tiffRepresentation 按逻辑尺寸生成 1x 低分辨率
         if let pngData = image.pngData() {
             setData(pngData, forType: .png)
         }

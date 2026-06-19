@@ -34,3 +34,22 @@ Package.resolved
 
 .claude/
 .agents/
+.antigravitycli/
+
+# SPM / Xcode user-specific
+*.xcodeproj/project.xcworkspace/xcuserdata/
+*.xcodeproj/xcuserdata/
+
+# CocoaPods (if used)
+Pods/
+
+# Fastlane
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots
+fastlane/test_output
+
+# Misc
+*.swp
+*.swo
+*~

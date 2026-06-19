@@ -147,13 +147,13 @@ final class ScreenCaptureService {
     }
 
     private func currentDisplayScale(displayID: CGDirectDisplayID) -> CGSize? {
-        guard let screen = screen(for: displayID), screen.frame.width > 0, screen.frame.height > 0 else {
-            return nil
-        }
-        let pixelWidth = CGFloat(CGDisplayPixelsWide(displayID))
-        let pixelHeight = CGFloat(CGDisplayPixelsHigh(displayID))
-        guard pixelWidth > 0, pixelHeight > 0 else { return nil }
-        return CGSize(width: pixelWidth / screen.frame.width, height: pixelHeight / screen.frame.height)
+        guard let screen = screen(for: displayID) else { return nil }
+        // backingScaleFactor is the correct pixels-per-point ratio for the display.
+        // On modern macOS, CGDisplayPixelsWide() returns the *scaled logical* pixel
+        // count (not physical pixels), so dividing it by screen.frame.width always
+        // yields 1.0 — which produced 1× (blurry) captures on Retina displays.
+        let s = screen.backingScaleFactor
+        return CGSize(width: s, height: s)
     }
 
     private func screen(containingTopLeftRect rect: CGRect) -> NSScreen? {
