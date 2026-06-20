@@ -23,6 +23,90 @@ import BaseLayout from '../layouts/BaseLayout.astro';
         </div>
       </header>
 
+      <!-- v0.7.0 -->
+      <article
+        class="py-8 border-b border-bord dark:border-[#222]"
+      >
+        <div class="inline-flex items-center gap-3 mb-2">
+          <span
+            class="px-3 py-1 bg-accent/10 border border-accent/20 rounded-full font-mono text-sm font-semibold text-accent"
+            >v0.7.0</span
+          >
+          <span
+            class="font-mono text-sm text-mute-dim dark:text-[#555]">2026-06-20</span
+          >
+        </div>
+        <h2
+          class="font-mono font-semibold text-xl mb-4"
+          data-i18n="changelog.v070Title"
+        >
+          编辑器重构：真实撤销/重做、resize、裁剪模态、复制粘贴
+        </h2>
+        <ul class="space-y-2">
+          <li class="relative pl-6 text-mute dark:text-[#888] before:absolute before:left-0 before:content-['>'] before:text-accent before:font-mono" data-i18n="changelog.v070Item1">真实撤销/重做栈（替换旧的"删除最后标注"伪撤销），拖拽与滑块改动合并为单个撤销步</li>
+          <li class="relative pl-6 text-mute dark:text-[#888] before:absolute before:left-0 before:content-['>'] before:text-accent before:font-mono" data-i18n="changelog.v070Item2">选中标注可改颜色/描边/字号/不透明度/填充色，新增字号与不透明度滑块</li>
+          <li class="relative pl-6 text-mute dark:text-[#888] before:absolute before:left-0 before:content-['>'] before:text-accent before:font-mono" data-i18n="changelog.v070Item3">8-handle resize（形状/画笔/文字/数字）与线条/箭头端点 handle，文字 resize 缩放字号</li>
+          <li class="relative pl-6 text-mute dark:text-[#888] before:absolute before:left-0 before:content-['>'] before:text-accent before:font-mono" data-i18n="changelog.v070Item4">分类型就近命中：线条/箭头/画笔用点到线段距离，空白处不再误选</li>
+          <li class="relative pl-6 text-mute dark:text-[#888] before:absolute before:left-0 before:content-['>'] before:text-accent before:font-mono" data-i18n="changelog.v070Item5">非破坏性裁剪模态：十字光标 + 遮罩预览，Enter/Esc 控制，底图不被截断</li>
+          <li class="relative pl-6 text-mute dark:text-[#888] before:absolute before:left-0 before:content-['>'] before:text-accent before:font-mono" data-i18n="changelog.v070Item6">复制/粘贴/重复标注（Cmd+C/V/D，自定义 UTI + PNG 兜底，跨窗口）</li>
+          <li class="relative pl-6 text-mute dark:text-[#888] before:absolute before:left-0 before:content-['>'] before:text-accent before:font-mono" data-i18n="changelog.v070Item7">Z 序调整（Cmd+] / [ / Shift+] / [），单键工具切换 V/R/O/L/A/P/T/N/B/X/Y</li>
+          <li class="relative pl-6 text-mute dark:text-[#888] before:absolute before:left-0 before:content-['>'] before:text-accent before:font-mono" data-i18n="changelog.v070Item8">可调模糊半径/像素块大小，PNG/JPEG 保存格式 + 质量滑块</li>
+          <li class="relative pl-6 text-mute dark:text-[#888] before:absolute before:left-0 before:content-['>'] before:text-accent before:font-mono" data-i18n="changelog.v070Item9">CoreImage 模糊/像素化渲染缓存，拖拽更流畅；标注改为值类型 struct + UUID + Codable</li>
+        </ul>
+      </article>
+
+      <!-- v0.6.0 -->
+      <article
+        class="py-8 border-b border-bord dark:border-[#222]"
+      >
+        <div class="inline-flex items-center gap-3 mb-2">
+          <span
+            class="px-3 py-1 bg-accent/10 border border-accent/20 rounded-full font-mono text-sm font-semibold text-accent"
+            >v0.6.0</span
+          >
+          <span
+            class="font-mono text-sm text-mute-dim dark:text-[#555]">2026-06-19</span
+          >
+        </div>
+        <h2
+          class="font-mono font-semibold text-xl mb-4"
+          data-i18n="changelog.v060Title"
+        >
+          修复 Retina 截图模糊 + 测试基建
+        </h2>
+        <ul class="space-y-2">
+          <li class="relative pl-6 text-mute dark:text-[#888] before:absolute before:left-0 before:content-['>'] before:text-accent before:font-mono" data-i18n="changelog.v060Item1">修复 Retina 屏截图模糊：使用 backingScaleFactor 计算像素比例，导出保留真实像素</li>
+          <li class="relative pl-6 text-mute dark:text-[#888] before:absolute before:left-0 before:content-['>'] before:text-accent before:font-mono" data-i18n="changelog.v060Item2">NSImage 扩展直接使用 CGImage 真实像素，粘贴板仅写 PNG 避免低分辨率</li>
+          <li class="relative pl-6 text-mute dark:text-[#888] before:absolute before:left-0 before:content-['>'] before:text-accent before:font-mono" data-i18n="changelog.v060Item3">新增 MoliShotTests 单元测试 target（xcodegen），72 个测试覆盖编辑器核心逻辑</li>
+          <li class="relative pl-6 text-mute dark:text-[#888] before:absolute before:left-0 before:content-['>'] before:text-accent before:font-mono" data-i18n="changelog.v060Item4">完善 .gitignore，动态外观变化处理，应用图标更新</li>
+        </ul>
+      </article>
+
+      <!-- v0.5.0 -->
+      <article
+        class="py-8 border-b border-bord dark:border-[#222]"
+      >
+        <div class="inline-flex items-center gap-3 mb-2">
+          <span
+            class="px-3 py-1 bg-accent/10 border border-accent/20 rounded-full font-mono text-sm font-semibold text-accent"
+            >v0.5.0</span
+          >
+          <span
+            class="font-mono text-sm text-mute-dim dark:text-[#555]">2026-06-18</span
+          >
+        </div>
+        <h2
+          class="font-mono font-semibold text-xl mb-4"
+          data-i18n="changelog.v050Title"
+        >
+          动态外观适配与应用图标（未正式发版）
+        </h2>
+        <ul class="space-y-2">
+          <li class="relative pl-6 text-mute dark:text-[#888] before:absolute before:left-0 before:content-['>'] before:text-accent before:font-mono" data-i18n="changelog.v050Item1">处理系统外观动态变化，明暗主题切换即时响应</li>
+          <li class="relative pl-6 text-mute dark:text-[#888] before:absolute before:left-0 before:content-['>'] before:text-accent before:font-mono" data-i18n="changelog.v050Item2">更新应用图标，版本号升至 0.5.0</li>
+        </ul>
+      </article>
+
       <!-- v0.4.0 -->
       <article
         class="py-8 border-b border-bord dark:border-[#222]"
