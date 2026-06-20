@@ -594,7 +594,24 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, Editor
                     self.actualSize()
                     return nil
                 case "c":
-                    self.copyImage()
+                    if self.editorView.hasSelection {
+                        _ = self.editorView.copySelection()
+                        self.showTransientStatus(L10n.text(.copiedToClipboard))
+                    } else {
+                        self.copyImage()
+                    }
+                    return nil
+                case "v":
+                    if self.editorView.paste() {
+                        self.showTransientStatus(L10n.text(.pastedAnnotation))
+                    } else {
+                        self.copyImage()  // no annotation data; nothing else to paste
+                    }
+                    return nil
+                case "d":
+                    if self.editorView.duplicateSelection() {
+                        self.showTransientStatus(L10n.text(.duplicatedAnnotation))
+                    }
                     return nil
                 case "s":
                     self.saveImage()

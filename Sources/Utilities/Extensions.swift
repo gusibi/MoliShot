@@ -225,6 +225,8 @@ enum L10nKey {
     case save
     case upload
     case copiedToClipboard
+    case pastedAnnotation
+    case duplicatedAnnotation
     case saved
     case saveFailed
     case uploaded
@@ -391,6 +393,8 @@ enum L10n {
         case .save: return "Save..."
         case .upload: return "Upload"
         case .copiedToClipboard: return "Copied to clipboard"
+        case .pastedAnnotation: return "Annotation pasted"
+        case .duplicatedAnnotation: return "Annotation duplicated"
         case .saved: return "Saved"
         case .saveFailed: return "Save failed"
         case .uploaded: return "Uploaded"
@@ -503,6 +507,8 @@ enum L10n {
         case .save: return "保存..."
         case .upload: return "上传"
         case .copiedToClipboard: return "已复制到剪贴板"
+        case .pastedAnnotation: return "已粘贴标注"
+        case .duplicatedAnnotation: return "已复制标注"
         case .saved: return "已保存"
         case .saveFailed: return "保存失败"
         case .uploaded: return "已上传"

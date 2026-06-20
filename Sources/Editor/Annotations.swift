@@ -117,7 +117,7 @@ extension BoundedShapeAnnotation {
 // MARK: - Shapes
 
 struct RectAnnotation: Annotation, BoundedShapeAnnotation, Codable {
-    let id: UUID
+    var id: UUID
     var start: NSPoint
     var end: NSPoint
     var style: AnnotationStyle
@@ -155,7 +155,7 @@ struct RectAnnotation: Annotation, BoundedShapeAnnotation, Codable {
 }
 
 struct EllipseAnnotation: Annotation, BoundedShapeAnnotation, Codable {
-    let id: UUID
+    var id: UUID
     var start: NSPoint
     var end: NSPoint
     var style: AnnotationStyle
@@ -185,7 +185,7 @@ struct EllipseAnnotation: Annotation, BoundedShapeAnnotation, Codable {
 }
 
 struct LineAnnotation: Annotation, BoundedShapeAnnotation, Codable {
-    let id: UUID
+    var id: UUID
     var start: NSPoint
     var end: NSPoint
     var style: AnnotationStyle
@@ -219,7 +219,7 @@ struct LineAnnotation: Annotation, BoundedShapeAnnotation, Codable {
 }
 
 struct ArrowAnnotation: Annotation, BoundedShapeAnnotation, Codable {
-    let id: UUID
+    var id: UUID
     var start: NSPoint
     var end: NSPoint
     var style: AnnotationStyle
@@ -279,7 +279,7 @@ struct ArrowAnnotation: Annotation, BoundedShapeAnnotation, Codable {
 }
 
 struct HighlightAnnotation: Annotation, BoundedShapeAnnotation, Codable {
-    let id: UUID
+    var id: UUID
     var start: NSPoint
     var end: NSPoint
     var style: AnnotationStyle
@@ -308,7 +308,7 @@ struct HighlightAnnotation: Annotation, BoundedShapeAnnotation, Codable {
 // MARK: - Pen
 
 struct PenAnnotation: Annotation, Codable {
-    let id: UUID
+    var id: UUID
     var points: [NSPoint]
     var style: AnnotationStyle
 
@@ -365,7 +365,7 @@ struct PenAnnotation: Annotation, Codable {
 // MARK: - Text
 
 struct TextAnnotation: Annotation, Codable {
-    let id: UUID
+    var id: UUID
     var origin: NSPoint
     var text: String
     var style: AnnotationStyle
@@ -415,7 +415,7 @@ struct TextAnnotation: Annotation, Codable {
 // MARK: - Number
 
 struct NumberAnnotation: Annotation, Codable {
-    let id: UUID
+    var id: UUID
     var center: NSPoint
     var number: Int
     var radius: CGFloat = 14
@@ -498,7 +498,7 @@ private enum RegionEffectDrawing {
 }
 
 struct BlurAnnotation: Annotation, BoundedShapeAnnotation, Codable {
-    let id: UUID
+    var id: UUID
     var start: NSPoint
     var end: NSPoint
     var style: AnnotationStyle
@@ -529,7 +529,7 @@ struct BlurAnnotation: Annotation, BoundedShapeAnnotation, Codable {
 }
 
 struct PixelateAnnotation: Annotation, BoundedShapeAnnotation, Codable {
-    let id: UUID
+    var id: UUID
     var start: NSPoint
     var end: NSPoint
     var style: AnnotationStyle

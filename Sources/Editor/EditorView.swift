@@ -222,6 +222,8 @@ final class EditorView: NSView {
     /// Whether the selection is a text annotation (font size has visible effect).
     var selectedIsText: Bool { selected is TextAnnotation }
 
+    var hasSelection: Bool { selected != nil }
+
     /// Current effective style for the controls: the selected annotation's
     /// style, or the default style for new annotations when nothing is selected.
     var effectiveStyle: AnnotationStyle {
@@ -818,6 +820,62 @@ final class EditorView: NSView {
         if toFront { annotations.append(ann) } else { annotations.insert(ann, at: 0) }
         commitHistory()
         delegate?.editorViewDidChangeContent(self)
+        needsDisplay = true
+        return true
+    }
+
+    // MARK: - Copy / Paste / Duplicate (#17)
+
+    /// Offset applied to pasted/duplicated annotations so they don't overlap
+    /// the original exactly.
+    private static let pasteOffset: CGFloat = 10
+
+    @discardableResult
+    func copySelection() -> Bool {
+        guard let sel = selected else { return false }
+        let pb = NSPasteboard.general
+        pb.clearContents()
+        if let blob = AnnotationClipboard.encode([sel]) {
+            pb.setData(blob, forType: NSPasteboard.PasteboardType(AnnotationClipboard.uti))
+        }
+        // PNG fallback so other apps receive an image of the annotation region.
+        if let png = renderFinalImage().pngData() {
+            pb.setData(png, forType: .png)
+        }
+        return true
+    }
+
+    @discardableResult
+    func paste() -> Bool {
+        let pb = NSPasteboard.general
+        let utiType = NSPasteboard.PasteboardType(AnnotationClipboard.uti)
+        if let data = pb.data(forType: utiType) {
+            var decoded = AnnotationClipboard.decode(data)
+            if !decoded.isEmpty {
+                let delta = Self.pasteOffset
+                for i in decoded.indices { decoded[i].move(by: NSSize(width: delta, height: delta)) }
+                annotations.append(contentsOf: decoded)
+                selected = decoded.last
+                commitHistory()
+                delegate?.editorViewDidChangeContent(self)
+                delegate?.editorViewDidChangeSelection(self)
+                needsDisplay = true
+                return true
+            }
+        }
+        return false
+    }
+
+    @discardableResult
+    func duplicateSelection() -> Bool {
+        guard let sel = selected else { return false }
+        var copy = sel.withNewId()
+        copy.move(by: NSSize(width: Self.pasteOffset, height: Self.pasteOffset))
+        annotations.append(copy)
+        selected = copy
+        commitHistory()
+        delegate?.editorViewDidChangeContent(self)
+        delegate?.editorViewDidChangeSelection(self)
         needsDisplay = true
         return true
     }
