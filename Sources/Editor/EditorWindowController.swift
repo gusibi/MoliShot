@@ -630,9 +630,28 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, Editor
                 }
             }
 
+            // Single-key tool switching (no modifiers). Disabled in crop modal
+            // (those keys would conflict with crop interactions). Text-editing
+            // is already passed through above.
+            if flags.isEmpty && !self.editorView.cropMode {
+                if let key = event.charactersIgnoringModifiers?.lowercased(),
+                   let tool = Self.toolShortcut[key] {
+                    self.editorView.commitActiveTextEditing()
+                    self.editorView.currentTool = tool
+                    self.refreshToolButtons()
+                    self.updateStatusLabel(tool: tool)
+                    return nil
+                }
+            }
+
             return event
         }
     }
+
+    private static let toolShortcut: [String: AnnotationTool] = [
+        "v": .select, "r": .rectangle, "o": .ellipse, "l": .line, "a": .arrow,
+        "p": .pen, "t": .text, "n": .number, "b": .blur, "x": .pixelate, "y": .highlight,
+    ]
 
     private func changeZoom(by factor: CGFloat) {
         let next = scrollView.magnification * factor
