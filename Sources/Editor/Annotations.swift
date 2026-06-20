@@ -467,11 +467,32 @@ struct NumberAnnotation: Annotation, Codable {
 /// Shared CoreImage region-effect drawing for blur/pixelate. Kept as a free
 /// helper so the concrete structs stay Codable (no stored closures) while
 /// avoiding draw-code duplication.
-private enum RegionEffectDrawing {
+enum RegionEffectDrawing {
+
+    /// One shared CIContext (construction is expensive; reusing it across
+    /// draws is the single biggest CoreImage win).
+    private static let ciContext = CIContext()
+
+    /// Cache of processed CGImage blobs, keyed by a stable signature of
+    /// (annotation id, source-rect-in-pixels, effect parameter). Invalidation
+    /// is implicit: when baseImage, bounds, or the effect strength change, the
+    /// signature changes and a fresh entry is computed; old entries linger
+    /// until the annotation is removed. Bounded to avoid unbounded growth.
+    private static var cache: [EffectCacheKey: CGImage] = [:]
+    private static let cacheLimit = 32
+
+    private struct EffectCacheKey: Hashable {
+        let annotationId: UUID
+        let sourceRect: CGRect
+        let paramKey: Double
+    }
+
     static func draw(
         in ctx: CGContext,
         base: NSImage,
         rect: NSRect,
+        annotationId: UUID,
+        paramValue: Double,
         apply: (CIImage) -> CIImage?
     ) {
         guard let cg = base.cgImageRef else { return }
@@ -485,15 +506,32 @@ private enum RegionEffectDrawing {
             width: rect.width * scaleX,
             height: rect.height * scaleY
         )
-        guard let crop = cg.cropping(to: source) else { return }
-        let ci = CIImage(cgImage: crop)
-        guard let processed = apply(ci) else { return }
-        let context = CIContext()
-        guard let out = context.createCGImage(processed, from: processed.extent) else { return }
+        let key = EffectCacheKey(annotationId: annotationId, sourceRect: source, paramKey: paramValue)
+
+        let out: CGImage
+        if let cached = cache[key] {
+            out = cached
+        } else {
+            guard let crop = cg.cropping(to: source) else { return }
+            let ci = CIImage(cgImage: crop)
+            guard let processed = apply(ci) else { return }
+            guard let rendered = ciContext.createCGImage(processed, from: processed.extent) else { return }
+            if cache.count >= cacheLimit {
+                cache.remove(at: cache.startIndex)
+            }
+            cache[key] = rendered
+            out = rendered
+        }
 
         ctx.saveGState()
         ctx.draw(out, in: rect)
         ctx.restoreGState()
+    }
+
+    /// Drop all cached effect renders (call when the base image changes, e.g.
+    /// a new screenshot is loaded or a crop is committed).
+    static func invalidateAll() {
+        cache.removeAll(keepingCapacity: false)
     }
 }
 
@@ -519,7 +557,8 @@ struct BlurAnnotation: Annotation, BoundedShapeAnnotation, Codable {
     func hitTest(_ point: NSPoint) -> Bool { bounds.insetBy(dx: -6, dy: -6).contains(point) }
     func draw(in ctx: CGContext, base: NSImage) {
         let r = radius
-        RegionEffectDrawing.draw(in: ctx, base: base, rect: bounds) { ci in
+        RegionEffectDrawing.draw(in: ctx, base: base, rect: bounds,
+                                 annotationId: id, paramValue: Double(r)) { ci in
             let f = CIFilter.gaussianBlur()
             f.inputImage = ci.clampedToExtent()
             f.radius = Float(r)
@@ -550,7 +589,8 @@ struct PixelateAnnotation: Annotation, BoundedShapeAnnotation, Codable {
     func hitTest(_ point: NSPoint) -> Bool { bounds.insetBy(dx: -6, dy: -6).contains(point) }
     func draw(in ctx: CGContext, base: NSImage) {
         let s = pixelSize
-        RegionEffectDrawing.draw(in: ctx, base: base, rect: bounds) { ci in
+        RegionEffectDrawing.draw(in: ctx, base: base, rect: bounds,
+                                 annotationId: id, paramValue: Double(s)) { ci in
             let f = CIFilter.pixellate()
             f.inputImage = ci
             f.scale = Float(s)

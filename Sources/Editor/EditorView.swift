@@ -31,7 +31,12 @@ final class EditorView: NSView {
     weak var delegate: EditorViewDelegate?
 
     var baseImage: NSImage {
-        didSet { needsDisplay = true }
+        didSet {
+            // A new base image invalidates all cached blur/pixelate renders
+            // (they sample pixels from the old image).
+            RegionEffectDrawing.invalidateAll()
+            needsDisplay = true
+        }
     }
 
     var currentTool: AnnotationTool = .select {
