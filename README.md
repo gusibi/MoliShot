@@ -1,76 +1,76 @@
 # MoliShot
 
-一个基于 Swift + AppKit + ScreenCaptureKit + Vision 的 macOS 截图工具，对标 Shottr Pro 的核心功能。
+English | [中文版](README_zh.md)
 
-**当前版本**：v0.7.0 — 编辑器重构（真实撤销/重做、resize、裁剪模态、复制粘贴、Z 序、可调样式）。
+A macOS screenshot utility based on Swift + AppKit + ScreenCaptureKit + Vision, targeting the core features of Shottr Pro.
 
-**⚠ 状态**：可用基线版本，覆盖菜单栏与快捷键里的完整截图工作流。和成熟产品相比仍有边界，主要是滚动截图稳定性与 OCR 结构化输出。
+**Current Version**: v0.7.0 — Editor refactoring (real undo/redo, resizing, cropping modal, copy-paste, Z-ordering, adjustable styles).
 
-## 已实现功能
+**⚠ Status**: A functional baseline version, covering the complete screenshot workflow from the menu bar and hotkeys. Compared to mature products, some limitations remain, mainly rolling screenshot stability and OCR structured output.
 
+## Features Implemented
 
-| 模块       | 说明                                                                 |
-| -------- | ------------------------------------------------------------------ |
-| 区域截图     | 在当前鼠标所在显示器上进行区域选择，支持窗口 hover 高亮、放大镜、`pt`/`px` 实时尺寸、`Space` 移动选区、`Shift` 锁定比例、`Option` 中心缩放，避免把 overlay 画面带进最终结果 |
-| 全屏截图     | 捕获当前鼠标所在显示器                                                        |
-| 滚动截图     | Vision `VNTranslationalImageRegistrationRequest` 做帧间配准，手动滚动 + 拼接 |
-| 标注编辑器    | 箭头、矩形、椭圆、直线、画笔、文字、自增编号、高亮、模糊、像素化、裁剪。真实撤销/重做、选中改样式（颜色/描边/字号/不透明度/填充色）、8-handle resize、复制粘贴重复、Z 序、可调模糊半径、PNG/JPEG 导出 |
-| OCR      | Vision 文字识别，自动检测语言，结果窗口支持查看与编辑，识别文本会复制到剪贴板                         |
-| 屏幕取色器    | 系统 `NSColorSampler`，HEX 自动复制 + HUD 提示                              |
-| 贴图 (Pin) | 浮动窗口置顶，hover 显示工具栏                                                 |
-| 历史记录     | Application Support 目录持久化，网格浏览                                     |
-| 全局快捷键    | 优先使用 `CGEventTap` 拦截截图热键；未授予辅助功能权限时自动降级到 HotKey，默认 ⇧⌘1 / ⇧⌘3 / ⇧⌘4 / ⇧⌘P / ⇧⌘R |
-| 偏好设置     | 快捷键列表、屏幕录制/辅助功能权限状态、历史路径 |
-| 导出分享     | 剪贴板、保存 PNG/JPEG、上传到 0x0.st                                              |
+| Module | Description |
+| --- | --- |
+| Area Screenshot | Select area on the display where the mouse is located. Supports window hover highlighting, magnifier, real-time `pt`/`px` dimensions, `Space` to move selection, `Shift` to lock aspect ratio, `Option` to scale from center, and avoids capturing overlays into the final result. |
+| Fullscreen Screenshot | Capture the display where the mouse is located. |
+| Scrolling Screenshot | Uses Vision `VNTranslationalImageRegistrationRequest` for frame-to-frame registration, manual scrolling + stitching. |
+| Annotation Editor | Arrow, rectangle, oval, line, pen, text, counter, highlight, blur, pixelate, crop. Real undo/redo, style editing for selected annotations (color, stroke, font size, opacity, fill color), 8-handle resizing, duplicate via copy-paste, Z-ordering, adjustable blur radius, PNG/JPEG export. |
+| OCR | Vision text recognition, auto-detects language. The results window supports viewing and editing, and recognized text is automatically copied to the clipboard. |
+| Color Picker | System `NSColorSampler` with auto-copy to HEX + HUD notification. |
+| Pin (Sticky Notes) | Float window kept on top, hover to show toolbar. |
+| History | Persisted in the Application Support directory, browsing via grid layout. |
+| Global Hotkeys | Prioritizes intercepting screenshot hotkeys using `CGEventTap`; automatically downgrades to HotKey when Accessibility permissions are not granted. Defaults: ⇧⌘1 / ⇧⌘3 / ⇧⌘4 / ⇧⌘P / ⇧⌘R. |
+| Preferences | Shortcut list, screen recording/accessibility permission status, history path. |
+| Export & Share | Clipboard, save to PNG/JPEG, upload to 0x0.st. |
 
+## Download & Installation
 
-## 下载与安装
+### Download
 
-### 下载
+Download the latest `MoliShot-vX.Y.Z.dmg` from [GitHub Releases](https://github.com/gusibi/MoliShot/releases), then drag and drop it into `/Applications`.
 
-从 [GitHub Releases](https://github.com/gusibi/MoliShot/releases) 下载最新 `MoliShot-vX.Y.Z.dmg`，拖入 `/Applications` 即可。
+### DMG Unsigned: What if it is blocked on first launch?
 
-### DMG 未签名，首次打开被拦截怎么办
+Since MoliShot's DMG **is not signed with a developer certificate** (Gatekeeper won't allow it automatically), macOS might show one of the following prompts when double-clicking to open the app:
 
-MoliShot 的 DMG **没有开发者签名**（Gatekeeper 不会自动放行）。双击打开 App 时，macOS 可能弹出以下任一拦截：
+- **"MoliShot can't be opened because it is from an unidentified developer"**
+- **"MoliShot is damaged and can't be opened"** (macOS misleading error for some unsigned apps)
 
-- **"MoliShot 无法打开，因为它来自身份不明的开发者"**
-- **"MoliShot 已损坏，无法打开"**（部分 macOS 版本对未签名 App 的误导性提示）
+Choose one of the following ways to allow it:
 
-任选一种方式放行：
+**Method A: Right-click to open (Simplest)**
 
-**方式 A：右键打开（最简单）**
+1. Locate `MoliShot.app` in Finder.
+2. **Hold the Control key and click** (or right-click) the app icon, then select **Open**.
+3. Click **Open** in the confirmation dialog.
 
-1. 在 Finder 里定位到 `MoliShot.app`
-2. **按住 Control 键点击**（或右键）App 图标，选「打开」
-3. 弹窗里点「打开」确认
+**Method B: Allow via System Settings**
 
-**方式 B：系统设置放行**
+1. Close the dialog after double-clicking the app and triggering the warning.
+2. Open **System Settings → Privacy & Security**.
+3. Scroll to the bottom, find the prompt about "MoliShot", and click **Open Anyway**.
+4. Double-click the app to open it afterwards.
 
-1. 双击 App 触发拦截弹窗后，关闭弹窗
-2. 打开 **系统设置 → 隐私与安全性**
-3. 滚动到底部，找到关于 "MoliShot" 的提示，点「仍要打开」
-4. 之后再双击 App 即可打开
-
-**方式 C：命令行移除隔离属性**（适合"已损坏"提示）
+**Method C: Remove quarantine attribute via Terminal** (Suitable for the "damaged" warning)
 
 ```bash
 xattr -dr com.apple.quarantine /Applications/MoliShot.app
 ```
 
-执行后双击 App 即可。这是 macOS 对未签名下载文件的隔离标记，移除不影响功能。
+After executing this, double-click the app to open it. This removes the quarantine flag macOS places on unsigned downloads and does not affect the app's functionality.
 
-> 放行后系统会记住该 App，后续打开不再拦截。录屏权限和辅助功能权限需在系统设置里单独授予（见下文「使用」）。
+> Once allowed, the system remembers the app and won't block it again. Screen Recording and Accessibility permissions must be granted separately in System Settings (see "Usage" below).
 
-## 构建
+## Build
 
-### 1. 安装 XcodeGen（首次）
+### 1. Install XcodeGen (First time only)
 
 ```bash
 brew install xcodegen
 ```
 
-### 2. 生成 Xcode 项目
+### 2. Generate Xcode Project
 
 ```bash
 cd /path/to/MoliShot
@@ -78,126 +78,124 @@ xcodegen generate
 open MoliShot.xcodeproj
 ```
 
-### 3. 在 Xcode 中配置签名
+### 3. Configure Signing in Xcode
 
-首次打开后，在 Target `MoliShot` 的 **Signing & Capabilities** 面板：
+After opening the project for the first time, go to the Target `MoliShot` → **Signing & Capabilities** panel:
 
-- Team：选你自己的 Apple ID 或 "Sign to Run Locally"
-- Bundle Identifier：可保留 `com.molishot.app` 或改成你自己的
+- Team: Select your own Apple ID or "Sign to Run Locally"
+- Bundle Identifier: Keep `com.molishot.app` or change it to your own
 
-### 4. 运行
+### 4. Run
 
-`⌘R` 运行。第一次真正发起截图时，系统会按 `NSScreenCaptureUsageDescription` 弹出录屏授权：**System Settings → Privacy & Security → Screen Recording**（或「屏幕与系统音频录制」），勾选 `MoliShot` 后，**完全退出再打开**一次 App 最稳妥。
+Press `⌘R` to run. The first time you take a screenshot, the system will prompt for screen recording authorization as defined in `NSScreenCaptureUsageDescription`: **System Settings → Privacy & Security → Screen Recording**. Check `MoliShot` and then **fully quit and restart** the app to ensure it works correctly.
 
-如果你希望截图热键触发时尽量保持目标 App 的菜单、Popover、tooltip 不被提前关闭，还需要授予 **Accessibility** 权限。没有该权限时截图仍可工作，但这部分行为只能尽力而为。
+If you want the screenshot hotkeys to keep target menus, popovers, and tooltips open without closing them prematurely, you need to grant **Accessibility** permission. Screenshots will still work without it, but behaviors in these scenarios are best-effort.
 
-### 5. 打包成 DMG（自用）
+### 5. Build DMG (For personal use)
 
-仓库内置了一个自动打包脚本，会生成 `dist/MoliShot.dmg` 并自动打开输出目录：
+The repository includes an automatic packaging script that generates `dist/MoliShot.dmg` and opens the output directory:
 
 ```bash
 cd ~/Desktop/Shottr-Clone
 ./scripts/build-dmg.sh
 ```
 
-脚本会自动执行：
+The script automatically:
 
-- `xcodegen generate`
-- `Release` 构建
-- 查找生成的 `MoliShot.app`
-- 输出 `dist/MoliShot.dmg`
-- 在 DMG 根目录放置 `MoliShot.app` 和 `Applications` 快捷入口，支持直接拖拽安装
-- 打开 `dist/` 目录
+- Runs `xcodegen generate`
+- Builds the `Release` configuration
+- Locates the generated `MoliShot.app`
+- Outputs `dist/MoliShot.dmg`
+- Places `MoliShot.app` and an `Applications` shortcut in the DMG root, supporting drag-and-drop installation
+- Opens the `dist/` directory
 
-### 录屏权限反复弹窗？
+### Screen Recording Permission Prompting Repeatedly?
 
-不要在启动时主动调用 `CGRequestScreenCaptureAccess()`：在从 Xcode 运行的 **Debug / 未签名** 构建里，`CGPreflightScreenCaptureAccess()` 有时会长期返回 `false`，于是每次启动都会再弹一次系统 sheet。当前版本已去掉该行为；若仍异常，请确认系统设置里勾选的是 **当前这条路径** 下的 `MoliShot`（例如 `DerivedData/.../Debug/MoliShot.app` 与 `/Applications/MoliShot.app` 会被系统当成不同条目）。正式发布后把 App 放进 `/Applications` 并固定签名即可。
+Do not call `CGRequestScreenCaptureAccess()` at startup. In **Debug / Unsigned** builds run from Xcode, `CGPreflightScreenCaptureAccess()` sometimes returns `false` indefinitely, prompting the system sheet on every launch. This behavior has been removed in the current version. If issues persist, ensure that the **specific path** of `MoliShot` currently checked in System Settings is correct (e.g. `DerivedData/.../Debug/MoliShot.app` vs `/Applications/MoliShot.app` are treated as separate entries by the system). For release versions, placing the app in `/Applications` with a consistent signature solves this.
 
-### 遇到 `xcodebuild` 插件错误？
+### Xcodebuild Plugin Errors?
 
-如果命令行 `xcodebuild` 报 `IDESimulatorFoundation` 加载失败，那是 Xcode 本身的系统组件需要初始化。先用 Xcode GUI 构建一次就能自动修复，或执行：
+If `xcodebuild` in the terminal complains about failing to load `IDESimulatorFoundation`, that means Xcode's system components need initialization. Build the app using Xcode GUI once to fix this, or run:
 
 ```bash
 sudo xcodebuild -runFirstLaunch
 ```
 
-这和本项目无关，是你本机 Xcode 安装状态问题。用 Xcode 图形界面直接打开 `.xcodeproj` 构建不受影响。
+This is an issue with your local Xcode installation, not this project. Building via the Xcode GUI directly using `.xcodeproj` is unaffected.
 
-## 使用
+## Usage
 
-启动后菜单栏会出现相机图标。默认快捷键：
+After launching, a camera icon will appear in the menu bar. Default hotkeys:
 
-
-| 动作            | 快捷键 |
-| ------------- | --- |
-| 区域截图          | ⇧⌘1 |
-| 当前显示器截图  | ⇧⌘3 |
-| 滚动截图          | ⇧⌘4 |
-| 屏幕取色器      | ⇧⌘P |
-| OCR 选区识别   | ⇧⌘R |
-
-
-截图完成后会自动弹出编辑器窗口。工具栏左到右：Pin/复制 → 工具选择 → 颜色/描边/字号/不透明度/填充/模糊半径（按选中类型条件显示）→ 裁剪/撤销/重做/清空 → 缩放 → OCR/保存/上传。
-
-编辑器快捷键：
-
-| 动作 | 快捷键 |
+| Action | Hotkey |
 | --- | --- |
-| 撤销 / 重做 | `⌘Z` / `⌘⇧Z` |
-| 复制选中标注（无选中时复制整图） | `⌘C` |
-| 粘贴标注 | `⌘V` |
-| 重复标注 | `⌘D` |
-| 删除选中 | `Delete` / `⌫` |
-| 上移/下移/置顶/置底 Z 序 | `⌘]` / `⌘[` / `⌘⇧]` / `⌘⇧[` |
-| 应用裁剪 / 取消裁剪 | `Enter` / `Esc` |
-| 缩放 / 适配窗口 / 实际尺寸 | `⌘+` `⌘-` / `⌘0` / `⌘1` |
-| 保存 | `⌘S` |
-| 取消选中 / 退出当前交互 | `Esc` |
+| Area Screenshot | ⇧⌘1 |
+| Capture Current Display | ⇧⌘3 |
+| Scrolling Screenshot | ⇧⌘4 |
+| Color Picker | ⇧⌘P |
+| OCR Recognition Area | ⇧⌘R |
 
-工具单键切换（文字编辑态自动透传输入）：`V` 选择 / `R` 矩形 / `O` 椭圆 / `L` 直线 / `A` 箭头 / `P` 画笔 / `T` 文字 / `N` 编号 / `B` 模糊 / `X` 像素化 / `Y` 高亮。
+The editor window automatically pops up after a screenshot. Toolbar options from left to right: Pin/Copy → Tool Selection → Color/Stroke/Font Size/Opacity/Fill/Blur Radius (conditionally displayed based on selection) → Crop/Undo/Redo/Clear → Zoom → OCR/Save/Upload.
 
-编辑器补充交互：
+Editor Hotkeys:
 
-- 选中标注后调颜色/描边/字号/不透明度/填充色/模糊半径 → 即时生效且可撤销
-- 选中标注拖 handle 可 resize（线条/箭头拖端点，文字 resize 缩放字号）
-- 文字标注支持双击重新编辑
-- 状态栏显示当前图片尺寸、标注数量、当前工具和缩放比例
+| Action | Hotkey |
+| --- | --- |
+| Undo / Redo | `⌘Z` / `⌘⇧Z` |
+| Copy Selected Annotation (copies full image if nothing selected) | `⌘C` |
+| Paste Annotation | `⌘V` |
+| Duplicate Annotation | `⌘D` |
+| Delete Selected | `Delete` / `⌫` |
+| Move selected Z-order (Up/Down/Front/Back) | `⌘]` / `⌘[` / `⌘⇧]` / `⌘⇧[` |
+| Apply Crop / Cancel Crop | `Enter` / `Esc` |
+| Zoom In / Zoom Out / Fit Window / Actual Size | `⌘+` `⌘-` / `⌘0` / `⌘1` |
+| Save | `⌘S` |
+| Deselect / Exit current interaction | `Esc` |
 
-## 项目结构
+Single-key tool switching (automatically passed through during text editing):
+`V` Select / `R` Rectangle / `O` Oval / `L` Line / `A` Arrow / `P` Pen / `T` Text / `N` Number (Counter) / `B` Blur / `X` Pixelate / `Y` Highlight.
+
+Editor Additional Interactions:
+- Changing color/stroke/font size/opacity/fill color/blur radius with an annotation selected updates it immediately and is undoable.
+- Drag handles to resize selected annotations (drag endpoints for lines/arrows, resizing text scales the font size).
+- Double-click text annotations to edit them.
+- The status bar displays the current image size, annotation count, current tool, and zoom level.
+
+## Project Structure
 
 ```
 Sources/
-├── App/                 # 应用入口、菜单栏、全局协调
-├── Capture/             # ScreenCaptureKit、区域选择、滚动截图
-├── Editor/              # 标注编辑器、各种 Annotation 类型
-├── OCR/                 # Vision 文字识别
-├── Pin/                 # 贴图浮动窗口
-├── ColorPicker/         # 屏幕取色器
-├── Ruler/               # 尺子 / 量角器
-├── History/             # 历史记录存储和浏览
-├── Hotkeys/             # 全局快捷键管理
-├── Preferences/         # 偏好设置窗口
-├── Services/            # 上传、导出服务
-└── Utilities/           # 权限、扩展、辅助函数
+├── App/                 # App entry point, menu bar, global coordination
+├── Capture/             # ScreenCaptureKit, area selection, scrolling capture
+├── Editor/              # Annotation editor, annotation types
+├── OCR/                 # Vision text recognition
+├── Pin/                 # Float/pinned window
+├── ColorPicker/         # Color picker
+├── Ruler/               # Ruler / Protractor
+├── History/             # History storage and browsing
+├── Hotkeys/             # Global hotkey management
+├── Preferences/         # Preferences window
+├── Services/            # Upload, export services
+└── Utilities/           # Permissions, extensions, helper functions
 Resources/
 ├── Info.plist
 └── MoliShot.entitlements
-project.yml              # XcodeGen 配置
+project.yml              # XcodeGen configuration
 ```
 
-## 已知限制和改进方向
+## Known Limitations & Future Work
 
-1. **区域截图当前只在鼠标所在显示器启动**：这是当前实现的明确行为，不是跨所有显示器自由框选。
-2. **滚动截图仍依赖手动滚动**：当页面滚动过快、重叠区域过少或内容抖动明显时，拼接可能失败。
-3. **OCR 仍是纯文本结果**：当前没有文字框高亮、逐块复制或结构化搜索。
-4. **DMG 未签名**：首次打开需手动放行（见上方「下载与安装」）。后续可考虑接入 Developer ID 签名 + 公证。
-5. **没有录屏**：当前版本只聚焦已经暴露出来的截图工作流。
-6. **性能优化未完全到位**：模糊/像素化已做渲染缓存，但底图每帧栅格化与 zoom 降采样尚未实现，4K + 大量标注时拖拽可能不够流畅。
+1. **Area screenshot only starts on the display where mouse is located**: This is by design, not a cross-display selection window.
+2. **Scrolling screenshot still requires manual scrolling**: Stitching may fail if scrolling is too fast, overlaps are too small, or page elements jitter.
+3. **OCR returns plain text only**: No text bounding boxes highlighted, segment copying, or structured search is supported yet.
+4. **DMG Unsigned**: Manual bypassing is required for the first launch (see "Download & Installation"). We may support Developer ID signing & notarization later.
+5. **No screen recording**: The current version only focuses on the screenshot workflow.
+6. **Performance is not fully optimized**: Rendering cache is implemented for blur/pixelate, but canvas-level redrawing and zoom downsampling for the base image are not yet implemented. Dragging may stutter with 4K resolution and many annotations.
 
-## 依赖
+## Dependencies
 
-- [HotKey](https://github.com/soffes/HotKey) — 全局快捷键，唯一的第三方依赖，由 SwiftPM 管理。
+- [HotKey](https://github.com/soffes/HotKey) — Global hotkeys, the only third-party dependency, managed via SwiftPM.
 
-## 许可
+## License
 
-自己决定，代码可自由修改。
+At your discretion, free to modify.
