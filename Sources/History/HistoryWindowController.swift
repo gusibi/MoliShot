@@ -5,6 +5,7 @@ final class HistoryWindowController: NSWindowController, NSCollectionViewDataSou
     private let collectionView = NSCollectionView()
     private let scroll = NSScrollView()
     private let emptyLabel = NSTextField(labelWithString: L10n.text(.noScreenshotsYet))
+    private let emptyStack = NSStackView()
 
     init() {
         let window = NSWindow(
@@ -52,25 +53,36 @@ final class HistoryWindowController: NSWindowController, NSCollectionViewDataSou
         scroll.translatesAutoresizingMaskIntoConstraints = false
         content.addSubview(scroll)
 
-        emptyLabel.translatesAutoresizingMaskIntoConstraints = false
+        let emptyIcon = NSImageView()
+        emptyIcon.image = NSImage(systemSymbolName: "photo.on.rectangle.angled", accessibilityDescription: nil)?
+            .withSymbolConfiguration(NSImage.SymbolConfiguration(pointSize: 44, weight: .light))
+        emptyIcon.contentTintColor = MoliDesign.tertiaryText
+
         emptyLabel.textColor = MoliDesign.secondaryText
         emptyLabel.font = NSFont.systemFont(ofSize: 13, weight: .medium)
-        content.addSubview(emptyLabel)
+
+        emptyStack.orientation = .vertical
+        emptyStack.alignment = .centerX
+        emptyStack.spacing = 12
+        emptyStack.addArrangedSubview(emptyIcon)
+        emptyStack.addArrangedSubview(emptyLabel)
+        emptyStack.translatesAutoresizingMaskIntoConstraints = false
+        content.addSubview(emptyStack)
 
         NSLayoutConstraint.activate([
             scroll.topAnchor.constraint(equalTo: content.topAnchor),
             scroll.leadingAnchor.constraint(equalTo: content.leadingAnchor),
             scroll.trailingAnchor.constraint(equalTo: content.trailingAnchor),
             scroll.bottomAnchor.constraint(equalTo: content.bottomAnchor),
-            emptyLabel.centerXAnchor.constraint(equalTo: content.centerXAnchor),
-            emptyLabel.centerYAnchor.constraint(equalTo: content.centerYAnchor),
+            emptyStack.centerXAnchor.constraint(equalTo: content.centerXAnchor),
+            emptyStack.centerYAnchor.constraint(equalTo: content.centerYAnchor),
         ])
     }
 
     private func reload() {
         window?.title = L10n.text(.history)
         emptyLabel.stringValue = L10n.text(.noScreenshotsYet)
-        emptyLabel.isHidden = !HistoryStore.shared.entries.isEmpty
+        emptyStack.isHidden = !HistoryStore.shared.entries.isEmpty
         collectionView.reloadData()
     }
 
@@ -98,11 +110,25 @@ final class HistoryWindowController: NSWindowController, NSCollectionViewDataSou
 
 private final class HistoryCellView: MoliCardView {
     weak var imageView: NSImageView?
+    var onHoverChanged: ((Bool) -> Void)?
 
     override func viewDidChangeEffectiveAppearance() {
         super.viewDidChangeEffectiveAppearance()
         imageView?.layer?.backgroundColor = MoliDesign.cardElevated.cgColor
     }
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        trackingAreas.forEach(removeTrackingArea)
+        addTrackingArea(NSTrackingArea(
+            rect: bounds,
+            options: [.mouseEnteredAndExited, .activeAlways, .inVisibleRect],
+            owner: self, userInfo: nil
+        ))
+    }
+
+    override func mouseEntered(with event: NSEvent) { onHoverChanged?(true) }
+    override func mouseExited(with event: NSEvent) { onHoverChanged?(false) }
 }
 
 final class HistoryCell: NSCollectionViewItem {
@@ -111,17 +137,30 @@ final class HistoryCell: NSCollectionViewItem {
 
     private let imgView = NSImageView()
     private let label = NSTextField(labelWithString: "")
-    private let deleteBtn = NSButton()
-    private let openBtn = NSButton()
+    private let deleteBtn = MoliHoverButton()
+    private let openBtn = MoliHoverButton()
 
     override func loadView() {
         let v = HistoryCellView(
             frame: NSRect(x: 0, y: 0, width: 210, height: 164),
             fillColor: MoliDesign.card,
             borderColor: MoliDesign.hairline,
-            cornerRadius: 10
+            cornerRadius: 12
         )
         view = v
+
+        // Action buttons stay hidden until the card is hovered; hover also
+        // lifts the card to the elevated surface color.
+        v.onHoverChanged = { [weak self, weak v] hovered in
+            guard let self, let v else { return }
+            v.fillColor = hovered ? MoliDesign.cardElevated : MoliDesign.card
+            v.applyStyle()
+            NSAnimationContext.runAnimationGroup { ctx in
+                ctx.duration = MoliDesign.reduceMotion ? 0.01 : 0.15
+                self.openBtn.animator().alphaValue = hovered ? 1 : 0
+                self.deleteBtn.animator().alphaValue = hovered ? 1 : 0
+            }
+        }
 
         imgView.translatesAutoresizingMaskIntoConstraints = false
         imgView.imageScaling = .scaleProportionallyUpOrDown
@@ -178,12 +217,11 @@ final class HistoryCell: NSCollectionViewItem {
         label.stringValue = df.string(from: entry.timestamp)
     }
 
-    private func configureActionButton(_ button: NSButton, symbol: String, tooltip: String, action: Selector) {
-        button.isBordered = false
+    private func configureActionButton(_ button: MoliHoverButton, symbol: String, tooltip: String, action: Selector) {
+        button.layer?.cornerRadius = 6
         button.image = NSImage(systemSymbolName: symbol, accessibilityDescription: tooltip)
         button.imagePosition = .imageOnly
         button.imageScaling = .scaleProportionallyDown
-        button.contentTintColor = MoliDesign.icon
         button.toolTip = tooltip
         button.setAccessibilityLabel(tooltip)
         button.target = self
@@ -191,6 +229,7 @@ final class HistoryCell: NSCollectionViewItem {
         button.translatesAutoresizingMaskIntoConstraints = false
         button.widthAnchor.constraint(equalToConstant: 24).isActive = true
         button.heightAnchor.constraint(equalToConstant: 24).isActive = true
+        button.alphaValue = 0  // revealed on card hover
     }
 
     @objc private func openTap() { onOpen?() }

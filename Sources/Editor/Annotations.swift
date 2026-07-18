@@ -38,6 +38,27 @@ enum AnnotationTool: String, CaseIterable {
         case .crop: return L10n.text(.crop)
         }
     }
+
+    /// Single-key shortcut for switching to this tool (uppercased for display).
+    /// Canonical source for both the toolbar tooltips and the editor's
+    /// key-down tool switching — reverse this map, don't maintain a second one.
+    /// `crop` is a modal, not a tool, so it has no single-key shortcut.
+    var shortcutKey: String? {
+        switch self {
+        case .select: return "V"
+        case .rectangle: return "R"
+        case .ellipse: return "O"
+        case .line: return "L"
+        case .arrow: return "A"
+        case .pen: return "P"
+        case .text: return "T"
+        case .number: return "N"
+        case .blur: return "B"
+        case .pixelate: return "X"
+        case .highlight: return "Y"
+        case .crop: return nil
+        }
+    }
 }
 
 /// Value-type annotation model. Each annotation carries a stable `id` (UUID)

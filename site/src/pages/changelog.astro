@@ -23,6 +23,33 @@ import BaseLayout from '../layouts/BaseLayout.astro';
         </div>
       </header>
 
+      <!-- v0.7.1 -->
+      <article
+        class="py-8 border-b border-bord dark:border-[#222]"
+      >
+        <div class="inline-flex items-center gap-3 mb-2">
+          <span
+            class="px-3 py-1 bg-accent/10 border border-accent/20 rounded-full font-mono text-sm font-semibold text-accent"
+            >v0.7.1</span
+          >
+          <span
+            class="font-mono text-sm text-mute-dim dark:text-[#555]">2026-07-18</span
+          >
+        </div>
+        <h2
+          class="font-mono font-semibold text-xl mb-4"
+          data-i18n="changelog.v071Title"
+        >
+          界面与交互整改：全新设置页与编辑器交互优化
+        </h2>
+        <ul class="space-y-2">
+          <li class="relative pl-6 text-mute dark:text-[#888] before:absolute before:left-0 before:content-['>'] before:text-accent before:font-mono" data-i18n="changelog.v071Item1">重构设置页面：使用 SwiftUI Form 与 NavigationSplitView 替换自定义侧边栏，完美适配系统原生外观、明暗主题与强调色</li>
+          <li class="relative pl-6 text-mute dark:text-[#888] before:absolute before:left-0 before:content-['>'] before:text-accent before:font-mono" data-i18n="changelog.v071Item2">优化编辑器工具栏：新增分割线分组、常用颜色色板，支持在小截图下自动收起低频控件至溢出菜单</li>
+          <li class="relative pl-6 text-mute dark:text-[#888] before:absolute before:left-0 before:content-['>'] before:text-accent before:font-mono" data-i18n="changelog.v071Item3">新增裁剪模式常驻确认条（✓ / ✕），提供清晰的退出指引，并简化了状态栏像素信息</li>
+          <li class="relative pl-6 text-mute dark:text-[#888] before:absolute before:left-0 before:content-['>'] before:text-accent before:font-mono" data-i18n="changelog.v071Item4">工具栏按钮与快捷键录制按钮补充完整的 Tooltip 操作提示，优化缩放微调及弹出框手势等体验</li>
+        </ul>
+      </article>
+
       <!-- v0.7.0 -->
       <article
         class="py-8 border-b border-bord dark:border-[#222]"

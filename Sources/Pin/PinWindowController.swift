@@ -48,9 +48,44 @@ final class PinWindowController: NSWindowController, NSWindowDelegate {
             }
         }
         window.contentView = view
+        window.alphaValue = 0  // shown via the pop-in animation in showWindow
     }
 
     required init?(coder: NSCoder) { fatalError() }
+
+    /// Pop in with a short rise + fade so the pin reads as arriving from the
+    /// capture, instead of appearing out of nowhere.
+    override func showWindow(_ sender: Any?) {
+        super.showWindow(sender)
+        guard let window, window.alphaValue == 0 else { return }
+        if MoliDesign.reduceMotion {
+            window.alphaValue = 1
+            return
+        }
+        let finalFrame = window.frame
+        window.setFrame(finalFrame.offsetBy(dx: 0, dy: -10), display: false)
+        NSAnimationContext.runAnimationGroup { ctx in
+            ctx.duration = 0.28
+            ctx.timingFunction = CAMediaTimingFunction(name: .easeOut)
+            window.animator().alphaValue = 1
+            window.animator().setFrame(finalFrame, display: true)
+        }
+    }
+
+    /// Mirror the entrance: fade out along the same path before closing.
+    override func close() {
+        guard let window, window.alphaValue > 0, !MoliDesign.reduceMotion else {
+            super.close()
+            return
+        }
+        NSAnimationContext.runAnimationGroup({ ctx in
+            ctx.duration = 0.15
+            window.animator().alphaValue = 0
+            window.animator().setFrame(window.frame.offsetBy(dx: 0, dy: -8), display: true)
+        }, completionHandler: {
+            super.close()
+        })
+    }
 
     private static func fitSize(for s: NSSize) -> NSSize {
         let maxSide: CGFloat = 900
@@ -88,7 +123,7 @@ final class PinView: NSView {
     var onOCR: (() -> Void)?
 
     private let imageView: DraggablePinImageView
-    private let toolbar: NSStackView
+    private let toolbarChrome: NSVisualEffectView
 
     init(frame: NSRect, image: NSImage) {
         self.imageView = DraggablePinImageView(frame: frame)
@@ -96,20 +131,31 @@ final class PinView: NSView {
         self.imageView.imageScaling = .scaleProportionallyUpOrDown
         self.imageView.autoresizingMask = [.width, .height]
 
-        self.toolbar = NSStackView()
-        toolbar.orientation = .horizontal
-        toolbar.spacing = 6
-        toolbar.edgeInsets = NSEdgeInsets(top: 4, left: 8, bottom: 4, right: 8)
-        toolbar.wantsLayer = true
-        toolbar.translatesAutoresizingMaskIntoConstraints = false
-        toolbar.alphaValue = 0
+        // Hover toolbar rendered on a translucent HUD material so it reads as
+        // floating chrome rather than an opaque strip.
+        self.toolbarChrome = NSVisualEffectView()
+        toolbarChrome.material = .hudWindow
+        toolbarChrome.blendingMode = .withinWindow
+        toolbarChrome.state = .active
+        toolbarChrome.wantsLayer = true
+        toolbarChrome.layer?.cornerRadius = 8
+        toolbarChrome.layer?.masksToBounds = true
+        toolbarChrome.translatesAutoresizingMaskIntoConstraints = false
+        toolbarChrome.alphaValue = 0
 
         super.init(frame: frame)
         wantsLayer = true
         applyStyle()
 
         addSubview(imageView)
-        addSubview(toolbar)
+        addSubview(toolbarChrome)
+
+        let toolbar = NSStackView()
+        toolbar.orientation = .horizontal
+        toolbar.spacing = 4
+        toolbar.edgeInsets = NSEdgeInsets(top: 4, left: 6, bottom: 4, right: 6)
+        toolbar.translatesAutoresizingMaskIntoConstraints = false
+        toolbarChrome.addSubview(toolbar)
 
         let closeBtn = makeBtn("xmark.circle.fill", tooltip: L10n.text(.close), sel: #selector(closeTap))
         let copyBtn = makeBtn("doc.on.doc", tooltip: L10n.text(.copy), sel: #selector(copyTap))
@@ -118,8 +164,12 @@ final class PinView: NSView {
         [closeBtn, copyBtn, saveBtn, ocrBtn].forEach { toolbar.addArrangedSubview($0) }
 
         NSLayoutConstraint.activate([
-            toolbar.topAnchor.constraint(equalTo: topAnchor, constant: 6),
-            toolbar.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -6),
+            toolbar.topAnchor.constraint(equalTo: toolbarChrome.topAnchor),
+            toolbar.leadingAnchor.constraint(equalTo: toolbarChrome.leadingAnchor),
+            toolbar.trailingAnchor.constraint(equalTo: toolbarChrome.trailingAnchor),
+            toolbar.bottomAnchor.constraint(equalTo: toolbarChrome.bottomAnchor),
+            toolbarChrome.topAnchor.constraint(equalTo: topAnchor, constant: 6),
+            toolbarChrome.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -6),
         ])
 
         let area = NSTrackingArea(rect: bounds, options: [.mouseEnteredAndExited, .activeAlways, .inVisibleRect], owner: self, userInfo: nil)
@@ -138,17 +188,12 @@ final class PinView: NSView {
         layer?.borderWidth = 1
         layer?.borderColor = MoliDesign.hairline.cgColor
         layer?.masksToBounds = true
-        toolbar.layer?.backgroundColor = MoliDesign.card.withAlphaComponent(0.94).cgColor
-        toolbar.layer?.cornerRadius = 8
-        toolbar.layer?.borderWidth = 1
-        toolbar.layer?.borderColor = MoliDesign.hairline.cgColor
     }
 
     private func makeBtn(_ symbol: String, tooltip: String, sel: Selector) -> NSButton {
-        let b = NSButton()
-        b.isBordered = false
+        let b = MoliHoverButton()
+        b.layer?.cornerRadius = 5
         b.image = NSImage(systemSymbolName: symbol, accessibilityDescription: tooltip)
-        b.contentTintColor = MoliDesign.icon
         b.toolTip = tooltip
         b.setAccessibilityLabel(tooltip)
         b.target = self
@@ -160,14 +205,14 @@ final class PinView: NSView {
 
     override func mouseEntered(with event: NSEvent) {
         NSAnimationContext.runAnimationGroup { ctx in
-            ctx.duration = 0.15
-            toolbar.animator().alphaValue = 1
+            ctx.duration = MoliDesign.reduceMotion ? 0.01 : 0.15
+            toolbarChrome.animator().alphaValue = 1
         }
     }
     override func mouseExited(with event: NSEvent) {
         NSAnimationContext.runAnimationGroup { ctx in
-            ctx.duration = 0.2
-            toolbar.animator().alphaValue = 0
+            ctx.duration = MoliDesign.reduceMotion ? 0.01 : 0.2
+            toolbarChrome.animator().alphaValue = 0
         }
     }
 

@@ -337,6 +337,11 @@ final class EditorView: NSView {
 
     override func mouseDown(with event: NSEvent) {
         commitActiveTextEditing()
+        // Claim first responder so Return/Esc/Delete reach this view; AppKit
+        // does not do this automatically for plain NSViews.
+        if window?.firstResponder !== self {
+            window?.makeFirstResponder(self)
+        }
         let p = convert(event.locationInWindow, from: nil)
         dragStart = p
         lastPoint = p
@@ -621,6 +626,7 @@ final class EditorView: NSView {
         syncFrameToCrop()
         updateCursor()
         delegate?.editorViewDidChangeContent(self)
+        delegate?.editorViewDidChangeTool(self)
         needsDisplay = true
     }
 
@@ -634,6 +640,7 @@ final class EditorView: NSView {
             cropMode = false
             syncFrameToCrop()
             updateCursor()
+            delegate?.editorViewDidChangeTool(self)
             needsDisplay = true
             return false
         }
@@ -646,6 +653,7 @@ final class EditorView: NSView {
         syncFrameToCrop()
         updateCursor()
         delegate?.editorViewDidChangeContent(self)
+        delegate?.editorViewDidChangeTool(self)
         needsDisplay = true
         return true
     }
@@ -658,6 +666,7 @@ final class EditorView: NSView {
         cropDragStart = nil
         syncFrameToCrop()
         updateCursor()
+        delegate?.editorViewDidChangeTool(self)
         needsDisplay = true
     }
 
@@ -978,6 +987,7 @@ final class EditorView: NSView {
         addSubview(tf)
         window?.makeFirstResponder(tf)
         editingField = tf
+        resizeEditingField(tf)
         // Retain the struct copy (boxed) so commit/cancel can read it back;
         // ASSIGN is for weak object references and would not retain a value type.
         objc_setAssociatedObject(tf, &textAnnotationKey, annotation, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
@@ -1005,8 +1015,21 @@ final class EditorView: NSView {
         pendingTextCreation = false
         sender.removeFromSuperview()
         editingField = nil
+        window?.makeFirstResponder(self)
         delegate?.editorViewDidChangeContent(self)
         needsDisplay = true
+    }
+
+    /// Grow the in-place editor to fit its current content so long text is
+    /// never clipped while typing.
+    private func resizeEditingField(_ tf: NSTextField) {
+        guard let font = tf.font else { return }
+        let text = tf.stringValue.isEmpty ? " " : tf.stringValue
+        let measured = (text as NSString).size(withAttributes: [.font: font])
+        var frame = tf.frame
+        frame.size.width = max(ceil(measured.width) + 14, 40)
+        frame.size.height = max(ceil(measured.height) + 8, frame.size.height)
+        tf.frame = frame
     }
 
     private func cancelEditing(_ sender: NSTextField) {
@@ -1032,6 +1055,12 @@ final class EditorView: NSView {
 private var textAnnotationKey: UInt8 = 0
 
 extension EditorView: NSTextFieldDelegate {
+    func controlTextDidChange(_ obj: Notification) {
+        if let tf = obj.object as? EscapableTextField, tf === editingField {
+            resizeEditingField(tf)
+        }
+    }
+
     func controlTextDidEndEditing(_ obj: Notification) {
         if let tf = obj.object as? NSTextField {
             commitEditing(tf)

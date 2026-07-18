@@ -4,7 +4,7 @@ English | [中文版](README_zh.md)
 
 A macOS screenshot utility based on Swift + AppKit + ScreenCaptureKit + Vision, targeting the core features of Shottr Pro.
 
-**Current Version**: v0.7.0 — Editor refactoring (real undo/redo, resizing, cropping modal, copy-paste, Z-ordering, adjustable styles).
+**Current Version**: v0.7.1 — UI & Interaction Refinement (native SwiftUI Preferences, editor swatches, crop confirmation bar, responsive toolbar).
 
 **⚠ Status**: A functional baseline version, covering the complete screenshot workflow from the menu bar and hotkeys. Compared to mature products, some limitations remain, mainly rolling screenshot stability and OCR structured output.
 

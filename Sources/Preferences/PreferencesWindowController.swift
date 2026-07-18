@@ -2,70 +2,32 @@ import AppKit
 import SwiftUI
 import HotKey
 
-// MARK: - Layout Constants
-
-private enum PreferencesLayout {
-    static let windowWidth: CGFloat = 780
-    static let windowHeight: CGFloat = 560
-    static let minWindowWidth: CGFloat = 600
-    static let minWindowHeight: CGFloat = 400
-    static let sidebarWidth: CGFloat = 196
-    static let detailMaxWidth: CGFloat = 520
-}
-
-private enum PreferencesDesign {
-    static let primary = NSColor.srgb(hex: 0x5e6ad2)
-    static let primaryHover = NSColor.srgb(hex: 0x828fff)
-    static let onPrimary = NSColor.srgb(hex: 0xffffff)
-
-    static let canvas = NSColor.adaptive(light: .srgb(hex: 0xffffff), dark: .srgb(hex: 0x010102))
-    static let sidebar = NSColor.adaptive(light: .srgb(hex: 0xf5f6f6), dark: .srgb(hex: 0x0f1011))
-    static let surface1 = NSColor.adaptive(light: .srgb(hex: 0xf5f6f6), dark: .srgb(hex: 0x0f1011))
-    static let surface2 = NSColor.adaptive(light: .srgb(hex: 0xf6f7f7), dark: .srgb(hex: 0x141516))
-    static let surface3 = NSColor.adaptive(light: .srgb(hex: 0xffffff), dark: .srgb(hex: 0x18191a))
-    static let ink = NSColor.adaptive(light: .srgb(hex: 0x000000), dark: .srgb(hex: 0xf7f8f8))
-    static let inkMuted = NSColor.adaptive(light: .srgb(hex: 0x4d5561), dark: .srgb(hex: 0xd0d6e0))
-    static let inkSubtle = NSColor.adaptive(light: .srgb(hex: 0x747986), dark: .srgb(hex: 0x8a8f98))
-    static let inkTertiary = NSColor.adaptive(light: .srgb(hex: 0x9aa0aa), dark: .srgb(hex: 0x62666d))
-    static let hairline = NSColor.adaptive(light: .srgb(hex: 0xe4e6ea), dark: .srgb(hex: 0x23252a))
-    static let hairlineStrong = NSColor.adaptive(light: .srgb(hex: 0xd2d6de), dark: .srgb(hex: 0x34343a))
-    static let success = NSColor.srgb(hex: 0x27a644)
-    static let danger = NSColor.srgb(hex: 0xff453a)
-
-    static func navFill(isSelected: Bool) -> NSColor {
-        isSelected ? surface2 : .clear
-    }
-
-    static func controlFill(isPressed: Bool) -> NSColor {
-        isPressed ? surface3 : surface2
-    }
-}
-
 // MARK: - Window Controller
 
 final class PreferencesWindowController: NSWindowController {
-    private var hostingView: NSHostingView<PreferencesContentView>?
+    /// System Settings uses a fixed-width window; we match that. The detail
+    /// Form scrolls, so the height stays fixed too.
+    private static let windowWidth: CGFloat = 720
+    private static let windowHeight: CGFloat = 560
+
+    private var hostingController: NSHostingController<PreferencesContentView>?
 
     init() {
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: PreferencesLayout.windowWidth, height: PreferencesLayout.windowHeight),
-            styleMask: [.titled, .closable, .miniaturizable],
+            contentRect: NSRect(x: 0, y: 0, width: Self.windowWidth, height: Self.windowHeight),
+            styleMask: [.titled, .closable, .miniaturizable, .fullSizeContentView],
             backing: .buffered,
             defer: false
         )
         window.title = L10n.text(.preferences)
         window.titlebarAppearsTransparent = true
-        window.titleVisibility = .hidden
-        window.backgroundColor = PreferencesDesign.canvas
-        window.center()
-        window.minSize = NSSize(width: PreferencesLayout.minWindowWidth, height: PreferencesLayout.minWindowHeight)
         super.init(window: window)
 
-        let contentView = PreferencesContentView()
-        let hosting = NSHostingView(rootView: contentView)
-        hosting.translatesAutoresizingMaskIntoConstraints = false
-        window.contentView = hosting
-        self.hostingView = hosting
+        let hosting = NSHostingController(rootView: PreferencesContentView())
+        window.contentViewController = hosting
+        window.setContentSize(NSSize(width: Self.windowWidth, height: Self.windowHeight))
+        window.center()
+        self.hostingController = hosting
 
         NotificationCenter.default.addObserver(
             self,
@@ -82,9 +44,8 @@ final class PreferencesWindowController: NSWindowController {
     required init?(coder: NSCoder) { fatalError() }
 
     @objc private func languageDidChange() {
-        // Re-create the hosting view with fresh SwiftUI content
-        // SwiftUI will diff and only update changed text
-        hostingView?.rootView = PreferencesContentView()
+        // Rebuild the SwiftUI tree; it diffs and only re-renders changed text.
+        hostingController?.rootView = PreferencesContentView()
         window?.title = L10n.text(.preferences)
     }
 }
@@ -116,105 +77,17 @@ private enum PreferencesPane: String, CaseIterable {
 // MARK: - Main Content View
 
 struct PreferencesContentView: View {
-    @State private var selectedPane: PreferencesPane = .general
+    @State private var selectedPane: PreferencesPane? = .general
 
     var body: some View {
-        HStack(spacing: 0) {
-            sidebar
-            Rectangle()
-                .fill(Color(nsColor: PreferencesDesign.hairline))
-                .frame(width: 1)
-            detailArea
-        }
-        .background(Color(nsColor: PreferencesDesign.canvas))
-    }
-
-    // MARK: - Sidebar
-
-    private var sidebar: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack(spacing: 9) {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 6)
-                        .fill(Color(nsColor: PreferencesDesign.primary))
-
-                    Text("M")
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(Color(nsColor: PreferencesDesign.onPrimary))
-                }
-                .frame(width: 24, height: 24)
-                .accessibilityHidden(true)
-
-                Text(L10n.text(.preferences))
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(Color(nsColor: PreferencesDesign.ink))
+        NavigationSplitView {
+            List(PreferencesPane.allCases, id: \.self, selection: $selectedPane) { pane in
+                Label(pane.title, systemImage: pane.symbol)
             }
-            .padding(.horizontal, 4)
-            .padding(.bottom, 20)
-
-            ForEach(PreferencesPane.allCases, id: \.self) { pane in
-                sidebarButton(for: pane)
-            }
-
-            Spacer()
-        }
-        .padding(.top, 50)
-        .padding(.horizontal, 16)
-        .frame(width: PreferencesLayout.sidebarWidth)
-        .background(Color(nsColor: PreferencesDesign.sidebar))
-    }
-
-    private func sidebarButton(for pane: PreferencesPane) -> some View {
-        let isSelected = selectedPane == pane
-
-        return Button {
-            selectedPane = pane
-        } label: {
-            HStack(spacing: 8) {
-                Image(systemName: pane.symbol)
-                    .font(.system(size: 13, weight: .medium))
-                    .frame(width: 16)
-                    .accessibilityHidden(true)
-
-                Text(pane.title)
-                    .font(.system(size: 13, weight: isSelected ? .semibold : .regular))
-
-                Spacer(minLength: 0)
-            }
-            .foregroundStyle(Color(nsColor: isSelected ? PreferencesDesign.ink : PreferencesDesign.inkSubtle))
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .frame(height: 34)
-            .padding(.horizontal, 10)
-            .background(
-                RoundedRectangle(cornerRadius: 8)
-                    .fill(Color(nsColor: PreferencesDesign.navFill(isSelected: isSelected)))
-            )
-            .overlay(
-                HStack(spacing: 0) {
-                    Capsule()
-                        .fill(Color(nsColor: isSelected ? PreferencesDesign.primary : .clear))
-                        .frame(width: 2, height: 16)
-                    Spacer()
-                }
-                .padding(.leading, 1)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 8)
-                    .stroke(Color(nsColor: isSelected ? PreferencesDesign.hairlineStrong : .clear), lineWidth: 1)
-            )
-            .contentShape(.rect(cornerRadius: 8))
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(pane.title)
-    }
-
-    // MARK: - Detail Area
-
-    @ViewBuilder
-    private var detailArea: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 0) {
-                switch selectedPane {
+            .navigationSplitViewColumnWidth(196)
+        } detail: {
+            Form {
+                switch selectedPane ?? .general {
                 case .general:
                     GeneralPane()
                 case .hotkeys:
@@ -223,270 +96,26 @@ struct PreferencesContentView: View {
                     StoragePane()
                 }
             }
-            .frame(maxWidth: PreferencesLayout.detailMaxWidth, alignment: .leading)
-            .padding(.top, 34)
-            .padding(.horizontal, 32)
-            .padding(.bottom, 42)
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .formStyle(.grouped)
+            .navigationTitle((selectedPane ?? .general).title)
         }
-        .background(Color(nsColor: PreferencesDesign.canvas))
     }
 }
 
-// MARK: - Section Helpers
+// MARK: - Permission Badge
 
-private struct PaneHeader: View {
-    let title: String
-    let symbol: String
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 8) {
-                Image(systemName: symbol)
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(Color(nsColor: PreferencesDesign.primary))
-                    .accessibilityHidden(true)
-
-                Text(L10n.text(.preferences))
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(Color(nsColor: PreferencesDesign.inkSubtle))
-            }
-
-            Text(title)
-                .font(.system(size: 24, weight: .semibold))
-                .foregroundStyle(Color(nsColor: PreferencesDesign.ink))
-        }
-        .padding(.bottom, 22)
-    }
-}
-
-private struct SectionHeader: View {
-    let title: String
+/// Status expressed with colour + icon; the pill background the old design drew
+/// was a redundant extra layer.
+private struct PermissionBadge: View {
+    let granted: Bool
 
     var body: some View {
-        Text(title)
-            .font(.system(size: 11.5, weight: .medium))
-            .foregroundStyle(Color(nsColor: PreferencesDesign.inkSubtle))
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.horizontal, 2)
-            .padding(.top, 22)
-            .padding(.bottom, 8)
-    }
-}
-
-private struct SettingsGroup<Content: View>: View {
-    @ViewBuilder let content: () -> Content
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            content()
-        }
-        .background(Color(nsColor: PreferencesDesign.surface1))
-        .clipShape(RoundedRectangle(cornerRadius: 12))
-        .overlay(
-            RoundedRectangle(cornerRadius: 12)
-                .stroke(Color(nsColor: PreferencesDesign.hairline), lineWidth: 1)
+        Label(
+            granted ? L10n.text(.granted) : L10n.text(.notGranted),
+            systemImage: granted ? "checkmark.circle.fill" : "xmark.circle.fill"
         )
-    }
-}
-
-private struct SettingsRow<Control: View>: View {
-    let label: String
-    @ViewBuilder let control: () -> Control
-    let isLast: Bool
-
-    init(label: String, isLast: Bool = false, @ViewBuilder control: @escaping () -> Control) {
-        self.label = label
-        self.isLast = isLast
-        self.control = control
-    }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            HStack(spacing: 16) {
-                if label.isEmpty {
-                    Spacer(minLength: 0)
-                } else {
-                    Text(label)
-                        .font(.system(size: 13))
-                        .foregroundStyle(Color(nsColor: PreferencesDesign.inkMuted))
-                        .lineLimit(2)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                Spacer()
-                control()
-            }
-            .padding(.horizontal, 16)
-            .frame(minHeight: 46)
-
-            if !isLast {
-                Rectangle()
-                    .fill(Color(nsColor: PreferencesDesign.hairline))
-                    .frame(height: 1)
-                    .padding(.leading, 16)
-            }
-        }
-    }
-}
-
-private struct SettingsMessageRow: View {
-    let text: String
-    let isLast: Bool
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            HStack(alignment: .top, spacing: 8) {
-                Image(systemName: "info.circle")
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(Color(nsColor: PreferencesDesign.inkTertiary))
-                    .accessibilityHidden(true)
-
-                Text(text)
-                    .font(.system(size: 12))
-                    .foregroundStyle(Color(nsColor: PreferencesDesign.inkSubtle))
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 13)
-
-            if !isLast {
-                Rectangle()
-                    .fill(Color(nsColor: PreferencesDesign.hairline))
-                    .frame(height: 1)
-                    .padding(.leading, 16)
-            }
-        }
-        .accessibilityElement(children: .combine)
-    }
-}
-
-private struct SettingsStackedRow<Control: View>: View {
-    let label: String
-    let isLast: Bool
-    @ViewBuilder let control: () -> Control
-
-    init(label: String, isLast: Bool = false, @ViewBuilder control: @escaping () -> Control) {
-        self.label = label
-        self.isLast = isLast
-        self.control = control
-    }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            VStack(alignment: .leading, spacing: 10) {
-                Text(label)
-                    .font(.system(size: 13))
-                    .foregroundStyle(Color(nsColor: PreferencesDesign.inkMuted))
-
-                control()
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 14)
-
-            if !isLast {
-                Rectangle()
-                    .fill(Color(nsColor: PreferencesDesign.hairline))
-                    .frame(height: 1)
-                    .padding(.leading, 16)
-            }
-        }
-    }
-}
-
-private struct PermissionStatusLabel: View {
-    let isGranted: Bool
-
-    var body: some View {
-        HStack(spacing: 6) {
-            Image(systemName: isGranted ? "checkmark.circle.fill" : "xmark.circle.fill")
-                .font(.system(size: 12, weight: .semibold))
-                .accessibilityHidden(true)
-
-            Text(isGranted ? L10n.text(.granted) : L10n.text(.notGranted))
-                .font(.system(size: 12, weight: .medium))
-        }
-        .foregroundStyle(statusColor)
-        .padding(.horizontal, 9)
-        .frame(height: 24)
-        .background(
-            Capsule()
-                .fill(Color(nsColor: PreferencesDesign.surface2))
-        )
-        .overlay(
-            Capsule()
-                .stroke(Color(nsColor: PreferencesDesign.hairline), lineWidth: 1)
-        )
-        .fixedSize(horizontal: true, vertical: false)
-        .accessibilityElement(children: .combine)
-    }
-
-    private var statusColor: Color {
-        if isGranted {
-            return Color(nsColor: PreferencesDesign.success)
-        }
-        return Color(nsColor: PreferencesDesign.danger)
-    }
-}
-
-private struct PreferencePathValue: View {
-    let path: String
-
-    var body: some View {
-        Text(path)
-            .font(.system(size: 12))
-            .foregroundStyle(Color(nsColor: PreferencesDesign.inkSubtle))
-            .lineLimit(1)
-            .truncationMode(.middle)
-            .padding(.horizontal, 10)
-            .frame(maxWidth: 270, minHeight: 28, alignment: .trailing)
-            .background(
-                RoundedRectangle(cornerRadius: 8)
-                    .fill(Color(nsColor: PreferencesDesign.surface2))
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 8)
-                    .stroke(Color(nsColor: PreferencesDesign.hairline), lineWidth: 1)
-            )
-            .accessibilityLabel(path)
-    }
-}
-
-private struct PreferenceActionButtonStyle: ButtonStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(.system(size: 12, weight: .medium))
-            .foregroundStyle(Color(nsColor: PreferencesDesign.inkMuted))
-            .lineLimit(1)
-            .fixedSize(horizontal: true, vertical: false)
-            .padding(.horizontal, 12)
-            .frame(height: 30)
-            .background(
-                RoundedRectangle(cornerRadius: 8)
-                    .fill(Color(nsColor: PreferencesDesign.controlFill(isPressed: configuration.isPressed)))
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 8)
-                    .stroke(Color(nsColor: PreferencesDesign.hairlineStrong), lineWidth: 1)
-            )
-    }
-}
-
-private struct PreferenceTextFieldStyle: ViewModifier {
-    func body(content: Content) -> some View {
-        content
-            .font(.system(size: 12, weight: .medium))
-            .foregroundStyle(Color(nsColor: PreferencesDesign.ink))
-            .padding(.horizontal, 8)
-            .frame(width: 56, height: 28)
-            .background(
-                RoundedRectangle(cornerRadius: 8)
-                    .fill(Color(nsColor: PreferencesDesign.surface2))
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 8)
-                    .stroke(Color(nsColor: PreferencesDesign.hairlineStrong), lineWidth: 1)
-            )
+        .foregroundStyle(granted ? Color.green : Color.red)
+        .font(.system(size: 12, weight: .medium))
     }
 }
 
@@ -504,81 +133,68 @@ private struct GeneralPane: View {
     @State private var launchErrorMessage = ""
 
     var body: some View {
-        PaneHeader(title: L10n.text(.general), symbol: "gearshape")
-
-        SettingsGroup {
-            SettingsRow(label: L10n.text(.language)) {
-                Picker("", selection: $languageRaw) {
-                    ForEach(AppLanguage.allCases, id: \.rawValue) { lang in
-                        Text(lang.displayName).tag(lang.rawValue)
-                    }
+        Section {
+            Picker(L10n.text(.language), selection: $languageRaw) {
+                ForEach(AppLanguage.allCases, id: \.rawValue) { lang in
+                    Text(lang.displayName).tag(lang.rawValue)
                 }
-                .labelsHidden()
-                .pickerStyle(.menu)
-                .onChange(of: languageRaw) { _, newValue in
-                    if let lang = AppLanguage(rawValue: newValue) {
-                        L10n.selectedLanguage = lang
-                    }
+            }
+            .onChange(of: languageRaw) { _, newValue in
+                if let lang = AppLanguage(rawValue: newValue) {
+                    L10n.selectedLanguage = lang
                 }
             }
 
-            SettingsRow(label: L10n.text(.autoStart), isLast: true) {
-                Toggle("", isOn: $launchesAtLogin)
-                    .labelsHidden()
-                    .toggleStyle(.switch)
-                    .onChange(of: launchesAtLogin) { _, newValue in
-                        do {
-                            try AppSettings.setLaunchesAtLogin(newValue)
-                        } catch {
-                            launchesAtLogin = AppSettings.launchesAtLogin
-                            launchErrorMessage = error.localizedDescription
-                            showLaunchError = true
-                        }
+            Toggle(L10n.text(.autoStart), isOn: $launchesAtLogin)
+                .onChange(of: launchesAtLogin) { _, newValue in
+                    do {
+                        try AppSettings.setLaunchesAtLogin(newValue)
+                    } catch {
+                        launchesAtLogin = AppSettings.launchesAtLogin
+                        launchErrorMessage = error.localizedDescription
+                        showLaunchError = true
                     }
-            }
+                }
+        }
+        .alert(L10n.text(.launchAtLoginFailed), isPresented: $showLaunchError) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(launchErrorMessage)
         }
 
-        SectionHeader(title: L10n.text(.screenRecordingPermission))
-
-        SettingsGroup {
-            SettingsStackedRow(label: L10n.text(.screenRecordingPermission), isLast: true) {
-                HStack(spacing: 12) {
-                    PermissionStatusLabel(isGranted: hasScreenCapturePermission)
-
+        Section {
+            LabeledContent(L10n.text(.screenRecording)) {
+                HStack(spacing: 8) {
+                    PermissionBadge(granted: hasScreenCapturePermission)
                     Button(L10n.text(.openScreenRecordingSettings)) {
                         Permissions.openScreenRecordingPrivacySettings()
                     }
-                    .buttonStyle(PreferenceActionButtonStyle())
-                }
-            }
-        }
-
-        SectionHeader(title: L10n.text(.accessibilityPermission))
-
-        SettingsGroup {
-            SettingsStackedRow(label: L10n.text(.accessibilityPermission)) {
-                ViewThatFits(in: .horizontal) {
-                    HStack(spacing: 12) {
-                        PermissionStatusLabel(isGranted: hasAccessibilityPermission)
-                        accessibilityButtons
-                    }
-
-                    VStack(alignment: .leading, spacing: 8) {
-                        PermissionStatusLabel(isGranted: hasAccessibilityPermission)
-                        accessibilityButtons
-                    }
                 }
             }
 
-            SettingsRow(label: L10n.text(.hotkeyRegistrationMode)) {
+            LabeledContent(L10n.text(.accessibility)) {
+                PermissionBadge(granted: hasAccessibilityPermission)
+            }
+
+            HStack {
+                Spacer()
+                Button(L10n.text(.requestAccessibilityPermission)) {
+                    _ = Permissions.requestAccessibilityAccessUserInitiated()
+                }
+                Button(L10n.text(.openAccessibilitySettings)) {
+                    Permissions.openAccessibilityPrivacySettings()
+                }
+            }
+
+            LabeledContent(L10n.text(.hotkeyRegistrationMode)) {
                 Text(hotkeyModeText)
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(Color(nsColor: hotkeyRegistrationMode == .eventTap ? PreferencesDesign.success : PreferencesDesign.inkSubtle))
+                    .foregroundStyle(hotkeyRegistrationMode == .eventTap ? Color.green : Color.secondary)
             }
-
-            SettingsMessageRow(text: L10n.text(.accessibilityPermissionHint), isLast: true)
+        } header: {
+            Text(L10n.text(.permissions))
+        } footer: {
+            Text(L10n.text(.accessibilityPermissionHint))
         }
-
         .onAppear {
             refreshPermissionState()
         }
@@ -587,25 +203,6 @@ private struct GeneralPane: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: .hotkeyRegistrationModeDidChange)) { _ in
             hotkeyRegistrationMode = HotkeyManager.shared.registrationMode
-        }
-        .alert(L10n.text(.launchAtLoginFailed), isPresented: $showLaunchError) {
-            Button("OK", role: .cancel) {}
-        } message: {
-            Text(launchErrorMessage)
-        }
-    }
-
-    private var accessibilityButtons: some View {
-        HStack(spacing: 8) {
-            Button(L10n.text(.requestAccessibilityPermission)) {
-                _ = Permissions.requestAccessibilityAccessUserInitiated()
-            }
-            .buttonStyle(PreferenceActionButtonStyle())
-
-            Button(L10n.text(.openAccessibilitySettings)) {
-                Permissions.openAccessibilityPrivacySettings()
-            }
-            .buttonStyle(PreferenceActionButtonStyle())
         }
     }
 
@@ -629,16 +226,116 @@ private struct GeneralPane: View {
 
 private struct HotkeysPane: View {
     var body: some View {
-        PaneHeader(title: L10n.text(.hotkeys), symbol: "keyboard")
-
-        SettingsGroup {
-            let actions = HotkeyAction.allCases
-            ForEach(Array(actions.enumerated()), id: \.element) { index, action in
-                SettingsRow(label: action.title, isLast: index == actions.count - 1) {
+        Section {
+            ForEach(HotkeyAction.allCases, id: \.self) { action in
+                LabeledContent(action.title) {
                     HotkeyRecorderView(action: action)
                 }
             }
         }
+    }
+}
+
+// MARK: - Storage Pane
+
+private struct StoragePane: View {
+    @State private var saveDirectoryPath = AppSettings.saveDirectoryURL.path
+    @State private var historyLimit = AppSettings.historyLimit
+    @State private var saveFormat = AppSettings.saveFormat
+    @State private var jpegQuality = AppSettings.jpegQuality
+    @State private var showFileImporter = false
+
+    var body: some View {
+        Section {
+            LabeledContent(L10n.text(.saveDirectory)) {
+                HStack(spacing: 8) {
+                    Text(saveDirectoryPath)
+                        .truncationMode(.middle)
+                        .lineLimit(1)
+                        .foregroundStyle(.secondary)
+                    Button(L10n.text(.choose)) {
+                        showFileImporter = true
+                    }
+                }
+            }
+
+            HStack {
+                Spacer()
+                Button(L10n.text(.resetToDesktop)) {
+                    AppSettings.clearSaveDirectory()
+                    saveDirectoryPath = AppSettings.saveDirectoryURL.path
+                }
+            }
+        } header: {
+            Text(L10n.text(.saveDirectory))
+        }
+        .fileImporter(
+            isPresented: $showFileImporter,
+            allowedContentTypes: [.folder],
+            allowsMultipleSelection: false
+        ) { result in
+            switch result {
+            case .success(let urls):
+                guard let url = urls.first else { return }
+                guard url.startAccessingSecurityScopedResource() else { return }
+                defer { url.stopAccessingSecurityScopedResource() }
+                AppSettings.setSaveDirectory(url)
+                saveDirectoryPath = AppSettings.saveDirectoryURL.path
+            case .failure:
+                break
+            }
+        }
+
+        Section {
+            Stepper(value: $historyLimit, in: AppSettings.minHistoryLimit...AppSettings.maxHistoryLimit) {
+                LabeledContent(L10n.text(.keepRecentScreenshots)) {
+                    Text("\(historyLimit)")
+                }
+            }
+            .onChange(of: historyLimit) { _, newValue in
+                applyHistoryLimit(newValue)
+            }
+
+            Picker(L10n.text(.saveFormat), selection: $saveFormat) {
+                Text(L10n.text(.pngFormat)).tag(AppSettings.SaveFormat.png)
+                Text(L10n.text(.jpegFormat)).tag(AppSettings.SaveFormat.jpeg)
+            }
+            .pickerStyle(.segmented)
+            .onChange(of: saveFormat) { _, newValue in
+                AppSettings.saveFormat = newValue
+            }
+
+            if saveFormat == .jpeg {
+                Slider(value: $jpegQuality, in: AppSettings.minJpegQuality...AppSettings.maxJpegQuality) {
+                    Text(L10n.text(.jpegQuality))
+                } minimumValueLabel: {
+                    Text("\(Int((AppSettings.minJpegQuality * 100).rounded()))")
+                        .font(.caption)
+                } maximumValueLabel: {
+                    Text("\(Int((jpegQuality * 100).rounded()))%")
+                        .font(.caption)
+                        .monospacedDigit()
+                }
+                .onChange(of: jpegQuality) { _, newValue in
+                    AppSettings.jpegQuality = newValue
+                }
+            }
+        } header: {
+            Text(L10n.text(.history))
+        }
+        // Reveal/hide the JPEG quality row without an instant jump.
+        .animation(.default, value: saveFormat)
+    }
+
+    /// Clamp, persist, and apply the history retention limit. Shared by the
+    /// Stepper's onChange so the logic lives in one place.
+    private func applyHistoryLimit(_ newValue: Int) {
+        let clamped = AppSettings.clampedHistoryLimit(newValue)
+        if clamped != newValue {
+            historyLimit = clamped
+        }
+        AppSettings.historyLimit = clamped
+        HistoryStore.shared.applyRetentionLimit()
     }
 }
 
@@ -665,7 +362,8 @@ private struct HotkeyRecorderView: NSViewRepresentable {
 }
 
 /// AppKit-based hotkey recorder button with visual recording-state feedback.
-/// Uses Carbon key codes for HotKey library compatibility.
+/// Uses Carbon key codes for HotKey library compatibility. This is a legitimate
+/// self-drawn control — AppKit ships no shortcut recorder.
 private final class HotkeyRecorderButton: NSButton {
     var onBeginRecording: (() -> Void)?
     var onCapture: ((KeyCombo?) -> Void)?
@@ -682,6 +380,7 @@ private final class HotkeyRecorderButton: NSButton {
         isBordered = false
         wantsLayer = true
         applyBaseStyle()
+        toolTip = L10n.text(.hotkeyRecorderHint)
 
         target = self
         action = #selector(startRecording)
@@ -700,7 +399,7 @@ private final class HotkeyRecorderButton: NSButton {
         super.viewDidChangeEffectiveAppearance()
         applyBaseStyle()
         if isRecording {
-            layer?.borderColor = PreferencesDesign.primary.cgColor
+            layer?.borderColor = MoliDesign.accent.cgColor
             layer?.borderWidth = 2
         }
         updateTitle()
@@ -708,9 +407,9 @@ private final class HotkeyRecorderButton: NSButton {
 
     private func applyBaseStyle() {
         layer?.cornerRadius = 6
-        layer?.backgroundColor = PreferencesDesign.surface2.cgColor
+        layer?.backgroundColor = MoliDesign.cardElevated.cgColor
         layer?.borderWidth = 0.5
-        layer?.borderColor = PreferencesDesign.hairlineStrong.cgColor
+        layer?.borderColor = MoliDesign.hairline.cgColor
     }
 
     @objc private func startRecording() {
@@ -719,7 +418,7 @@ private final class HotkeyRecorderButton: NSButton {
         }
         isRecording = true
         // Visual feedback: accent border highlight
-        layer?.borderColor = PreferencesDesign.primary.cgColor
+        layer?.borderColor = MoliDesign.accent.cgColor
         layer?.borderWidth = 2
         updateTitle()
         window?.makeFirstResponder(self)
@@ -775,7 +474,7 @@ private final class HotkeyRecorderButton: NSButton {
     }
 
     private func resetBorder() {
-        layer?.borderColor = PreferencesDesign.hairlineStrong.cgColor
+        layer?.borderColor = MoliDesign.hairline.cgColor
         layer?.borderWidth = 0.5
     }
 
@@ -786,7 +485,7 @@ private final class HotkeyRecorderButton: NSButton {
 
         let attributedTitle = NSAttributedString(string: text, attributes: [
             .font: NSFont.systemFont(ofSize: 12, weight: .regular),
-            .foregroundColor: isRecording ? PreferencesDesign.primaryHover : PreferencesDesign.inkMuted,
+            .foregroundColor: isRecording ? MoliDesign.accent : MoliDesign.secondaryText,
             .paragraphStyle: paragraph,
         ])
         self.attributedTitle = attributedTitle
@@ -800,119 +499,5 @@ private final class HotkeyRecorderButton: NSButton {
     func setCombo(_ combo: KeyCombo?) {
         self.combo = combo
         updateTitle()
-    }
-}
-
-// MARK: - Storage Pane
-
-private struct StoragePane: View {
-    @State private var saveDirectoryPath = AppSettings.saveDirectoryURL.path
-    @State private var historyLimit = AppSettings.historyLimit
-    @State private var saveFormat = AppSettings.saveFormat
-    @State private var jpegQuality = AppSettings.jpegQuality
-    @State private var showFileImporter = false
-
-    var body: some View {
-        PaneHeader(title: L10n.text(.storage), symbol: "folder")
-
-        SectionHeader(title: L10n.text(.saveDirectory))
-
-        SettingsGroup {
-            SettingsRow(label: L10n.text(.saveDirectory)) {
-                HStack(spacing: 8) {
-                    PreferencePathValue(path: saveDirectoryPath)
-
-                    Button(L10n.text(.choose)) {
-                        showFileImporter = true
-                    }
-                    .buttonStyle(PreferenceActionButtonStyle())
-                }
-            }
-
-            SettingsRow(label: "", isLast: true) {
-                Button(L10n.text(.resetToDesktop)) {
-                    AppSettings.clearSaveDirectory()
-                    saveDirectoryPath = AppSettings.saveDirectoryURL.path
-                }
-                .buttonStyle(PreferenceActionButtonStyle())
-            }
-        }
-        .fileImporter(
-            isPresented: $showFileImporter,
-            allowedContentTypes: [.folder],
-            allowsMultipleSelection: false
-        ) { result in
-            switch result {
-            case .success(let urls):
-                guard let url = urls.first else { return }
-                guard url.startAccessingSecurityScopedResource() else { return }
-                defer { url.stopAccessingSecurityScopedResource() }
-                AppSettings.setSaveDirectory(url)
-                saveDirectoryPath = AppSettings.saveDirectoryURL.path
-            case .failure:
-                break
-            }
-        }
-
-        SectionHeader(title: L10n.text(.history))
-
-        SettingsGroup {
-            SettingsRow(label: L10n.text(.keepRecentScreenshots)) {
-                HStack(spacing: 8) {
-                    TextField("", value: $historyLimit, format: .number)
-                        .textFieldStyle(.plain)
-                        .multilineTextAlignment(.center)
-                        .modifier(PreferenceTextFieldStyle())
-                        .accessibilityLabel(L10n.text(.keepRecentScreenshots))
-                        .onChange(of: historyLimit) { _, newValue in
-                            let clamped = AppSettings.clampedHistoryLimit(newValue)
-                            if clamped != newValue {
-                                historyLimit = clamped
-                            }
-                            AppSettings.historyLimit = clamped
-                            HistoryStore.shared.applyRetentionLimit()
-                        }
-
-                    Stepper("", value: $historyLimit, in: AppSettings.minHistoryLimit...AppSettings.maxHistoryLimit)
-                        .labelsHidden()
-                        .onChange(of: historyLimit) { _, newValue in
-                            let clamped = AppSettings.clampedHistoryLimit(newValue)
-                            if clamped != newValue {
-                                historyLimit = clamped
-                            }
-                            AppSettings.historyLimit = clamped
-                            HistoryStore.shared.applyRetentionLimit()
-                        }
-                }
-            }
-
-            SettingsRow(label: L10n.text(.saveFormat), isLast: true) {
-                VStack(alignment: .leading, spacing: 8) {
-                    Picker("", selection: $saveFormat) {
-                        Text(L10n.text(.pngFormat)).tag(AppSettings.SaveFormat.png)
-                        Text(L10n.text(.jpegFormat)).tag(AppSettings.SaveFormat.jpeg)
-                    }
-                    .pickerStyle(.segmented)
-                    .labelsHidden()
-                    .onChange(of: saveFormat) { _, newValue in
-                        AppSettings.saveFormat = newValue
-                    }
-
-                    if saveFormat == .jpeg {
-                        HStack(spacing: 8) {
-                            Text(L10n.text(.jpegQuality))
-                                .font(.caption)
-                            Slider(value: $jpegQuality, in: AppSettings.minJpegQuality...AppSettings.maxJpegQuality)
-                                .onChange(of: jpegQuality) { _, newValue in
-                                    AppSettings.jpegQuality = newValue
-                                }
-                            Text("\(Int((jpegQuality * 100).rounded()))%")
-                                .font(.caption)
-                                .frame(width: 36, alignment: .trailing)
-                        }
-                    }
-                }
-            }
-        }
     }
 }

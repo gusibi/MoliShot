@@ -97,23 +97,269 @@ extension NSColor {
     }
 }
 
+/// Design tokens. Semantic system colors wherever one exists so the app picks
+/// up vibrancy, the user's accent color, and Increase Contrast for free.
 enum MoliDesign {
-    static let card = NSColor.adaptive(light: .srgb(hex: 0xcfd0d2), dark: .srgb(hex: 0x2b2c2f))
-    static let cardElevated = NSColor.adaptive(light: .srgb(hex: 0xd9dadc), dark: .srgb(hex: 0x333438))
-    static let canvas = NSColor.adaptive(light: .srgb(hex: 0xe8e9eb), dark: .srgb(hex: 0x1f2023))
-    static let primaryText = NSColor.adaptive(light: .srgb(hex: 0x2e3034), dark: .srgb(hex: 0xf2f2f3))
-    static let secondaryText = NSColor.adaptive(light: .srgb(hex: 0x707277), dark: .srgb(hex: 0xb8bac0))
-    static let tertiaryText = NSColor.adaptive(light: .srgb(hex: 0xb5b7bc), dark: .srgb(hex: 0x767980))
-    static let icon = NSColor.adaptive(light: .srgb(hex: 0x5f6268), dark: .srgb(hex: 0xc8c9ce))
-    static let hairline = NSColor.adaptive(light: .srgb(hex: 0xbfc2c8), dark: .srgb(hex: 0x484a50))
-    static let accent = NSColor.adaptive(light: .srgb(hex: 0xb5515e), dark: .srgb(hex: 0xff8c99))
-    static let selection = NSColor.adaptive(
-        light: .srgb(hex: 0xb8bdc8, alpha: 0.45),
-        dark: .srgb(hex: 0x555b6a, alpha: 0.7)
+    static let card = NSColor.adaptive(light: .white, dark: .srgb(hex: 0x28292c))
+    static let cardElevated = NSColor.adaptive(light: .srgb(hex: 0xf2f3f5), dark: .srgb(hex: 0x333438))
+    static let canvas = NSColor.underPageBackgroundColor
+    static let primaryText = NSColor.labelColor
+    static let secondaryText = NSColor.secondaryLabelColor
+    static let tertiaryText = NSColor.tertiaryLabelColor
+    static let icon = NSColor.secondaryLabelColor
+    static let hairline = NSColor.separatorColor
+    static var accent: NSColor { .controlAccentColor }
+    static var selection: NSColor { NSColor.controlAccentColor.withAlphaComponent(0.22) }
+    static let hoverFill = NSColor.adaptive(
+        light: NSColor.black.withAlphaComponent(0.06),
+        dark: NSColor.white.withAlphaComponent(0.09)
     )
 
     static func toolbarFill(isSelected: Bool) -> NSColor {
         isSelected ? selection : .clear
+    }
+
+    static var reduceMotion: Bool {
+        NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+    }
+}
+
+/// Toolbar/utility button with instant press feedback and an animated hover
+/// highlight. `isSelectedAppearance` renders the accent-tinted selected state;
+/// `isProminent` renders a filled accent (primary action) button.
+final class MoliHoverButton: NSButton {
+    var isSelectedAppearance = false { didSet { refreshStyle() } }
+    var isProminent = false { didSet { refreshStyle() } }
+    /// Destructive buttons tint their icon red on hover (e.g. Clear) so the
+    /// consequence reads before the click, without needing a confirmation dialog.
+    var isDestructive = false { didSet { refreshStyle() } }
+    private var isHovered = false
+
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        wantsLayer = true
+        isBordered = false
+        layer?.cornerRadius = 7
+        refreshStyle()
+    }
+
+    required init?(coder: NSCoder) { fatalError() }
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        trackingAreas.forEach(removeTrackingArea)
+        addTrackingArea(NSTrackingArea(
+            rect: bounds,
+            options: [.mouseEnteredAndExited, .activeAlways, .inVisibleRect],
+            owner: self, userInfo: nil
+        ))
+    }
+
+    override func mouseEntered(with event: NSEvent) {
+        isHovered = true
+        refreshStyle(animated: true)
+    }
+
+    override func mouseExited(with event: NSEvent) {
+        isHovered = false
+        refreshStyle(animated: true)
+    }
+
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        refreshStyle()
+    }
+
+    func refreshStyle(animated: Bool = false) {
+        let background: NSColor
+        let tint: NSColor
+        if isProminent {
+            background = isHovered ? MoliDesign.accent.withAlphaComponent(0.85) : MoliDesign.accent
+            tint = .white
+        } else if isSelectedAppearance {
+            background = MoliDesign.selection
+            tint = MoliDesign.accent
+        } else if isHovered {
+            background = MoliDesign.hoverFill
+            tint = isDestructive ? .systemRed : MoliDesign.primaryText
+        } else {
+            background = .clear
+            tint = MoliDesign.icon
+        }
+        let apply = {
+            self.layer?.backgroundColor = background.cgColor
+            self.contentTintColor = tint
+            // NSButton titles don't follow contentTintColor; when this button
+            // carries a label (e.g. the crop confirm bar), tint it explicitly.
+            if !self.title.isEmpty {
+                let para = NSMutableParagraphStyle()
+                para.alignment = .center
+                self.attributedTitle = NSAttributedString(string: self.title, attributes: [
+                    .foregroundColor: tint,
+                    .font: self.font ?? NSFont.systemFont(ofSize: 12, weight: .medium),
+                    .paragraphStyle: para,
+                ])
+            }
+        }
+        if animated && !MoliDesign.reduceMotion {
+            CATransaction.begin()
+            CATransaction.setAnimationDuration(0.15)
+            apply()
+            CATransaction.commit()
+        } else {
+            apply()
+        }
+    }
+}
+
+/// A round preset-colour swatch for the editor's inline palette. Clicking it
+/// picks that colour; the selected swatch shows a 2pt accent ring. There is no
+/// native control for this, so it's drawn.
+final class ColorSwatchButton: NSButton {
+    let swatchColor: NSColor
+    var isSelectedSwatch = false { didSet { refresh() } }
+
+    init(color: NSColor) {
+        self.swatchColor = color.usingColorSpace(.sRGB) ?? color
+        super.init(frame: NSRect(x: 0, y: 0, width: 16, height: 16))
+        wantsLayer = true
+        isBordered = false
+        title = ""
+        setButtonType(.momentaryChange)
+        translatesAutoresizingMaskIntoConstraints = false
+        widthAnchor.constraint(equalToConstant: 16).isActive = true
+        heightAnchor.constraint(equalToConstant: 16).isActive = true
+        refresh()
+    }
+
+    required init?(coder: NSCoder) { fatalError() }
+
+    override func layout() {
+        super.layout()
+        layer?.cornerRadius = bounds.width / 2
+    }
+
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        refresh()
+    }
+
+    /// Whether two colours are close enough (in sRGB) to count as the same
+    /// swatch — lets the palette reflect a colour set via the custom well.
+    static func colorsMatch(_ a: NSColor, _ b: NSColor) -> Bool {
+        guard let x = a.usingColorSpace(.sRGB), let y = b.usingColorSpace(.sRGB) else { return false }
+        let tol: CGFloat = 0.02
+        return abs(x.redComponent - y.redComponent) < tol &&
+            abs(x.greenComponent - y.greenComponent) < tol &&
+            abs(x.blueComponent - y.blueComponent) < tol &&
+            abs(x.alphaComponent - y.alphaComponent) < tol
+    }
+
+    private var isWhiteish: Bool {
+        swatchColor.redComponent > 0.9 && swatchColor.greenComponent > 0.9 && swatchColor.blueComponent > 0.9
+    }
+
+    private func refresh() {
+        guard let layer else { return }
+        layer.cornerRadius = bounds.width / 2
+        layer.backgroundColor = swatchColor.cgColor
+        if isSelectedSwatch {
+            layer.borderColor = MoliDesign.accent.cgColor
+            layer.borderWidth = 2
+        } else if isWhiteish {
+            // Hairline so a white swatch doesn't vanish into the toolbar.
+            layer.borderColor = MoliDesign.hairline.cgColor
+            layer.borderWidth = 1
+        } else {
+            layer.borderWidth = 0
+        }
+    }
+}
+
+/// Transient HUD toast: a translucent capsule that fades in near the bottom of
+/// a host view, then fades out. Replaces status-bar-only transient messages so
+/// feedback appears where the user is looking.
+final class MoliToast {
+    private static var current: NSView?
+
+    static func show(_ message: String, in host: NSView, duration: TimeInterval = 2.2) {
+        current?.removeFromSuperview()
+
+        let effect = NSVisualEffectView()
+        effect.material = .hudWindow
+        effect.blendingMode = .withinWindow
+        effect.state = .active
+        effect.wantsLayer = true
+        effect.layer?.cornerRadius = 14
+        effect.layer?.masksToBounds = true
+        effect.translatesAutoresizingMaskIntoConstraints = false
+
+        let label = NSTextField(labelWithString: message)
+        label.font = NSFont.systemFont(ofSize: 12.5, weight: .medium)
+        label.textColor = .labelColor
+        label.alignment = .center
+        label.lineBreakMode = .byTruncatingMiddle
+        label.translatesAutoresizingMaskIntoConstraints = false
+        effect.addSubview(label)
+
+        host.addSubview(effect)
+        NSLayoutConstraint.activate([
+            label.leadingAnchor.constraint(equalTo: effect.leadingAnchor, constant: 14),
+            label.trailingAnchor.constraint(equalTo: effect.trailingAnchor, constant: -14),
+            label.topAnchor.constraint(equalTo: effect.topAnchor, constant: 7),
+            label.bottomAnchor.constraint(equalTo: effect.bottomAnchor, constant: -7),
+            effect.centerXAnchor.constraint(equalTo: host.centerXAnchor),
+            effect.bottomAnchor.constraint(equalTo: host.bottomAnchor, constant: -28),
+            effect.widthAnchor.constraint(lessThanOrEqualTo: host.widthAnchor, constant: -40),
+        ])
+        host.layoutSubtreeIfNeeded()  // final bounds so the scale anchors correctly
+
+        current = effect
+        effect.alphaValue = 0
+        let reduce = MoliDesign.reduceMotion
+        NSAnimationContext.runAnimationGroup { ctx in
+            ctx.duration = reduce ? 0.01 : 0.18
+            effect.animator().alphaValue = 1
+        }
+        if !reduce { effect.layer?.animateCenteredScale(from: 0.96, to: 1, duration: 0.18, curve: .easeOut) }
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + duration) { [weak effect] in
+            guard let effect, effect === current else { return }
+            let reduceOut = MoliDesign.reduceMotion
+            if !reduceOut { effect.layer?.animateCenteredScale(from: 1, to: 0.97, duration: 0.25, curve: .easeIn) }
+            NSAnimationContext.runAnimationGroup({ ctx in
+                ctx.duration = reduceOut ? 0.01 : 0.25
+                effect.animator().alphaValue = 0
+            }, completionHandler: {
+                if effect === current { current = nil }
+                effect.removeFromSuperview()
+            })
+        }
+    }
+
+    static func dismiss() {
+        current?.removeFromSuperview()
+        current = nil
+    }
+}
+
+extension CALayer {
+    /// Transient scale animation anchored at the layer's centre, independent of
+    /// anchorPoint: the built transform is T(c)·S·T(-c), which keeps the centre
+    /// fixed no matter what the layer's anchorPoint is.
+    func animateCenteredScale(from start: CGFloat, to end: CGFloat, duration: CFTimeInterval, curve: CAMediaTimingFunctionName) {
+        let c = CGPoint(x: bounds.midX, y: bounds.midY)
+        func centered(_ s: CGFloat) -> CATransform3D {
+            CATransform3DTranslate(
+                CATransform3DScale(CATransform3DMakeTranslation(-c.x, -c.y, 0), s, s, 1),
+                c.x, c.y, 0)
+        }
+        let anim = CABasicAnimation(keyPath: "transform")
+        anim.fromValue = NSValue(caTransform3D: centered(start))
+        anim.toValue = NSValue(caTransform3D: centered(end))
+        anim.duration = duration
+        anim.timingFunction = CAMediaTimingFunction(name: curve)
+        add(anim, forKey: "moliToastScale")
     }
 }
 
@@ -233,6 +479,9 @@ enum L10nKey {
     case uploadFailed
     case annotations
     case hotkeys
+    case permissions
+    case screenRecording
+    case accessibility
     case screenRecordingPermission
     case accessibilityPermission
     case accessibilityPermissionHint
@@ -266,6 +515,7 @@ enum L10nKey {
     case keepRecentScreenshots
     case pressShortcut
     case recordShortcut
+    case hotkeyRecorderHint
     case noScreenshotsYet
     case delete
     case ocrResult
@@ -291,6 +541,8 @@ enum L10nKey {
     case scrollCaptureUnstableOverlap
     case scrollCaptureFailedMessage
     case scrollCaptureFrameUnavailable
+    case apply
+    case more
     case done
     case cancel
     case close
@@ -299,6 +551,13 @@ enum L10nKey {
     case ocrCharacterCount
     case capturedScrollProgress
     case rulerHint
+    case strokeWidth
+    case opacity
+    case fontSize
+    case effectStrength
+    case zoomIn
+    case zoomOut
+    case actualSize
 }
 
 enum L10n {
@@ -401,6 +660,9 @@ enum L10n {
         case .uploadFailed: return "Upload failed"
         case .annotations: return "annotations"
         case .hotkeys: return "Hotkeys"
+        case .permissions: return "Permissions"
+        case .screenRecording: return "Screen Recording"
+        case .accessibility: return "Accessibility"
         case .screenRecordingPermission: return "Screen Recording Permission"
         case .accessibilityPermission: return "Accessibility Permission"
         case .accessibilityPermissionHint: return "Needed to keep menus and popovers open while starting a capture."
@@ -434,6 +696,7 @@ enum L10n {
         case .keepRecentScreenshots: return "Keep recent screenshots"
         case .pressShortcut: return "Press shortcut"
         case .recordShortcut: return "Record shortcut"
+        case .hotkeyRecorderHint: return "Click, then press a new shortcut. ⎋ cancels, ⌫ clears."
         case .noScreenshotsYet: return "No screenshots yet."
         case .delete: return "Delete"
         case .ocrResult: return "OCR Result"
@@ -459,6 +722,8 @@ enum L10n {
         case .scrollCaptureUnstableOverlap: return "Frames did not overlap reliably enough to stitch. Try slower, steadier scrolling."
         case .scrollCaptureFailedMessage: return "Scrolling capture stopped."
         case .scrollCaptureFrameUnavailable: return "A captured frame could not be read."
+        case .apply: return "Apply"
+        case .more: return "More"
         case .done: return "Done"
         case .cancel: return "Cancel"
         case .close: return "Close"
@@ -467,6 +732,13 @@ enum L10n {
         case .ocrCharacterCount: return "characters"
         case .capturedScrollProgress: return "Captured"
         case .rulerHint: return "Drag to measure. Click again to restart. ESC exits."
+        case .strokeWidth: return "Stroke Width"
+        case .opacity: return "Opacity"
+        case .fontSize: return "Font Size"
+        case .effectStrength: return "Effect Strength"
+        case .zoomIn: return "Zoom In"
+        case .zoomOut: return "Zoom Out"
+        case .actualSize: return "Actual Size"
         }
     }
 
@@ -515,6 +787,9 @@ enum L10n {
         case .uploadFailed: return "上传失败"
         case .annotations: return "个标注"
         case .hotkeys: return "快捷键"
+        case .permissions: return "权限"
+        case .screenRecording: return "屏幕录制"
+        case .accessibility: return "辅助功能"
         case .screenRecordingPermission: return "屏幕录制权限"
         case .accessibilityPermission: return "辅助功能权限"
         case .accessibilityPermissionHint: return "用于在截图热键触发时尽量保持菜单和弹窗不被提前关闭。"
@@ -548,6 +823,7 @@ enum L10n {
         case .keepRecentScreenshots: return "保留最近截图"
         case .pressShortcut: return "按下快捷键"
         case .recordShortcut: return "录制快捷键"
+        case .hotkeyRecorderHint: return "点击后按下新快捷键；⎋ 取消，⌫ 清除"
         case .noScreenshotsYet: return "还没有截图。"
         case .delete: return "删除"
         case .ocrResult: return "文字识别结果"
@@ -573,6 +849,8 @@ enum L10n {
         case .scrollCaptureUnstableOverlap: return "连续帧重叠不稳定，无法可靠拼接。请尝试更慢、更平稳地滚动。"
         case .scrollCaptureFailedMessage: return "滚动截图已停止。"
         case .scrollCaptureFrameUnavailable: return "某一帧截图无法读取。"
+        case .apply: return "应用"
+        case .more: return "更多"
         case .done: return "完成"
         case .cancel: return "取消"
         case .close: return "关闭"
@@ -581,6 +859,13 @@ enum L10n {
         case .ocrCharacterCount: return "个字符"
         case .capturedScrollProgress: return "已捕获"
         case .rulerHint: return "拖动以测量。再次点击可重新开始。按 ESC 退出。"
+        case .strokeWidth: return "线条粗细"
+        case .opacity: return "不透明度"
+        case .fontSize: return "字号"
+        case .effectStrength: return "效果强度"
+        case .zoomIn: return "放大"
+        case .zoomOut: return "缩小"
+        case .actualSize: return "实际大小"
         }
     }
 }
