@@ -139,6 +139,7 @@ final class MoliHoverButton: NSButton {
         super.init(frame: frameRect)
         wantsLayer = true
         isBordered = false
+        title = ""  // drop NSButton's default "Button" title (icon-only by default)
         layer?.cornerRadius = 7
         refreshStyle()
     }
@@ -190,8 +191,8 @@ final class MoliHoverButton: NSButton {
             self.layer?.backgroundColor = background.cgColor
             self.contentTintColor = tint
             // NSButton titles don't follow contentTintColor; when this button
-            // carries a label (e.g. the crop confirm bar), tint it explicitly.
-            if !self.title.isEmpty {
+            // carries a visible label (e.g. the crop confirm bar), tint it.
+            if self.imagePosition != .imageOnly && !self.title.isEmpty {
                 let para = NSMutableParagraphStyle()
                 para.alignment = .center
                 self.attributedTitle = NSAttributedString(string: self.title, attributes: [
