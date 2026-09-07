@@ -108,6 +108,7 @@ final class EditorView: NSView {
         syncFrameToCrop()
         delegate?.editorViewDidChangeContent(self)
         delegate?.editorViewDidChangeSelection(self)
+        updateCursor()
         needsDisplay = true
     }
 
@@ -286,7 +287,8 @@ final class EditorView: NSView {
 
     private func drawSelectionOverlay(in ctx: CGContext) {
         guard let sel = selected else { return }
-        let box = sel.bounds.insetBy(dx: -4, dy: -4)
+        let pad: CGFloat = 4 / viewScale
+        let box = sel.bounds.insetBy(dx: -pad, dy: -pad)
         ctx.setStrokeColor(NSColor.systemBlue.cgColor)
         ctx.setLineDash(phase: 0, lengths: [4, 3])
         ctx.setLineWidth(1)
@@ -355,13 +357,13 @@ final class EditorView: NSView {
 
         switch currentTool {
         case .select:
-            if let sel = selected, let h = sel.handle(at: bp) {
+            if let sel = selected, let h = sel.handle(at: bp, toleranceScale: viewScale) {
                 resizeHandle = h
                 resizeOriginalBounds = sel.bounds
                 resizeStarted = false
                 return
             }
-            if let id = AnnotationHitTester.hitTest(point: bp, annotations: annotations) {
+            if let id = AnnotationHitTester.hitTest(point: bp, annotations: annotations, toleranceScale: viewScale) {
                 selected = annotations.first { $0.id == id }
             } else {
                 selected = nil
@@ -370,6 +372,7 @@ final class EditorView: NSView {
                 beginEditingText(text)
             }
             delegate?.editorViewDidChangeSelection(self)
+            updateCursor()
             needsDisplay = true
         case .arrow, .rectangle, .ellipse, .line, .highlight, .blur, .pixelate:
             inProgress = makeShape(start: bp, end: bp)
@@ -377,11 +380,11 @@ final class EditorView: NSView {
             let pen = PenAnnotation(points: [bp], style: defaultStyle())
             inProgress = pen
         case .text:
-            let t = TextAnnotation(origin: bp, text: L10n.text(.text), style: defaultStyle())
+            let t = TextAnnotation(origin: bp, text: "", style: defaultStyle())
             annotations.append(t)
             selected = t
             pendingTextCreation = true
-            beginEditingText(t)
+            beginEditingText(t, isNew: true)
             delegate?.editorViewDidChangeContent(self)
             needsDisplay = true
         case .number:
@@ -578,7 +581,7 @@ final class EditorView: NSView {
     }
 
     private func drawHandles(for ann: Annotation, in ctx: CGContext) {
-        let r: CGFloat = 4
+        let r: CGFloat = 4 / viewScale
         ctx.setFillColor(NSColor.white.cgColor)
         ctx.setStrokeColor(NSColor.systemBlue.cgColor)
         ctx.setLineWidth(1.5)
@@ -758,15 +761,51 @@ final class EditorView: NSView {
                width: abs(a.x - b.x), height: abs(a.y - b.y))
     }
 
+    /// Display magnification of the enclosing scroll view. Hit tolerances and
+    /// handle sizes are specified in screen points, so callers divide world
+    /// geometry by this to keep a constant on-screen feel at any zoom.
+    private var viewScale: CGFloat {
+        max(enclosingScrollView?.magnification ?? 1, 0.01)
+    }
+
     private func updateCursor() {
+        // Cursor rects (resetCursorRects) own the cursor; just re-resolve them.
+        window?.invalidateCursorRects(for: self)
+    }
+
+    override func resetCursorRects() {
+        super.resetCursorRects()
         if cropMode {
-            NSCursor.crosshair.set()
+            addCursorRect(bounds, cursor: .crosshair)
             return
         }
         switch currentTool {
-        case .select: NSCursor.arrow.set()
-        case .text: NSCursor.iBeam.set()
-        default: NSCursor.crosshair.set()
+        case .select:
+            break // selection-aware rects below
+        case .text:
+            addCursorRect(bounds, cursor: .iBeam)
+            return
+        default:
+            addCursorRect(bounds, cursor: .crosshair)
+            return
+        }
+        addCursorRect(bounds, cursor: .arrow)
+        guard let sel = selected else { return }
+        addCursorRect(sel.bounds, cursor: .openHand)
+        let s = viewScale
+        for (handle, hp) in sel.handlePoints {
+            let rect = NSRect(x: hp.x - 8 / s, y: hp.y - 8 / s,
+                              width: 16 / s, height: 16 / s)
+            addCursorRect(rect, cursor: cursorForHandle(handle))
+        }
+    }
+
+    private func cursorForHandle(_ handle: ResizeHandle) -> NSCursor {
+        switch handle {
+        case .left, .right: return .resizeLeftRight
+        case .top, .bottom: return .resizeUpDown
+        case .startEndpoint, .endEndpoint: return .crosshair
+        default: return .crosshair // corners: no reliable diagonal cursor pre-macOS 15
         }
     }
 
@@ -954,6 +993,7 @@ final class EditorView: NSView {
         if selected != nil {
             selected = nil
             delegate?.editorViewDidChangeSelection(self)
+            updateCursor()
             needsDisplay = true
             return
         }
@@ -964,12 +1004,24 @@ final class EditorView: NSView {
         }
     }
 
-    private func beginEditingText(_ annotation: TextAnnotation) {
+    private func beginEditingText(_ annotation: TextAnnotation, isNew: Bool = false) {
         commitActiveTextEditing()
-        let box = annotation.bounds
-        let tf = EscapableTextField(frame: box.insetBy(dx: -4, dy: -4))
+        let font = NSFont.systemFont(ofSize: annotation.style.fontSize, weight: .semibold)
+        // Frame matches the drawn text origin exactly (no extra inset) so the
+        // field doesn't sit offset from the committed text. New (empty) text
+        // gets a default-size frame showing the placeholder hint.
+        let initialFrame: NSRect
+        if annotation.text.isEmpty {
+            let lineHeight = ceil(("Ag" as NSString).size(withAttributes: [.font: font]).height)
+            initialFrame = NSRect(origin: annotation.origin,
+                                  size: NSSize(width: 140, height: lineHeight + 8))
+        } else {
+            initialFrame = annotation.bounds
+        }
+        let tf = EscapableTextField(frame: initialFrame)
         tf.stringValue = annotation.text
-        tf.font = NSFont.systemFont(ofSize: annotation.style.fontSize, weight: .semibold)
+        tf.placeholderString = L10n.text(.text)
+        tf.font = font
         tf.textColor = annotation.style.color
         tf.backgroundColor = NSColor.adaptive(
             light: NSColor.white.withAlphaComponent(0.15),
@@ -988,6 +1040,11 @@ final class EditorView: NSView {
         window?.makeFirstResponder(tf)
         editingField = tf
         resizeEditingField(tf)
+        if !isNew, !annotation.text.isEmpty {
+            // Editing existing text: select all so typing replaces it instead
+            // of appending (the old placeholder-append bug).
+            tf.selectText(nil)
+        }
         // Retain the struct copy (boxed) so commit/cancel can read it back;
         // ASSIGN is for weak object references and would not retain a value type.
         objc_setAssociatedObject(tf, &textAnnotationKey, annotation, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
@@ -998,18 +1055,32 @@ final class EditorView: NSView {
     }
 
     private func commitEditing(_ sender: NSTextField) {
+        // Guard against double-commit: controlTextDidEndEditing fires after
+        // textFieldAction / commitActiveTextEditing already detached the field.
+        guard let field = editingField, field === sender else { return }
+        let trimmed = sender.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
         if let ann = objc_getAssociatedObject(sender, &textAnnotationKey) as? TextAnnotation {
-            var copy = ann
-            copy.text = sender.stringValue.isEmpty ? L10n.text(.text) : sender.stringValue
-            let changed = pendingTextCreation || copy.text != ann.text
-            if let idx = annotations.firstIndex(where: { $0.id == copy.id }) {
-                annotations[idx] = copy
-            }
-            if selected?.id == copy.id {
-                selected = copy
-            }
-            if changed {
-                commitHistory()
+            if trimmed.isEmpty {
+                // Empty commit removes the annotation instead of leaving a
+                // "Text" zombie. Deleting existing text is undoable; dropping a
+                // never-typed new annotation just restores the baseline.
+                annotations.removeAll { $0.id == ann.id }
+                if selected?.id == ann.id { selected = nil }
+                if !pendingTextCreation { commitHistory() }
+                delegate?.editorViewDidChangeSelection(self)
+            } else {
+                var copy = ann
+                copy.text = sender.stringValue
+                let changed = pendingTextCreation || copy.text != ann.text
+                if let idx = annotations.firstIndex(where: { $0.id == copy.id }) {
+                    annotations[idx] = copy
+                }
+                if selected?.id == copy.id {
+                    selected = copy
+                }
+                if changed {
+                    commitHistory()
+                }
             }
         }
         pendingTextCreation = false
@@ -1017,6 +1088,7 @@ final class EditorView: NSView {
         editingField = nil
         window?.makeFirstResponder(self)
         delegate?.editorViewDidChangeContent(self)
+        updateCursor()
         needsDisplay = true
     }
 
@@ -1024,7 +1096,7 @@ final class EditorView: NSView {
     /// never clipped while typing.
     private func resizeEditingField(_ tf: NSTextField) {
         guard let font = tf.font else { return }
-        let text = tf.stringValue.isEmpty ? " " : tf.stringValue
+        let text = tf.stringValue.isEmpty ? (tf.placeholderString ?? " ") : tf.stringValue
         let measured = (text as NSString).size(withAttributes: [.font: font])
         var frame = tf.frame
         frame.size.width = max(ceil(measured.width) + 14, 40)
@@ -1033,6 +1105,7 @@ final class EditorView: NSView {
     }
 
     private func cancelEditing(_ sender: NSTextField) {
+        guard editingField === sender else { return }
         let shouldRemovePlaceholder =
             sender.stringValue.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
             sender.stringValue == L10n.text(.text)
@@ -1048,6 +1121,7 @@ final class EditorView: NSView {
         editingField = nil
         currentTool = .select
         window?.makeFirstResponder(self)
+        updateCursor()
         needsDisplay = true
     }
 }

@@ -11,8 +11,8 @@ import AppKit
 /// distance-to-segment nearest matching.
 enum AnnotationHitTester {
 
-    static func hitTest(point: CGPoint, annotations: [Annotation]) -> UUID? {
-        for ann in annotations.reversed() where ann.hitTest(point) {
+    static func hitTest(point: CGPoint, annotations: [Annotation], toleranceScale: CGFloat = 1) -> UUID? {
+        for ann in annotations.reversed() where ann.hitTest(point, toleranceScale: toleranceScale) {
             return ann.id
         }
         return nil

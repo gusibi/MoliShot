@@ -71,7 +71,10 @@ protocol Annotation {
     var style: AnnotationStyle { get set }
     /// Handle positions to draw, paired with their semantic handle.
     var handlePoints: [(ResizeHandle, CGPoint)] { get }
-    func hitTest(_ point: CGPoint) -> Bool
+    /// - Parameter toleranceScale: display magnification (NSScrollView.magnification).
+    ///   Tolerances are specified in screen points, so world-coordinate checks
+    ///   divide by this scale to keep a constant on-screen feel at any zoom.
+    func hitTest(_ point: CGPoint, toleranceScale: CGFloat) -> Bool
     mutating func move(by delta: NSSize)
     /// Returns a copy resized to the given bounds (view coordinates).
     func resized(to newBounds: CGRect) -> any Annotation
@@ -101,9 +104,9 @@ extension Annotation {
         ]
     }
 
-    /// Returns the handle under `point` (within an 8pt radius), if any.
-    func handle(at point: CGPoint) -> ResizeHandle? {
-        let tol: CGFloat = 8
+    /// Returns the handle under `point` (within an 8 screen-pt radius), if any.
+    func handle(at point: CGPoint, toleranceScale: CGFloat = 1) -> ResizeHandle? {
+        let tol: CGFloat = 8 / max(toleranceScale, 0.01)
         for (handle, hp) in handlePoints {
             if hypot(point.x - hp.x, point.y - hp.y) <= tol {
                 return handle
@@ -160,8 +163,8 @@ struct RectAnnotation: Annotation, BoundedShapeAnnotation, Codable {
         end = NSPoint(x: end.x + delta.width, y: end.y + delta.height)
     }
 
-    func hitTest(_ point: NSPoint) -> Bool {
-        bounds.insetBy(dx: -6, dy: -6).contains(point)
+    func hitTest(_ point: NSPoint, toleranceScale: CGFloat = 1) -> Bool {
+        bounds.insetBy(dx: -6 / toleranceScale, dy: -6 / toleranceScale).contains(point)
     }
 
     func draw(in ctx: CGContext, base: NSImage) {
@@ -193,7 +196,7 @@ struct EllipseAnnotation: Annotation, BoundedShapeAnnotation, Codable {
         start = NSPoint(x: start.x + delta.width, y: start.y + delta.height)
         end = NSPoint(x: end.x + delta.width, y: end.y + delta.height)
     }
-    func hitTest(_ point: NSPoint) -> Bool { bounds.insetBy(dx: -6, dy: -6).contains(point) }
+    func hitTest(_ point: NSPoint, toleranceScale: CGFloat = 1) -> Bool { bounds.insetBy(dx: -6 / toleranceScale, dy: -6 / toleranceScale).contains(point) }
     func draw(in ctx: CGContext, base: NSImage) {
         if let fill = style.fillColor {
             ctx.setFillColor(fill.cgColor)
@@ -223,8 +226,8 @@ struct LineAnnotation: Annotation, BoundedShapeAnnotation, Codable {
         start = NSPoint(x: start.x + delta.width, y: start.y + delta.height)
         end = NSPoint(x: end.x + delta.width, y: end.y + delta.height)
     }
-    func hitTest(_ point: NSPoint) -> Bool {
-        distanceFromPoint(point, toSegment: start, end) <= strokeHitTolerance
+    func hitTest(_ point: NSPoint, toleranceScale: CGFloat = 1) -> Bool {
+        distanceFromPoint(point, toSegment: start, end) <= strokeHitTolerance / toleranceScale
     }
     var handlePoints: [(ResizeHandle, CGPoint)] {
         [(.startEndpoint, start), (.endEndpoint, end)]
@@ -257,8 +260,8 @@ struct ArrowAnnotation: Annotation, BoundedShapeAnnotation, Codable {
         start = NSPoint(x: start.x + delta.width, y: start.y + delta.height)
         end = NSPoint(x: end.x + delta.width, y: end.y + delta.height)
     }
-    func hitTest(_ point: NSPoint) -> Bool {
-        distanceFromPoint(point, toSegment: start, end) <= strokeHitTolerance
+    func hitTest(_ point: NSPoint, toleranceScale: CGFloat = 1) -> Bool {
+        distanceFromPoint(point, toSegment: start, end) <= strokeHitTolerance / toleranceScale
     }
     var handlePoints: [(ResizeHandle, CGPoint)] {
         [(.startEndpoint, start), (.endEndpoint, end)]
@@ -317,7 +320,7 @@ struct HighlightAnnotation: Annotation, BoundedShapeAnnotation, Codable {
         start = NSPoint(x: start.x + delta.width, y: start.y + delta.height)
         end = NSPoint(x: end.x + delta.width, y: end.y + delta.height)
     }
-    func hitTest(_ point: NSPoint) -> Bool { bounds.insetBy(dx: -6, dy: -6).contains(point) }
+    func hitTest(_ point: NSPoint, toleranceScale: CGFloat = 1) -> Bool { bounds.insetBy(dx: -6 / toleranceScale, dy: -6 / toleranceScale).contains(point) }
     func draw(in ctx: CGContext, base: NSImage) {
         // Fill: explicit fillColor if set, else the stroke colour at 40% (legacy highlight).
         let fill = style.fillColor ?? style.color.withAlphaComponent(0.4)
@@ -351,13 +354,13 @@ struct PenAnnotation: Annotation, Codable {
         points = points.map { NSPoint(x: $0.x + delta.width, y: $0.y + delta.height) }
     }
 
-    func hitTest(_ point: NSPoint) -> Bool {
+    func hitTest(_ point: NSPoint, toleranceScale: CGFloat = 1) -> Bool {
         guard let first = points.first else { return false }
         if points.count == 1 {
-            return hypot(point.x - first.x, point.y - first.y) <= strokeHitTolerance
+            return hypot(point.x - first.x, point.y - first.y) <= strokeHitTolerance / toleranceScale
         }
         for i in 0..<(points.count - 1) {
-            if distanceFromPoint(point, toSegment: points[i], points[i + 1]) <= strokeHitTolerance {
+            if distanceFromPoint(point, toSegment: points[i], points[i + 1]) <= strokeHitTolerance / toleranceScale {
                 return true
             }
         }
@@ -405,8 +408,8 @@ struct TextAnnotation: Annotation, Codable {
         origin = NSPoint(x: origin.x + delta.width, y: origin.y + delta.height)
     }
 
-    func hitTest(_ point: NSPoint) -> Bool {
-        bounds.insetBy(dx: -4, dy: -4).contains(point)
+    func hitTest(_ point: NSPoint, toleranceScale: CGFloat = 1) -> Bool {
+        bounds.insetBy(dx: -4 / toleranceScale, dy: -4 / toleranceScale).contains(point)
     }
 
     func draw(in ctx: CGContext, base: NSImage) {
@@ -454,10 +457,10 @@ struct NumberAnnotation: Annotation, Codable {
         center = NSPoint(x: center.x + delta.width, y: center.y + delta.height)
     }
 
-    func hitTest(_ point: NSPoint) -> Bool {
+    func hitTest(_ point: NSPoint, toleranceScale: CGFloat = 1) -> Bool {
         let dx = point.x - center.x
         let dy = point.y - center.y
-        return dx * dx + dy * dy <= (radius + 4) * (radius + 4)
+        return dx * dx + dy * dy <= (radius + 4 / toleranceScale) * (radius + 4 / toleranceScale)
     }
 
     func draw(in ctx: CGContext, base: NSImage) {
@@ -575,7 +578,7 @@ struct BlurAnnotation: Annotation, BoundedShapeAnnotation, Codable {
         start = NSPoint(x: start.x + delta.width, y: start.y + delta.height)
         end = NSPoint(x: end.x + delta.width, y: end.y + delta.height)
     }
-    func hitTest(_ point: NSPoint) -> Bool { bounds.insetBy(dx: -6, dy: -6).contains(point) }
+    func hitTest(_ point: NSPoint, toleranceScale: CGFloat = 1) -> Bool { bounds.insetBy(dx: -6 / toleranceScale, dy: -6 / toleranceScale).contains(point) }
     func draw(in ctx: CGContext, base: NSImage) {
         let r = radius
         RegionEffectDrawing.draw(in: ctx, base: base, rect: bounds,
@@ -607,7 +610,7 @@ struct PixelateAnnotation: Annotation, BoundedShapeAnnotation, Codable {
         start = NSPoint(x: start.x + delta.width, y: start.y + delta.height)
         end = NSPoint(x: end.x + delta.width, y: end.y + delta.height)
     }
-    func hitTest(_ point: NSPoint) -> Bool { bounds.insetBy(dx: -6, dy: -6).contains(point) }
+    func hitTest(_ point: NSPoint, toleranceScale: CGFloat = 1) -> Bool { bounds.insetBy(dx: -6 / toleranceScale, dy: -6 / toleranceScale).contains(point) }
     func draw(in ctx: CGContext, base: NSImage) {
         let s = pixelSize
         RegionEffectDrawing.draw(in: ctx, base: base, rect: bounds,
@@ -623,11 +626,9 @@ struct PixelateAnnotation: Annotation, BoundedShapeAnnotation, Codable {
 
 // MARK: - Stroke hit-testing geometry
 
-/// Tolerance for selecting line/arrow/pen strokes by proximity, in view
-/// (logical point) coordinates. 6pt visual; no backingScaleFactor multiplier
-/// because view coords are already in points (Retina density is factored out
-/// by NSView.convert). Zoom scales both the view and click mapping, so this
-/// stays 6 world-points at any zoom — standard behaviour (Preview/Figma).
+/// Base tolerance for selecting line/arrow/pen strokes by proximity, in
+/// screen points. Callers divide by the display magnification
+/// (`toleranceScale`) so the on-screen feel stays 6pt at any zoom.
 private let strokeHitTolerance: CGFloat = 6
 
 /// Perpendicular distance from `p` to segment `a`–`b` (clamped to endpoints).
