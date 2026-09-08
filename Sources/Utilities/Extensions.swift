@@ -286,14 +286,7 @@ final class MoliToast {
     static func show(_ message: String, in host: NSView, duration: TimeInterval = 2.2) {
         current?.removeFromSuperview()
 
-        let effect = NSVisualEffectView()
-        effect.material = .hudWindow
-        effect.blendingMode = .withinWindow
-        effect.state = .active
-        effect.wantsLayer = true
-        effect.layer?.cornerRadius = 14
-        effect.layer?.masksToBounds = true
-        effect.translatesAutoresizingMaskIntoConstraints = false
+        let effect = MoliGlassBackground(cornerRadius: 14, fallbackMaterial: .hudWindow)
 
         let label = NSTextField(labelWithString: message)
         label.font = NSFont.systemFont(ofSize: 12.5, weight: .medium)
@@ -362,6 +355,51 @@ extension CALayer {
         anim.timingFunction = CAMediaTimingFunction(name: curve)
         add(anim, forKey: "moliToastScale")
     }
+}
+
+/// Liquid Glass backdrop for floating chrome (toolbar, pills, hover bars).
+///
+/// macOS 26+ renders a real `NSGlassEffectView`; older systems fall back to
+/// the given visual-effect material, so the deployment target (macOS 14) is
+/// unaffected. Usage: add content as a sibling ON TOP of this view (it pins
+/// itself to its superview via the caller's constraints); the glass only ever
+/// draws the backdrop, so no content ever risks ending up under the refraction.
+final class MoliGlassBackground: NSView {
+    init(cornerRadius: CGFloat, fallbackMaterial: NSVisualEffectView.Material) {
+        super.init(frame: .zero)
+        translatesAutoresizingMaskIntoConstraints = false
+        wantsLayer = true
+        if #available(macOS 26, *) {
+            let glass = NSGlassEffectView()
+            glass.cornerRadius = cornerRadius
+            glass.translatesAutoresizingMaskIntoConstraints = false
+            addSubview(glass)
+            NSLayoutConstraint.activate([
+                glass.topAnchor.constraint(equalTo: topAnchor),
+                glass.leadingAnchor.constraint(equalTo: leadingAnchor),
+                glass.trailingAnchor.constraint(equalTo: trailingAnchor),
+                glass.bottomAnchor.constraint(equalTo: bottomAnchor),
+            ])
+        } else {
+            let effect = NSVisualEffectView()
+            effect.material = fallbackMaterial
+            effect.blendingMode = .withinWindow
+            effect.state = .active
+            effect.translatesAutoresizingMaskIntoConstraints = false
+            effect.wantsLayer = true
+            effect.layer?.cornerRadius = cornerRadius
+            effect.layer?.masksToBounds = cornerRadius > 0
+            addSubview(effect)
+            NSLayoutConstraint.activate([
+                effect.topAnchor.constraint(equalTo: topAnchor),
+                effect.leadingAnchor.constraint(equalTo: leadingAnchor),
+                effect.trailingAnchor.constraint(equalTo: trailingAnchor),
+                effect.bottomAnchor.constraint(equalTo: bottomAnchor),
+            ])
+        }
+    }
+
+    required init?(coder: NSCoder) { fatalError() }
 }
 
 class MoliCardView: NSView {
@@ -560,6 +598,18 @@ enum L10nKey {
     case zoomIn
     case zoomOut
     case actualSize
+    case fileMenu
+    case editMenu
+    case viewMenu
+    case windowMenu
+    case helpMenu
+    case cut
+    case paste
+    case minimize
+    case zoomWindow
+    case bringAllToFront
+    case newAreaScreenshot
+    case molishotHelp
 }
 
 enum L10n {
@@ -742,6 +792,18 @@ enum L10n {
         case .zoomIn: return "Zoom In"
         case .zoomOut: return "Zoom Out"
         case .actualSize: return "Actual Size"
+        case .fileMenu: return "File"
+        case .editMenu: return "Edit"
+        case .viewMenu: return "View"
+        case .windowMenu: return "Window"
+        case .helpMenu: return "Help"
+        case .cut: return "Cut"
+        case .paste: return "Paste"
+        case .minimize: return "Minimize"
+        case .zoomWindow: return "Zoom"
+        case .bringAllToFront: return "Bring All to Front"
+        case .newAreaScreenshot: return "New Area Screenshot"
+        case .molishotHelp: return "MoliShot Help"
         }
     }
 
@@ -870,6 +932,18 @@ enum L10n {
         case .zoomIn: return "放大"
         case .zoomOut: return "缩小"
         case .actualSize: return "实际大小"
+        case .fileMenu: return "文件"
+        case .editMenu: return "编辑"
+        case .viewMenu: return "显示"
+        case .windowMenu: return "窗口"
+        case .helpMenu: return "帮助"
+        case .cut: return "剪切"
+        case .paste: return "粘贴"
+        case .minimize: return "最小化"
+        case .zoomWindow: return "缩放"
+        case .bringAllToFront: return "前置全部窗口"
+        case .newAreaScreenshot: return "新建区域截图"
+        case .molishotHelp: return "MoliShot 帮助"
         }
     }
 }

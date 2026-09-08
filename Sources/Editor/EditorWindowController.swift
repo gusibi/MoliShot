@@ -7,10 +7,16 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, Editor
 
     private let scrollView = NSScrollView()
     private let clipView = CenteringClipView()
-    private let toolBarView = NSVisualEffectView()
+    private let toolBarView = MoliGlassBackground(cornerRadius: 0, fallbackMaterial: .headerView)
     private let toolBarStack = NSStackView()
     private let statusLabel = NSTextField(labelWithString: "")
     private let zoomLabel = NSTextField(labelWithString: "")
+    /// Bottom glass bar: style controls + status + image actions + zoom.
+    /// Style lives here (not the top bar) so narrow windows only need to fit
+    /// the tool row up top.
+    private let bottomBarView = MoliGlassBackground(cornerRadius: 0, fallbackMaterial: .headerView)
+    private let bottomStack = NSStackView()
+    private let outputGroup = NSStackView()
     private var toolButtons: [AnnotationTool: MoliHoverButton] = [:]
     private var cropButton: MoliHoverButton?
     private var cropConfirmBar: CropConfirmBar?
@@ -39,7 +45,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, Editor
     private var lastImageSize: NSSize
     private var sliderValueRestoreItem: DispatchWorkItem?
 
-    init(image: NSImage, onClose: @escaping (EditorWindowController) -> Void) {
+    init(image: NSImage, title: String, onClose: @escaping (EditorWindowController) -> Void) {
         self.editorView = EditorView(image: image)
         self.onClose = onClose
         self.lastImageSize = image.size
@@ -51,11 +57,13 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, Editor
             backing: .buffered,
             defer: false
         )
-        window.title = ""
+        // Real title (Window menu, tabbing, VoiceOver); visually hidden so the
+        // glass toolbar keeps its full-bleed look.
+        window.title = title
         window.titleVisibility = .hidden
         window.titlebarAppearsTransparent = true
         window.isMovableByWindowBackground = true
-        window.minSize = NSSize(width: 720, height: 420)
+        window.minSize = NSSize(width: 700, height: 420)
         window.center()
         window.collectionBehavior = [.fullScreenPrimary]
 
@@ -75,14 +83,19 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, Editor
 
     required init?(coder: NSCoder) { fatalError() }
 
+    /// Window size that wraps the image tightly at its own aspect ratio:
+    /// 1:1 when it fits on screen, scaled down (aspect preserved) when not.
+    /// The window hugs the picture instead of forcing a fixed chrome box.
     private static func fitSize(for imageSize: NSSize) -> NSSize {
-        let maxW: CGFloat = 1400
-        let maxH: CGFloat = 900
-        var w = imageSize.width
-        var h = imageSize.height
-        if w > maxW { h *= maxW / w; w = maxW }
-        if h > maxH { w *= maxH / h; h = maxH }
-        return NSSize(width: max(720, w + 40), height: max(420, h + 120))
+        let visible = NSScreen.main?.visibleFrame.size ?? NSSize(width: 1400, height: 900)
+        let chromeH: CGFloat = 38 + 36 // top toolbar + bottom bar (approx)
+        let margin: CGFloat = 60
+        let availW = max(320, visible.width - margin)
+        let availH = max(200, visible.height - chromeH - margin)
+        let zoom = min(1, availW / imageSize.width, availH / imageSize.height)
+        let w = max(560, (imageSize.width * zoom).rounded())
+        let h = max(360, (imageSize.height * zoom).rounded() + chromeH)
+        return NSSize(width: min(w, visible.width), height: min(h, visible.height))
     }
 
     private func setupUI() {
@@ -91,9 +104,6 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, Editor
         configureToolbar()
 
         toolBarView.translatesAutoresizingMaskIntoConstraints = false
-        toolBarView.material = .headerView
-        toolBarView.blendingMode = .withinWindow
-        toolBarView.state = .active
         toolBarView.addSubview(toolBarStack)
 
         toolBarStack.translatesAutoresizingMaskIntoConstraints = false
@@ -117,15 +127,25 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, Editor
         statusLabel.translatesAutoresizingMaskIntoConstraints = false
         statusLabel.font = NSFont.monospacedSystemFont(ofSize: 11, weight: .regular)
         statusLabel.textColor = MoliDesign.secondaryText
+        statusLabel.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        statusLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
 
         zoomLabel.font = NSFont.monospacedSystemFont(ofSize: 11, weight: .semibold)
         zoomLabel.textColor = MoliDesign.secondaryText
         configureZoomStack()
 
+        bottomBarView.translatesAutoresizingMaskIntoConstraints = false
+        bottomStack.translatesAutoresizingMaskIntoConstraints = false
+        bottomStack.orientation = .horizontal
+        bottomStack.alignment = .centerY
+        bottomStack.spacing = 6
+        bottomStack.detachesHiddenViews = true
+        bottomStack.edgeInsets = NSEdgeInsets(top: 4, left: 12, bottom: 4, right: 10)
+        bottomBarView.addSubview(bottomStack)
+
         content.addSubview(toolBarView)
         content.addSubview(scrollView)
-        content.addSubview(statusLabel)
-        content.addSubview(zoomStack)
+        content.addSubview(bottomBarView)
 
         NSLayoutConstraint.activate([
             toolBarView.topAnchor.constraint(equalTo: content.topAnchor),
@@ -140,32 +160,33 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, Editor
             scrollView.topAnchor.constraint(equalTo: toolBarView.bottomAnchor),
             scrollView.leadingAnchor.constraint(equalTo: content.leadingAnchor),
             scrollView.trailingAnchor.constraint(equalTo: content.trailingAnchor),
-            scrollView.bottomAnchor.constraint(equalTo: statusLabel.topAnchor, constant: -6),
+            scrollView.bottomAnchor.constraint(equalTo: bottomBarView.topAnchor),
 
-            statusLabel.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 10),
-            statusLabel.trailingAnchor.constraint(lessThanOrEqualTo: zoomStack.leadingAnchor, constant: -8),
-            statusLabel.bottomAnchor.constraint(equalTo: content.bottomAnchor, constant: -8),
-            statusLabel.heightAnchor.constraint(equalToConstant: 16),
+            bottomBarView.leadingAnchor.constraint(equalTo: content.leadingAnchor),
+            bottomBarView.trailingAnchor.constraint(equalTo: content.trailingAnchor),
+            bottomBarView.bottomAnchor.constraint(equalTo: content.bottomAnchor),
 
-            zoomStack.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -8),
-            zoomStack.centerYAnchor.constraint(equalTo: statusLabel.centerYAnchor),
+            bottomStack.topAnchor.constraint(equalTo: bottomBarView.topAnchor),
+            bottomStack.leadingAnchor.constraint(equalTo: bottomBarView.leadingAnchor),
+            bottomStack.trailingAnchor.constraint(equalTo: bottomBarView.trailingAnchor),
+            bottomStack.bottomAnchor.constraint(equalTo: bottomBarView.bottomAnchor),
         ])
 
         updateStatusLabel()
         DispatchQueue.main.async { [weak self] in
-            self?.zoomToFit(animated: false)
+            self?.fitWindowToImage(animated: false)
             self?.installEventMonitor()
-            self?.updateToolbarCollapse()
+            self?.updateStyleCollapse()
         }
     }
 
     private func configureToolbar() {
-        window?.title = ""
         window?.titleVisibility = .hidden
         window?.titlebarAppearsTransparent = true
         window?.toolbar = nil
         window?.toolbarStyle = .unified
         buildCompactToolbar()
+        buildBottomBar()
     }
 
     private func buildCompactToolbar() {
@@ -194,52 +215,83 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, Editor
         cropButton = crop
         toolBarStack.addArrangedSubview(crop)
 
-        let leadingSep = toolbarSeparator()
-        styleSeparators.append(leadingSep)
-        toolBarStack.addArrangedSubview(leadingSep)
+        // Copy + Pin + Save are the most-used image actions — they live
+        // top-left, next to the tools, instead of buried in the bottom bar.
+        toolBarStack.addArrangedSubview(toolbarSeparator())
+        toolBarStack.addArrangedSubview(compactToolbarButton(title: L10n.text(.copy), symbol: "doc.on.doc", action: #selector(copyImage), shortcut: "⌘C"))
+        toolBarStack.addArrangedSubview(compactToolbarButton(title: L10n.text(.pin), symbol: "pin", action: #selector(pinImage)))
+        let saveButton = compactToolbarButton(title: L10n.text(.save), symbol: "square.and.arrow.down", action: #selector(saveImage), shortcut: "⌘S")
+        saveButton.isProminent = true
+        toolBarStack.addArrangedSubview(saveButton)
 
-        // Style controls grouped so they collapse into the overflow popover as a
-        // unit when the window is narrow. Preset swatches cover the 95% "red box"
-        // case; the well stays as the custom-colour entrypoint.
-        toolBarStack.addArrangedSubview(buildStyleGroup())
-
-        let trailingSep = toolbarSeparator()
-        styleSeparators.append(trailingSep)
-        toolBarStack.addArrangedSubview(trailingSep)
+        toolBarStack.addArrangedSubview(toolbarSeparator())
 
         // History.
         toolBarStack.addArrangedSubview(compactToolbarButton(title: L10n.text(.undo), symbol: "arrow.uturn.backward", action: #selector(undoTap), shortcut: "⌘Z"))
         toolBarStack.addArrangedSubview(compactToolbarButton(title: L10n.text(.redo), symbol: "arrow.uturn.forward", action: #selector(redoTap), shortcut: "⇧⌘Z"))
 
-        // Flexible gap pushes the output group to the right edge.
+        // Flexible gap pushes close to the right edge.
         let spacer = NSView()
         spacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
         spacer.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         toolBarStack.addArrangedSubview(spacer)
 
-        // Overflow entry — reveals the collapsed style controls; hidden until the
-        // toolbar actually collapses (see updateToolbarCollapse).
+        toolBarStack.addArrangedSubview(compactToolbarButton(title: L10n.text(.close), symbol: "xmark", action: #selector(closeEditor)))
+
+        refreshToolButtons()
+    }
+
+    /// Bottom bar: style controls (left), status (flexible middle), image
+    /// actions + zoom (right). Style lives here so the top bar only needs to
+    /// fit the tool row, and narrow windows collapse style into the `…`
+    /// popover instead of forcing a wide window.
+    private func buildBottomBar() {
+        bottomStack.arrangedSubviews.forEach {
+            bottomStack.removeArrangedSubview($0)
+            $0.removeFromSuperview()
+        }
+        styleSeparators.removeAll()
+
+        let leadingSep = toolbarSeparator()
+        styleSeparators.append(leadingSep)
+        bottomStack.addArrangedSubview(leadingSep)
+
+        // Preset swatches cover the 95% "red box" case; the well stays as the
+        // custom-colour entrypoint.
+        bottomStack.addArrangedSubview(buildStyleGroup())
+
+        let trailingSep = toolbarSeparator()
+        styleSeparators.append(trailingSep)
+        bottomStack.addArrangedSubview(trailingSep)
+
+        // Overflow entry — reveals the collapsed style controls; hidden until
+        // the bar actually collapses (see updateStyleCollapse).
         let overflow = compactToolbarButton(title: L10n.text(.more), symbol: "ellipsis", action: #selector(showOverflowPopover(_:)))
         overflow.isHidden = true
         overflowButton = overflow
-        toolBarStack.addArrangedSubview(overflow)
+        bottomStack.addArrangedSubview(overflow)
 
-        // Output group. Clear lives here (well away from undo/redo) and turns red
-        // on hover; it's non-destructive enough — ⌘Z restores — to skip a dialog.
-        toolBarStack.addArrangedSubview(toolbarSeparator())
-        toolBarStack.addArrangedSubview(compactToolbarButton(title: L10n.text(.clear), symbol: "trash", action: #selector(clearTap), destructive: true))
-        toolBarStack.addArrangedSubview(compactToolbarButton(title: L10n.text(.ocr), symbol: "text.viewfinder", action: #selector(runOCR)))
-        toolBarStack.addArrangedSubview(compactToolbarButton(title: L10n.text(.pin), symbol: "pin", action: #selector(pinImage)))
-        toolBarStack.addArrangedSubview(compactToolbarButton(title: L10n.text(.copy), symbol: "doc.on.doc", action: #selector(copyImage), shortcut: "⌘C"))
-        let saveButton = compactToolbarButton(title: L10n.text(.save), symbol: "square.and.arrow.down", action: #selector(saveImage), shortcut: "⌘S")
-        saveButton.isProminent = true
-        toolBarStack.addArrangedSubview(saveButton)
+        let spacer = NSView()
+        spacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        spacer.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        bottomStack.addArrangedSubview(spacer)
 
-        toolBarStack.addArrangedSubview(toolbarGap(10))
-        toolBarStack.addArrangedSubview(compactToolbarButton(title: L10n.text(.close), symbol: "xmark", action: #selector(closeEditor)))
+        bottomStack.addArrangedSubview(statusLabel)
+
+        // Image actions sit with zoom: they act on the whole picture.
+        outputGroup.orientation = .horizontal
+        outputGroup.alignment = .centerY
+        outputGroup.spacing = 3
+        outputGroup.detachesHiddenViews = true
+        if outputGroup.arrangedSubviews.isEmpty {
+            outputGroup.addArrangedSubview(compactToolbarButton(title: L10n.text(.clear), symbol: "trash", action: #selector(clearTap), destructive: true))
+            outputGroup.addArrangedSubview(compactToolbarButton(title: L10n.text(.ocr), symbol: "text.viewfinder", action: #selector(runOCR)))
+        }
+        bottomStack.addArrangedSubview(outputGroup)
+
+        bottomStack.addArrangedSubview(zoomStack)
 
         styleCollapsed = false
-        refreshToolButtons()
     }
 
     /// Build the collapsible style group: swatch palette, stroke/opacity sliders,
@@ -406,18 +458,19 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, Editor
         }
     }
 
-    /// Collapse the style group into the overflow popover when the toolbar's
+    /// Collapse the bottom-bar style group into the overflow popover when its
     /// natural content width exceeds the space available (with a little
-    /// hysteresis so it doesn't flicker at the threshold). Deterministic width
-    /// math — NSStackView's visibility-priority auto-detach doesn't fire under a
-    /// leading/trailing pin.
-    private func updateToolbarCollapse() {
-        guard toolBarView.bounds.width > 0 else { return }
-        let available = toolBarView.bounds.width - trafficLightInset() - 10
+    /// hysteresis so it doesn't flicker at the threshold). The reserve keeps
+    /// room for status text, the output group, and zoom at the right end.
+    private func updateStyleCollapse() {
+        guard bottomBarView.bounds.width > 0, let styleGroup else { return }
+        let reserve = outputGroup.fittingSize.width + zoomStack.fittingSize.width + 170
+        let available = bottomBarView.bounds.width - reserve
         if styleCollapsed {
             if available >= lastExpandedWidth + 30 { setStyleCollapsed(false) }
         } else {
-            lastExpandedWidth = toolBarStack.fittingSize.width
+            lastExpandedWidth = styleGroup.fittingSize.width
+                + (styleSeparators.first?.fittingSize.width ?? 0) * 2
             if available < lastExpandedWidth { setStyleCollapsed(true) }
         }
     }
@@ -674,6 +727,57 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, Editor
 
     @objc private func closeEditor() { close() }
 
+    // MARK: - Main-menu actions (responder chain)
+
+    /// The local key monitor consumes the keyboard equivalents, so these
+    /// primarily serve menu clicks — and the menus serve discovery. An
+    /// editing text field sits earlier in the chain and keeps its native
+    /// cut/copy/paste behaviour.
+    @objc func undo(_ sender: Any?) { undoTap() }
+    @objc func redo(_ sender: Any?) { redoTap() }
+    @objc func cut(_ sender: Any?) {
+        guard editorView.hasSelection else { NSSound.beep(); return }
+        _ = editorView.copySelection()
+        _ = editorView.deleteSelection()
+        showTransientStatus(L10n.text(.copiedToClipboard))
+    }
+    @objc func copy(_ sender: Any?) { performCopy() }
+    @objc func paste(_ sender: Any?) {
+        if editorView.paste() {
+            showTransientStatus(L10n.text(.pastedAnnotation))
+        } else {
+            NSSound.beep()
+        }
+    }
+    @objc func delete(_ sender: Any?) {
+        if !editorView.deleteSelection() { NSSound.beep() }
+    }
+    @objc func saveDocument(_ sender: Any?) { saveImage() }
+    @objc func menuZoomIn(_ sender: Any?) { zoomIn() }
+    @objc func menuZoomOut(_ sender: Any?) { zoomOut() }
+    @objc func menuActualSize(_ sender: Any?) { actualSize() }
+    @objc func menuFitToWindow(_ sender: Any?) { fitToWindow() }
+
+    func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
+        switch menuItem.action {
+        case #selector(undo(_:)): return editorView.canUndo
+        case #selector(redo(_:)): return editorView.canRedo
+        case #selector(cut(_:)), #selector(delete(_:)): return editorView.hasSelection
+        case #selector(paste(_:)):
+            return NSPasteboard.general.data(forType: NSPasteboard.PasteboardType(AnnotationClipboard.uti)) != nil
+        default: return true
+        }
+    }
+
+    private func performCopy() {
+        if editorView.hasSelection {
+            _ = editorView.copySelection()
+            showTransientStatus(L10n.text(.copiedToClipboard))
+        } else {
+            copyImage()
+        }
+    }
+
     @objc private func toggleCropMode() {
         if editorView.cropMode {
             // Second click applies the drawn crop; with no valid rect it just
@@ -832,13 +936,13 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, Editor
             ctx.duration = 0.18
             ctx.allowsImplicitAnimation = true
             dirty.forEach { $0.0.isHidden = $0.1 }
-            toolBarView.layoutSubtreeIfNeeded()
+            bottomBarView.layoutSubtreeIfNeeded()
         }
     }
     func editorViewDidChangeContent(_ view: EditorView) {
         if !lastImageSize.equalTo(view.effectiveSize) {
             lastImageSize = view.effectiveSize
-            zoomToFit()
+            fitWindowToImage()
         } else {
             updateStatusLabel()
         }
@@ -904,7 +1008,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, Editor
     func windowDidResize(_ notification: Notification) {
         recenterImageIfNeeded()
         updateStatusLabel()
-        updateToolbarCollapse()
+        updateStyleCollapse()
     }
 
     override func observeValue(forKeyPath keyPath: String?, of object: Any?, change: [NSKeyValueChangeKey : Any]?, context: UnsafeMutableRawPointer?) {
@@ -966,12 +1070,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, Editor
                     self.actualSize()
                     return nil
                 case "c":
-                    if self.editorView.hasSelection {
-                        _ = self.editorView.copySelection()
-                        self.showTransientStatus(L10n.text(.copiedToClipboard))
-                    } else {
-                        self.copyImage()
-                    }
+                    self.performCopy()
                     return nil
                 case "v":
                     if self.editorView.paste() {
@@ -1065,6 +1164,40 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, Editor
         setZoom(target, centerAt: NSPoint(x: imageSize.width / 2, y: imageSize.height / 2), animated: animated)
     }
 
+    /// Resize the window so its viewport wraps the image tightly at its own
+    /// aspect ratio (1:1 when it fits on screen, scaled down otherwise).
+    /// Called on open and whenever the effective image size changes (crop).
+    /// The ⌘0 "fit" action only adjusts zoom and leaves the window alone.
+    private func fitWindowToImage(animated: Bool = true) {
+        guard let window else { return }
+        let imageSize = editorView.effectiveSize
+        guard imageSize.width > 0, imageSize.height > 0 else { return }
+        let visible = window.screen?.visibleFrame ?? NSScreen.main?.visibleFrame
+            ?? NSRect(x: 0, y: 0, width: 1400, height: 900)
+        // Live chrome delta: window size minus the scroll viewport.
+        let chrome = NSSize(width: window.frame.width - scrollView.contentSize.width,
+                            height: window.frame.height - scrollView.contentSize.height)
+        let margin: CGFloat = 40
+        let availW = max(320, visible.width - chrome.width - margin)
+        let availH = max(200, visible.height - chrome.height - margin)
+        let zoom = min(1, availW / imageSize.width, availH / imageSize.height)
+        var winW = imageSize.width * zoom + chrome.width
+        var winH = imageSize.height * zoom + chrome.height
+        winW = min(max(winW, window.minSize.width), visible.width)
+        winH = min(max(winH, window.minSize.height), visible.height)
+        var frame = window.frame
+        let center = NSPoint(x: frame.midX, y: frame.midY)
+        frame.size = NSSize(width: winW, height: winH)
+        frame.origin = NSPoint(x: center.x - winW / 2, y: center.y - winH / 2)
+        if frame.minX < visible.minX { frame.origin.x = visible.minX }
+        if frame.maxX > visible.maxX { frame.origin.x = visible.maxX - winW }
+        if frame.minY < visible.minY { frame.origin.y = visible.minY }
+        if frame.maxY > visible.maxY { frame.origin.y = visible.maxY - winH }
+        window.setFrame(frame, display: true, animate: animated && !MoliDesign.reduceMotion)
+        updateStyleCollapse()
+        setZoom(zoom, centerAt: NSPoint(x: imageSize.width / 2, y: imageSize.height / 2), animated: false)
+    }
+
     private func visibleCenter() -> NSPoint {
         let rect = editorView.visibleRect
         if rect.isEmpty {
@@ -1097,7 +1230,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, Editor
     @objc private func languageDidChange() {
         configureToolbar()
         updateStatusLabel()
-        DispatchQueue.main.async { [weak self] in self?.updateToolbarCollapse() }
+        DispatchQueue.main.async { [weak self] in self?.updateStyleCollapse() }
     }
 
     /// Non-modal notice surfaced as a HUD toast over the canvas. Used for

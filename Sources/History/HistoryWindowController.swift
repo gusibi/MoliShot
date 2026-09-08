@@ -1,4 +1,5 @@
 import AppKit
+import Quartz
 
 final class HistoryWindowController: NSWindowController, NSCollectionViewDataSource, NSCollectionViewDelegate {
 
@@ -6,6 +7,7 @@ final class HistoryWindowController: NSWindowController, NSCollectionViewDataSou
     private let scroll = NSScrollView()
     private let emptyLabel = NSTextField(labelWithString: L10n.text(.noScreenshotsYet))
     private let emptyStack = NSStackView()
+    private var spaceMonitor: Any?
 
     init() {
         let window = NSWindow(
@@ -24,10 +26,18 @@ final class HistoryWindowController: NSWindowController, NSCollectionViewDataSou
         NotificationCenter.default.addObserver(self, selector: #selector(languageDidChange), name: .appLanguageDidChange, object: nil)
         setupUI()
         reload()
+        // Space toggles Quick Look, Finder-style. The panel is a separate
+        // key window, so this monitor naturally goes quiet while it is open.
+        spaceMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            guard let self, self.window?.isKeyWindow == true, event.keyCode == 49 else { return event }
+            self.toggleQuickLook()
+            return nil
+        }
     }
 
     deinit {
         NotificationCenter.default.removeObserver(self)
+        if let spaceMonitor { NSEvent.removeMonitor(spaceMonitor) }
     }
 
     required init?(coder: NSCoder) { fatalError() }
@@ -100,11 +110,76 @@ final class HistoryWindowController: NSWindowController, NSCollectionViewDataSou
         item.configure(with: entry)
         item.onOpen = { [weak self] in
             guard let self = self, let image = HistoryStore.shared.image(for: entry) else { return }
-            AppCoordinator.shared.openEditor(with: image)
+            AppCoordinator.shared.openEditor(with: image, title: AppCoordinator.screenshotTitle(for: entry.timestamp))
             _ = self
         }
         item.onDelete = { HistoryStore.shared.delete(entry) }
+        item.onCopyImage = {
+            if let image = HistoryStore.shared.image(for: entry) {
+                NSPasteboard.general.writeImage(image)
+            }
+        }
+        item.onReveal = {
+            let url = entry.url(in: HistoryStore.shared.directory)
+            NSWorkspace.shared.activateFileViewerSelecting([url])
+        }
+        item.onRightClick = { [weak self] in
+            self?.collectionView.deselectAll(nil)
+            self?.collectionView.selectItems(at: [indexPath], scrollPosition: [])
+        }
         return item
+    }
+
+    func collectionView(_ collectionView: NSCollectionView, didSelectItemsAt indexPaths: Set<IndexPath>) {
+        if QLPreviewPanel.sharedPreviewPanelExists(), QLPreviewPanel.shared()?.isVisible == true {
+            QLPreviewPanel.shared()?.reloadData()
+        }
+    }
+
+    // MARK: - Quick Look
+
+    private func toggleQuickLook() {
+        guard previewURL() != nil, let panel = QLPreviewPanel.shared() else { return }
+        if panel.isVisible {
+            panel.orderOut(nil)
+        } else {
+            panel.makeKeyAndOrderFront(nil)
+        }
+    }
+
+    private func previewURL() -> URL? {
+        let entries = HistoryStore.shared.entries
+        guard !entries.isEmpty else { return nil }
+        let selected = collectionView.selectionIndexPaths.first?.item ?? 0
+        guard entries.indices.contains(selected) else { return nil }
+        return entries[selected].url(in: HistoryStore.shared.directory)
+    }
+
+    override func acceptsPreviewPanelControl(_ panel: QLPreviewPanel!) -> Bool { true }
+
+    override func beginPreviewPanelControl(_ panel: QLPreviewPanel!) {
+        panel.dataSource = self
+        panel.delegate = self
+    }
+
+    override func endPreviewPanelControl(_ panel: QLPreviewPanel!) {}
+}
+
+extension HistoryWindowController: QLPreviewPanelDataSource, QLPreviewPanelDelegate {
+    func numberOfPreviewItems(in panel: QLPreviewPanel!) -> Int {
+        previewURL() == nil ? 0 : 1
+    }
+
+    func previewPanel(_ panel: QLPreviewPanel!, previewItemAt index: Int) -> QLPreviewItem! {
+        (previewURL() as NSURL?) ?? (NSURL() as QLPreviewItem)
+    }
+
+    func previewPanel(_ panel: QLPreviewPanel!, sourceFrameOnScreenFor item: QLPreviewItem!) -> NSRect {
+        guard let index = collectionView.selectionIndexPaths.first,
+              let cell = collectionView.item(at: index),
+              let frame = cell.view.superview?.convert(cell.view.frame, to: nil),
+              let window else { return .zero }
+        return window.convertToScreen(frame)
     }
 }
 
@@ -129,11 +204,64 @@ private final class HistoryCellView: MoliCardView {
 
     override func mouseEntered(with event: NSEvent) { onHoverChanged?(true) }
     override func mouseExited(with event: NSEvent) { onHoverChanged?(false) }
+
+    // MARK: - Native affordances: drag-out + right-click menu
+
+    /// File URL for drag-out export (Finder, chat apps, mail).
+    var dragFileURL: URL?
+    /// Preview image drawn under the cursor during a drag.
+    var dragPreview: NSImage?
+    /// Builds the right-click menu; the cell selects itself first.
+    var contextMenuBuilder: (() -> NSMenu?)?
+    private var pressPoint: NSPoint?
+    private var didBeginDrag = false
+
+    override func mouseDown(with event: NSEvent) {
+        pressPoint = event.locationInWindow
+        didBeginDrag = false
+        super.mouseDown(with: event)
+    }
+
+    override func mouseDragged(with event: NSEvent) {
+        if !didBeginDrag, let start = pressPoint, let url = dragFileURL,
+           hypot(event.locationInWindow.x - start.x, event.locationInWindow.y - start.y) > 3 {
+            didBeginDrag = true
+            let draggingItem = NSDraggingItem(pasteboardWriter: url as NSURL)
+            draggingItem.setDraggingFrame(bounds, contents: dragPreview)
+            beginDraggingSession(with: [draggingItem], event: event, source: self)
+            return
+        }
+        if !didBeginDrag { super.mouseDragged(with: event) }
+    }
+
+    override func mouseUp(with event: NSEvent) {
+        pressPoint = nil
+        if !didBeginDrag { super.mouseUp(with: event) }
+        didBeginDrag = false
+    }
+
+    override func rightMouseDown(with event: NSEvent) {
+        if let menu = contextMenuBuilder?() {
+            NSMenu.popUpContextMenu(menu, with: event, for: self)
+        } else {
+            super.rightMouseDown(with: event)
+        }
+    }
+}
+
+extension HistoryCellView: NSDraggingSource {
+    func draggingSession(_ session: NSDraggingSession, sourceOperationMaskFor context: NSDraggingContext) -> NSDragOperation {
+        .copy
+    }
 }
 
 final class HistoryCell: NSCollectionViewItem {
     var onOpen: (() -> Void)?
     var onDelete: (() -> Void)?
+    var onCopyImage: (() -> Void)?
+    var onReveal: (() -> Void)?
+    var onRightClick: (() -> Void)?
+    private var entry: HistoryEntry?
 
     private let imgView = NSImageView()
     private let label = NSTextField(labelWithString: "")
@@ -207,6 +335,7 @@ final class HistoryCell: NSCollectionViewItem {
     }
 
     func configure(with entry: HistoryEntry) {
+        self.entry = entry
         openBtn.toolTip = L10n.text(.open)
         openBtn.setAccessibilityLabel(L10n.text(.open))
         deleteBtn.toolTip = L10n.text(.delete)
@@ -215,7 +344,34 @@ final class HistoryCell: NSCollectionViewItem {
         let df = DateFormatter()
         df.dateStyle = .short; df.timeStyle = .short
         label.stringValue = df.string(from: entry.timestamp)
+        if let cellView = view as? HistoryCellView {
+            cellView.dragFileURL = entry.url(in: HistoryStore.shared.directory)
+            cellView.dragPreview = imgView.image
+            cellView.contextMenuBuilder = { [weak self] in self?.makeContextMenu() }
+        }
     }
+
+    private func makeContextMenu() -> NSMenu {
+        onRightClick?()
+        let menu = NSMenu()
+        let items: [(String, Selector)] = [
+            (L10n.text(.open), #selector(contextOpen)),
+            (L10n.text(.copy), #selector(contextCopyImage)),
+            (L10n.text(.showInFinder), #selector(contextReveal)),
+            (L10n.text(.delete), #selector(contextDelete)),
+        ]
+        for (title, action) in items {
+            let item = NSMenuItem(title: title, action: action, keyEquivalent: "")
+            item.target = self
+            menu.addItem(item)
+        }
+        return menu
+    }
+
+    @objc private func contextOpen() { onOpen?() }
+    @objc private func contextCopyImage() { onCopyImage?() }
+    @objc private func contextReveal() { onReveal?() }
+    @objc private func contextDelete() { onDelete?() }
 
     private func configureActionButton(_ button: MoliHoverButton, symbol: String, tooltip: String, action: Selector) {
         button.layer?.cornerRadius = 6

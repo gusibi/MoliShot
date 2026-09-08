@@ -508,19 +508,25 @@ final class EditorView: NSView {
             return
         }
         if event.keyCode == 51 || event.keyCode == 117 { // delete / forward delete
-            if let sel = selected {
-                annotations.removeAll { $0.id == sel.id }
-                selected = nil
-                commitHistory()
-                delegate?.editorViewDidChangeContent(self)
-                delegate?.editorViewDidChangeSelection(self)
-                needsDisplay = true
-            }
+            deleteSelection()
         } else if event.keyCode == 53 { // esc
             cancelCurrentInteraction()
         } else {
             super.keyDown(with: event)
         }
+    }
+
+    /// Delete the selected annotation. Shared by keyDown and the Edit menu.
+    @discardableResult
+    func deleteSelection() -> Bool {
+        guard !cropMode, let sel = selected else { return false }
+        annotations.removeAll { $0.id == sel.id }
+        selected = nil
+        commitHistory()
+        delegate?.editorViewDidChangeContent(self)
+        delegate?.editorViewDidChangeSelection(self)
+        needsDisplay = true
+        return true
     }
 
     private func makeShape(start: NSPoint, end: NSPoint) -> Annotation {

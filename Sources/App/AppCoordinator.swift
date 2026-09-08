@@ -77,14 +77,24 @@ final class AppCoordinator {
     }
 
     @discardableResult
-    func openEditor(with image: NSImage) -> EditorWindowController {
-        let controller = EditorWindowController(image: image) { [weak self] editor in
+    func openEditor(with image: NSImage, title: String? = nil) -> EditorWindowController {
+        let controller = EditorWindowController(image: image, title: title ?? Self.screenshotTitle(), onClose: { [weak self] editor in
             self?.editors.removeAll { $0 === editor }
-        }
+        })
         editors.append(controller)
         NSApp.activate(ignoringOtherApps: true)
         controller.showWindow(nil)
         return controller
+    }
+
+    /// Document-style window title ("Screenshot 9 Sep 2026 at 00:47:12").
+    /// Real titles feed the Window menu, tabbing, and VoiceOver; the editor
+    /// keeps them visually hidden behind the glass toolbar.
+    static func screenshotTitle(for date: Date = Date()) -> String {
+        let df = DateFormatter()
+        df.dateStyle = .medium
+        df.timeStyle = .medium
+        return "Screenshot \(df.string(from: date))"
     }
 
     func pinImage(_ image: NSImage, at origin: NSPoint? = nil) {

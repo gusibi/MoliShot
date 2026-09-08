@@ -302,21 +302,38 @@ final class ScrollingToolbar: NSObject {
             cornerRadius: 10
         )
 
-        label.frame = NSRect(x: 12, y: 18, width: 260, height: 20)
         label.textColor = MoliDesign.primaryText
         label.font = NSFont.systemFont(ofSize: 12, weight: .medium)
         label.lineBreakMode = .byTruncatingTail
+        label.translatesAutoresizingMaskIntoConstraints = false
+        label.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         container.addSubview(label)
 
         doneButton = NSButton(title: L10n.text(.done), target: self, action: #selector(doneTap))
-        doneButton!.frame = NSRect(x: 280, y: 14, width: 60, height: 28)
+        doneButton!.keyEquivalent = "\r"
         configureToolbarButton(doneButton!, emphasized: true)
         container.addSubview(doneButton!)
 
         cancelButton = NSButton(title: L10n.text(.cancel), target: self, action: #selector(cancelTap))
-        cancelButton!.frame = NSRect(x: 346, y: 14, width: 66, height: 28)
+        cancelButton!.keyEquivalent = "\u{1b}"
         configureToolbarButton(cancelButton!, emphasized: false)
         container.addSubview(cancelButton!)
+
+        NSLayoutConstraint.activate([
+            label.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 12),
+            label.centerYAnchor.constraint(equalTo: container.centerYAnchor),
+            label.trailingAnchor.constraint(lessThanOrEqualTo: doneButton!.leadingAnchor, constant: -8),
+
+            doneButton!.centerYAnchor.constraint(equalTo: container.centerYAnchor),
+            doneButton!.trailingAnchor.constraint(equalTo: cancelButton!.leadingAnchor, constant: -6),
+            doneButton!.widthAnchor.constraint(equalToConstant: 60),
+            doneButton!.heightAnchor.constraint(equalToConstant: 28),
+
+            cancelButton!.centerYAnchor.constraint(equalTo: container.centerYAnchor),
+            cancelButton!.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -8),
+            cancelButton!.widthAnchor.constraint(equalToConstant: 66),
+            cancelButton!.heightAnchor.constraint(equalToConstant: 28),
+        ])
 
         win.contentView = container
         win.makeKeyAndOrderFront(nil)
@@ -360,6 +377,7 @@ final class ScrollingToolbar: NSObject {
     private func configureToolbarButton(_ button: NSButton, emphasized: Bool) {
         button.isBordered = false
         button.wantsLayer = true
+        button.translatesAutoresizingMaskIntoConstraints = false
         button.layer?.cornerRadius = 7
         button.layer?.backgroundColor = (emphasized ? MoliDesign.cardElevated : .clear).cgColor
         button.attributedTitle = NSAttributedString(

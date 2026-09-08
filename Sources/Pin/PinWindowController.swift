@@ -123,7 +123,7 @@ final class PinView: NSView {
     var onOCR: (() -> Void)?
 
     private let imageView: DraggablePinImageView
-    private let toolbarChrome: NSVisualEffectView
+    private let toolbarChrome: MoliGlassBackground
 
     init(frame: NSRect, image: NSImage) {
         self.imageView = DraggablePinImageView(frame: frame)
@@ -131,16 +131,9 @@ final class PinView: NSView {
         self.imageView.imageScaling = .scaleProportionallyUpOrDown
         self.imageView.autoresizingMask = [.width, .height]
 
-        // Hover toolbar rendered on a translucent HUD material so it reads as
-        // floating chrome rather than an opaque strip.
-        self.toolbarChrome = NSVisualEffectView()
-        toolbarChrome.material = .hudWindow
-        toolbarChrome.blendingMode = .withinWindow
-        toolbarChrome.state = .active
-        toolbarChrome.wantsLayer = true
-        toolbarChrome.layer?.cornerRadius = 8
-        toolbarChrome.layer?.masksToBounds = true
-        toolbarChrome.translatesAutoresizingMaskIntoConstraints = false
+        // Hover toolbar rendered on Liquid Glass (hud material below) so it
+        // reads as floating chrome rather than an opaque strip.
+        self.toolbarChrome = MoliGlassBackground(cornerRadius: 8, fallbackMaterial: .hudWindow)
         toolbarChrome.alphaValue = 0
 
         super.init(frame: frame)

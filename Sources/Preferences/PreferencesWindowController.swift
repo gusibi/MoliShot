@@ -230,6 +230,7 @@ private struct HotkeysPane: View {
             ForEach(HotkeyAction.allCases, id: \.self) { action in
                 LabeledContent(action.title) {
                     HotkeyRecorderView(action: action)
+                        .moliGlassPill()
                 }
             }
         }
@@ -339,6 +340,23 @@ private struct StoragePane: View {
     }
 }
 
+// MARK: - Liquid Glass helper
+
+/// Glass pill for the custom hotkey recorder (macOS 26+; identity below).
+/// Standard SwiftUI controls (sidebar, Form, Stepper, segmented Picker)
+/// already pick up the system glass automatically — only this bespoke
+/// AppKit pill needs an explicit treatment.
+private extension View {
+    @ViewBuilder
+    func moliGlassPill(cornerRadius: CGFloat = 6) -> some View {
+        if #available(macOS 26, *) {
+            self.glassEffect(.regular, in: .rect(cornerRadius: cornerRadius))
+        } else {
+            self
+        }
+    }
+}
+
 // MARK: - Hotkey Recorder (NSViewRepresentable wrapping AppKit)
 
 private struct HotkeyRecorderView: NSViewRepresentable {
@@ -407,9 +425,16 @@ private final class HotkeyRecorderButton: NSButton {
 
     private func applyBaseStyle() {
         layer?.cornerRadius = 6
-        layer?.backgroundColor = MoliDesign.cardElevated.cgColor
-        layer?.borderWidth = 0.5
-        layer?.borderColor = MoliDesign.hairline.cgColor
+        if #available(macOS 26, *) {
+            // The SwiftUI glass pill behind this button provides the surface;
+            // stay clear so the refraction shows through.
+            layer?.backgroundColor = NSColor.clear.cgColor
+            layer?.borderWidth = 0
+        } else {
+            layer?.backgroundColor = MoliDesign.cardElevated.cgColor
+            layer?.borderWidth = 0.5
+            layer?.borderColor = MoliDesign.hairline.cgColor
+        }
     }
 
     @objc private func startRecording() {
@@ -474,8 +499,12 @@ private final class HotkeyRecorderButton: NSButton {
     }
 
     private func resetBorder() {
-        layer?.borderColor = MoliDesign.hairline.cgColor
-        layer?.borderWidth = 0.5
+        if #available(macOS 26, *) {
+            layer?.borderWidth = 0
+        } else {
+            layer?.borderColor = MoliDesign.hairline.cgColor
+            layer?.borderWidth = 0.5
+        }
     }
 
     private func updateTitle() {

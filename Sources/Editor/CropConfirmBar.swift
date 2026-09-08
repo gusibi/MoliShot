@@ -3,7 +3,7 @@ import AppKit
 /// A persistent confirm/cancel bar floated over the canvas while the crop modal
 /// is active. Unlike a toast, it stays put, so there's always a visible way out
 /// of crop mode (wayfinding). The buttons mirror the Return/Esc keyboard paths.
-final class CropConfirmBar: NSVisualEffectView {
+final class CropConfirmBar: NSView {
     private let applyAction: () -> Void
     private let cancelAction: () -> Void
 
@@ -13,12 +13,18 @@ final class CropConfirmBar: NSVisualEffectView {
         super.init(frame: .zero)
 
         translatesAutoresizingMaskIntoConstraints = false
-        material = .hudWindow
-        blendingMode = .withinWindow
-        state = .active
-        wantsLayer = true
-        layer?.cornerRadius = 10
-        layer?.masksToBounds = true
+        wantsLayer = true // backing for the pop-in scale animation only
+
+        // Liquid Glass on macOS 26+, hud material below. Content stays a
+        // sibling above the glass so controls never sit under the refraction.
+        let background = MoliGlassBackground(cornerRadius: 10, fallbackMaterial: .hudWindow)
+        addSubview(background)
+        NSLayoutConstraint.activate([
+            background.topAnchor.constraint(equalTo: topAnchor),
+            background.leadingAnchor.constraint(equalTo: leadingAnchor),
+            background.trailingAnchor.constraint(equalTo: trailingAnchor),
+            background.bottomAnchor.constraint(equalTo: bottomAnchor),
+        ])
 
         let apply = makeButton(symbol: "checkmark", title: L10n.text(.apply),
                                tooltip: "\(L10n.text(.apply))  ⏎", prominent: true,
