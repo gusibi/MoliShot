@@ -25,15 +25,21 @@ jobs:
         run: xcodegen generate
 
       - name: Build archive
+        # Ad-hoc signed (CODE_SIGN_IDENTITY="-"): the bundle gets a real,
+        # validating signature. macOS 26 TCC refuses to persist Screen
+        # Recording grants for unsigned/linker-signed bundles — the user
+        # grants the toggle and the system keeps asking. Ad-hoc is not
+        # notarized (Gatekeeper still warns on first open), but TCC can pin
+        # the grant to the bundle's cdhash for the life of that build.
         run: |
           xcodebuild archive \
             -project MoliShot.xcodeproj \
             -scheme MoliShot \
             -archivePath ./build/MoliShot.xcarchive \
             -configuration Release \
-            CODE_SIGN_IDENTITY="" \
-            CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGNING_ALLOWED=NO
+            CODE_SIGN_IDENTITY="-" \
+            CODE_SIGN_STYLE=Manual \
+            DEVELOPMENT_TEAM=""
 
       - name: Package DMG
         run: |
