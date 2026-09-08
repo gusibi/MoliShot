@@ -55,19 +55,11 @@ final class RegionSelectionController {
     func begin(mode: RegionCaptureMode) {
         self.mode = mode
 
-        // Warn if secure input is active (password field focused) —
-        // the system will black out that area in the screenshot.
-        if Permissions.isSecureInputEnabled {
-            let alert = NSAlert()
-            alert.messageText = "Secure Input Active"
-            alert.informativeText = "A password field or secure input is currently active. The captured area may appear black. Continue anyway?"
-            alert.addButton(withTitle: "Continue")
-            alert.addButton(withTitle: "Cancel")
-            guard alert.runModal() == .alertFirstButtonReturn else {
-                completion(nil)
-                return
-            }
-        }
+        // Secure input only blacks out password areas in the result — inform,
+        // don't block. A runModal alert here would activate MoliShot and
+        // dismiss the front app's open menus, so the overlay shows a
+        // non-activating banner instead.
+        let secureInputActive = Permissions.isSecureInputEnabled
 
         Task { @MainActor in
             prepareInitialOverlayState()
@@ -77,14 +69,15 @@ final class RegionSelectionController {
             } catch {
                 NSLog("Pre-capture screen snapshots failed: \(error)")
             }
-            // ② 加载窗口信息
+            // ② 立刻显示覆盖层并吞掉点击，再去做慢的窗口列表查询 ——
+            // 否则这段时间用户的点击会漏到下层 App，关掉它的菜单。
+            showOverlay(secureInputNotice: secureInputActive)
+            // ③ 加载窗口信息（只影响悬停高亮，异步补上即可）
             do {
                 try await self.loadOverlayContent()
             } catch {
                 NSLog("Region begin failed: \(error)")
             }
-            // ③ 再显示覆盖层（此时底层 UI 状态已被冻结在快照里）
-            showOverlay()
         }
     }
 
@@ -184,7 +177,7 @@ final class RegionSelectionController {
     }
 
     @MainActor
-    private func showOverlay() {
+    private func showOverlay(secureInputNotice: Bool = false) {
         if !overlayWindows.isEmpty {
             for window in overlayWindows {
                 if let view = window.contentView as? RegionSelectionView {
@@ -199,6 +192,16 @@ final class RegionSelectionController {
         escapeHotkey = HotKey(key: .escape, modifiers: [])
         escapeHotkey?.keyDownHandler = { [weak self] in
             self?.handleResult(.cancelled)
+        }
+
+        // Swallow pointer input BEFORE any window orders front: from this
+        // point on, clicks can't leak through to the app underneath (whose
+        // open menus would otherwise close on an outside mousedown).
+        // The handler no-ops until the primary view is assigned below.
+        if Permissions.hasAccessibilityPermission {
+            _ = captureEventTap.start { [weak self] event in
+                self?.primarySelectionView?.handleInterceptedEvent(event)
+            }
         }
 
         // Create one overlay panel per screen.
@@ -227,7 +230,8 @@ final class RegionSelectionController {
                 allowsWindowSelectionInAreaMode: isPrimary ? allowsWindowSelectionInAreaMode : false,
                 windowRects: windowRects,
                 snapshotImage: isPrimary ? screenDisplayID.flatMap { screenSnapshots[$0] } : nil,
-                displayScale: screenDisplayID.flatMap(displayScale(for:)) ?? screen.backingScaleFactor
+                displayScale: screenDisplayID.flatMap(displayScale(for:)) ?? screen.backingScaleFactor,
+                secureInputNotice: isPrimary && secureInputNotice
             )
 
             if isPrimary {
@@ -245,11 +249,8 @@ final class RegionSelectionController {
             overlayWindows.append(panel)
         }
 
-        if Permissions.hasAccessibilityPermission {
+        if Permissions.hasAccessibilityPermission, !RegionSelectionView.pointerPreservationDisabled {
             primarySelectionView?.beginPointerPreservationSession()
-            _ = captureEventTap.start { [weak self] event in
-                self?.primarySelectionView?.handleInterceptedEvent(event)
-            }
         }
 
     }

@@ -1100,6 +1100,13 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, Editor
         DispatchQueue.main.async { [weak self] in self?.updateToolbarCollapse() }
     }
 
+    /// Non-modal notice surfaced as a HUD toast over the canvas. Used for
+    /// post-capture notices (e.g. the accessibility hint) that must not
+    /// steal focus or block the capture flow with a modal dialog.
+    func showNotice(_ message: String) {
+        showTransientStatus(message, duration: 4)
+    }
+
     /// Transient feedback now surfaces as a HUD toast over the canvas instead
     /// of replacing the status bar text. `autoClear: false` keeps the toast up
     /// until the next message replaces it (e.g. "Uploading…" → "Uploaded").

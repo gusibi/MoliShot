@@ -11,7 +11,16 @@ final class AppCoordinator {
     private var editors: [EditorWindowController] = []
     private var pins: [PinWindowController] = []
     private var ocrWindows: [OCRWindowController] = []
-    private var hasShownAccessibilityCaptureNotice = false
+    /// Set when a capture starts without accessibility permission and the
+    /// one-time notice hasn't been acknowledged yet. Surfaced as a toast in
+    /// the editor AFTER capture (never as a pre-capture modal, which would
+    /// activate MoliShot and dismiss the front app's open menus).
+    private var pendingAccessibilityNotice = false
+    private static let accessibilityNoticeKey = "accessibilityNoticeAcknowledged"
+
+    private var hasAcknowledgedAccessibilityNotice: Bool {
+        UserDefaults.standard.bool(forKey: Self.accessibilityNoticeKey)
+    }
 
     private init() {}
 
@@ -59,16 +68,23 @@ final class AppCoordinator {
 
     func handleCapturedImage(_ image: NSImage) {
         HistoryStore.shared.store(image: image)
-        openEditor(with: image)
+        let editor = openEditor(with: image)
+        if pendingAccessibilityNotice {
+            pendingAccessibilityNotice = false
+            UserDefaults.standard.set(true, forKey: Self.accessibilityNoticeKey)
+            editor.showNotice(L10n.text(.accessibilityCaptureNoticeMessage))
+        }
     }
 
-    func openEditor(with image: NSImage) {
+    @discardableResult
+    func openEditor(with image: NSImage) -> EditorWindowController {
         let controller = EditorWindowController(image: image) { [weak self] editor in
             self?.editors.removeAll { $0 === editor }
         }
         editors.append(controller)
         NSApp.activate(ignoringOtherApps: true)
         controller.showWindow(nil)
+        return controller
     }
 
     func pinImage(_ image: NSImage, at origin: NSPoint? = nil) {
@@ -149,17 +165,10 @@ final class AppCoordinator {
     }
 
     private func ensureAccessibilityAwareCaptureStart() {
-        guard !Permissions.hasAccessibilityPermission, !hasShownAccessibilityCaptureNotice else { return }
-        hasShownAccessibilityCaptureNotice = true
-
-        let alert = NSAlert()
-        alert.messageText = L10n.text(.accessibilityCaptureNoticeTitle)
-        alert.informativeText = L10n.text(.accessibilityCaptureNoticeMessage)
-        alert.addButton(withTitle: L10n.text(.openAccessibilitySettings))
-        alert.addButton(withTitle: L10n.text(.continueWithoutAccessibility))
-
-        if alert.runModal() == .alertFirstButtonReturn {
-            Permissions.openAccessibilityPrivacySettings()
-        }
+        // Intentionally non-modal: a runModal alert here would activate
+        // MoliShot, deactivate the front app, and dismiss its open menus.
+        // The notice is deferred to a post-capture editor toast instead.
+        guard !Permissions.hasAccessibilityPermission, !hasAcknowledgedAccessibilityNotice else { return }
+        pendingAccessibilityNotice = true
     }
 }

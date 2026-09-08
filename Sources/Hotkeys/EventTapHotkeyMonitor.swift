@@ -176,6 +176,21 @@ final class CaptureSessionEventTap {
                 CGEvent.tapEnable(tap: eventTap, enable: true)
             }
             return Unmanaged.passUnretained(event)
+        case .flagsChanged:
+            // Modifier state belongs to the front app too (e.g. an open menu
+            // tracking Shift): notify the overlay but let the event through.
+            let forwardedEvent = Event(
+                type: type,
+                location: event.location,
+                modifiers: NSEvent.ModifierFlags(rawValue: UInt(event.flags.rawValue))
+                    .intersection(.deviceIndependentFlagsMask),
+                deltaX: 0,
+                deltaY: 0
+            )
+            DispatchQueue.main.async { [handler] in
+                handler?(forwardedEvent)
+            }
+            return Unmanaged.passUnretained(event)
         case .mouseMoved,
              .leftMouseDown,
              .leftMouseDragged,
@@ -186,8 +201,7 @@ final class CaptureSessionEventTap {
              .otherMouseDown,
              .otherMouseDragged,
              .otherMouseUp,
-             .scrollWheel,
-             .flagsChanged:
+             .scrollWheel:
             break
         default:
             return Unmanaged.passUnretained(event)

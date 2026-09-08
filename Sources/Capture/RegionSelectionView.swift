@@ -28,6 +28,15 @@ final class RegionSelectionView: NSView {
     private var trackingArea: NSTrackingArea?
     private var globalKeyDownMonitor: Any?
     private var globalKeyUpMonitor: Any?
+    private let secureInputNotice: Bool
+
+    /// Test hook for the "hotkey dismisses open menus" investigation:
+    /// `defaults write com.molishot.app MoliDisablePointerPreservation -bool YES`
+    /// then relaunch and compare. Absolute-coordinate tracking
+    /// (`localPoint(fromInterceptedGlobalLocation:)`) keeps working either way.
+    static var pointerPreservationDisabled: Bool {
+        UserDefaults.standard.bool(forKey: "MoliDisablePointerPreservation")
+    }
 
     private static let sizeLabelAttributes: [NSAttributedString.Key: Any] = [
         .font: RegionSelectionView.safeMonospacedFont(size: 12, weight: .medium),
@@ -56,7 +65,8 @@ final class RegionSelectionView: NSView {
         allowsWindowSelectionInAreaMode: Bool,
         windowRects: [WindowCandidate],
         snapshotImage: NSImage? = nil,
-        displayScale: CGFloat = 1
+        displayScale: CGFloat = 1,
+        secureInputNotice: Bool = false
     ) {
         self.desktopBounds = desktopBounds
         self.mode = mode
@@ -64,6 +74,7 @@ final class RegionSelectionView: NSView {
         self.windowRects = windowRects
         self.snapshotImage = snapshotImage
         self.displayScale = max(displayScale, 1)
+        self.secureInputNotice = secureInputNotice
         super.init(frame: frame)
         wantsLayer = true
         layer?.isOpaque = false
@@ -186,6 +197,9 @@ final class RegionSelectionView: NSView {
 
         drawCrosshair(at: mouseLocation, in: ctx)
         drawMagnifier(at: mouseLocation, in: ctx)
+        if secureInputNotice {
+            drawSecureInputBanner(in: ctx)
+        }
     }
 
     private func activeHighlightRect() -> NSRect? {
@@ -364,6 +378,24 @@ final class RegionSelectionView: NSView {
             text.draw(at: NSPoint(x: valueRect.minX + 30, y: valueRect.minY + 8), withAttributes: Self.magnifierValueAttributes)
         }
         ctx.restoreGState()
+    }
+
+    /// Non-activating replacement for the old pre-capture secure-input alert:
+    /// a modal there would steal focus and dismiss the front app's menus.
+    private func drawSecureInputBanner(in ctx: CGContext) {
+        let text = L10n.text(.secureInputWarning) as NSString
+        let attrs = Self.sizeLabelAttributes
+        let size = text.size(withAttributes: attrs)
+        let padding = CGSize(width: 12, height: 7)
+        let pillSize = NSSize(width: ceil(size.width + padding.width * 2),
+                              height: ceil(size.height + padding.height * 2))
+        let rect = NSRect(x: (bounds.width - pillSize.width) / 2,
+                          y: bounds.maxY - pillSize.height - 12,
+                          width: pillSize.width, height: pillSize.height)
+        ctx.setFillColor(NSColor.black.withAlphaComponent(0.78).cgColor)
+        ctx.addPath(CGPath(roundedRect: rect, cornerWidth: 8, cornerHeight: 8, transform: nil))
+        ctx.fillPath()
+        text.draw(in: rect.insetBy(dx: padding.width, dy: padding.height / 2), withAttributes: attrs)
     }
 
     private func sampledColor(at point: NSPoint, in image: NSImage) -> NSColor? {

@@ -486,6 +486,7 @@ enum L10nKey {
     case screenRecordingPermission
     case accessibilityPermission
     case accessibilityPermissionHint
+    case secureInputWarning
     case openAccessibilitySettings
     case requestAccessibilityPermission
     case hotkeyRegistrationMode
@@ -667,6 +668,7 @@ enum L10n {
         case .screenRecordingPermission: return "Screen Recording Permission"
         case .accessibilityPermission: return "Accessibility Permission"
         case .accessibilityPermissionHint: return "Needed to keep menus and popovers open while starting a capture."
+        case .secureInputWarning: return "Secure Input is active — password areas will appear black in the capture"
         case .openAccessibilitySettings: return "Open Accessibility Settings"
         case .requestAccessibilityPermission: return "Request Access"
         case .hotkeyRegistrationMode: return "Hotkey Capture Mode"
@@ -794,6 +796,7 @@ enum L10n {
         case .screenRecordingPermission: return "屏幕录制权限"
         case .accessibilityPermission: return "辅助功能权限"
         case .accessibilityPermissionHint: return "用于在截图热键触发时尽量保持菜单和弹窗不被提前关闭。"
+        case .secureInputWarning: return "当前处于安全输入状态，密码区域在截图中会显示为黑色"
         case .openAccessibilitySettings: return "打开辅助功能设置"
         case .requestAccessibilityPermission: return "请求授权"
         case .hotkeyRegistrationMode: return "快捷键捕获模式"
