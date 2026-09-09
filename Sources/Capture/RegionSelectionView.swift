@@ -85,7 +85,10 @@ final class RegionSelectionView: NSView {
 
     func updateWindowRects(_ windowRects: [WindowCandidate]) {
         self.windowRects = windowRects
-        syncHoverToMouseLocation()
+        // The system cursor stays parked during pointer preservation; keep the
+        // selection cursor's accumulated position when candidates arrive.
+        updateHoveredWindow(at: mouseLocation)
+        needsDisplay = true
     }
 
     func beginPointerPreservationSession() {
