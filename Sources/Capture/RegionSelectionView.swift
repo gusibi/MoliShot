@@ -101,6 +101,18 @@ final class RegionSelectionView: NSView {
     func endPointerPreservationSession() {
         guard isPointerPreservationActive || didHideCursor else { return }
         if isPointerPreservationActive {
+            // Hand the virtual endpoint back to the system before revealing its
+            // cursor. Quartz uses the primary display's top-left as its origin.
+            if let primaryScreen = NSScreen.screens.first {
+                let globalPoint = NSPoint(
+                    x: mouseLocation.x + desktopBounds.minX,
+                    y: mouseLocation.y + desktopBounds.minY
+                )
+                _ = CGWarpMouseCursorPosition(CGPoint(
+                    x: globalPoint.x,
+                    y: primaryScreen.frame.maxY - globalPoint.y
+                ))
+            }
             _ = CGAssociateMouseAndMouseCursorPosition(1)
         }
         isPointerPreservationActive = false
