@@ -4,7 +4,7 @@ English | [中文版](README_zh.md)
 
 A macOS screenshot utility based on Swift + AppKit + ScreenCaptureKit + Vision, targeting the core features of Shottr Pro.
 
-**Current Version**: v0.7.7 — Fix selection cursor position resetting when moving the mouse immediately after starting capture.
+**Current Version**: v0.7.9 — OCR recognition progress and copy feedback.
 
 **⚠ Status**: A functional baseline version, covering the complete screenshot workflow from the menu bar and hotkeys. Compared to mature products, some limitations remain, mainly rolling screenshot stability and OCR structured output.
 

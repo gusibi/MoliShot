@@ -36,16 +36,7 @@ final class PinWindowController: NSWindowController, NSWindowDelegate {
         view.onSave = { [weak self] in self?.save() }
         view.onOCR = { [weak self] in
             guard let self = self else { return }
-            OCRService.shared.recognize(in: self.image) { result in
-                DispatchQueue.main.async {
-                    switch result {
-                    case .success(let text):
-                        AppCoordinator.shared.showOCRResult(text)
-                    case .failure(let error):
-                        AppCoordinator.shared.presentAlert(title: L10n.text(.ocr), message: error.localizedDescription)
-                    }
-                }
-            }
+            AppCoordinator.shared.recognizeText(in: self.image)
         }
         window.contentView = view
         window.alphaValue = 0  // shown via the pop-in animation in showWindow

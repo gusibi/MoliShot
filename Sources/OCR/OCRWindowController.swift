@@ -1,12 +1,22 @@
 import AppKit
+import QuartzCore
 
 final class OCRWindowController: NSWindowController, NSWindowDelegate, NSTextViewDelegate {
+    private let pasteboard: NSPasteboard
     private let onClose: (OCRWindowController) -> Void
     private let textView = NSTextView()
     private let characterCountLabel = NSTextField(labelWithString: "")
     private var isExpanded = false
+    private var copyButton: NSButton!
+    private let scrollView = NSScrollView()
+    private let progressIndicator = NSProgressIndicator()
+    private let progressLabel = NSTextField(labelWithString: L10n.text(.ocrInProgress))
+    private var feedbackReset: DispatchWorkItem?
+    private var isRecognizing = true
+    private var isClosed = false
 
-    init(text: String, onClose: @escaping (OCRWindowController) -> Void) {
+    init(pasteboard: NSPasteboard = .general, onClose: @escaping (OCRWindowController) -> Void) {
+        self.pasteboard = pasteboard
         self.onClose = onClose
 
         let window = NSWindow(
@@ -30,7 +40,7 @@ final class OCRWindowController: NSWindowController, NSWindowDelegate, NSTextVie
         window.standardWindowButton(.miniaturizeButton)?.isEnabled = false
         window.standardWindowButton(.zoomButton)?.isEnabled = false
 
-        configureTextView(with: text)
+        configureTextView(with: "")
 
         let contentView = MoliCardView()
         window.contentView = contentView
@@ -42,7 +52,7 @@ final class OCRWindowController: NSWindowController, NSWindowDelegate, NSTextVie
         titleLabel.lineBreakMode = .byTruncatingTail
         titleLabel.translatesAutoresizingMaskIntoConstraints = false
 
-        let copyButton = makeIconButton(symbol: "doc.on.doc", tooltip: L10n.text(.copy), action: #selector(copyText))
+        copyButton = makeIconButton(symbol: "doc.on.doc", tooltip: L10n.text(.copy), action: #selector(copyText))
         let expandButton = makeIconButton(symbol: "plus", tooltip: L10n.text(.expand), action: #selector(toggleExpanded))
 
         let toolbar = NSStackView(views: [copyButton, expandButton])
@@ -51,7 +61,6 @@ final class OCRWindowController: NSWindowController, NSWindowDelegate, NSTextVie
         toolbar.spacing = 8
         toolbar.translatesAutoresizingMaskIntoConstraints = false
 
-        let scrollView = NSScrollView()
         scrollView.documentView = textView
         scrollView.hasVerticalScroller = false
         scrollView.hasHorizontalScroller = false
@@ -65,7 +74,7 @@ final class OCRWindowController: NSWindowController, NSWindowDelegate, NSTextVie
         characterCountLabel.textColor = MoliDesign.tertiaryText
         characterCountLabel.alignment = .center
         characterCountLabel.translatesAutoresizingMaskIntoConstraints = false
-        updateCharacterCount()
+        characterCountLabel.stringValue = ""
 
         let textSymbol = NSTextField(labelWithString: "T")
         textSymbol.font = NSFont.systemFont(ofSize: 18, weight: .semibold)
@@ -79,6 +88,23 @@ final class OCRWindowController: NSWindowController, NSWindowDelegate, NSTextVie
         contentView.addSubview(scrollView)
         contentView.addSubview(characterCountLabel)
         contentView.addSubview(textSymbol)
+
+        progressIndicator.style = .spinning
+        progressIndicator.controlSize = .small
+        progressIndicator.isIndeterminate = true
+        progressLabel.font = NSFont.systemFont(ofSize: 13)
+        progressLabel.textColor = MoliDesign.secondaryText
+        let progressStack = NSStackView(views: [progressIndicator, progressLabel])
+        progressStack.spacing = 8
+        progressStack.translatesAutoresizingMaskIntoConstraints = false
+        contentView.addSubview(progressStack)
+        NSLayoutConstraint.activate([
+            progressStack.centerXAnchor.constraint(equalTo: contentView.centerXAnchor),
+            progressStack.centerYAnchor.constraint(equalTo: scrollView.centerYAnchor)
+        ])
+        scrollView.isHidden = true
+        copyButton.isEnabled = false
+        progressIndicator.startAnimation(nil)
 
         NSLayoutConstraint.activate([
             titleLabel.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 12),
@@ -103,11 +129,37 @@ final class OCRWindowController: NSWindowController, NSWindowDelegate, NSTextVie
         ])
         window.delegate = self
         window.initialFirstResponder = textView
+    }
 
-        if !text.isEmpty {
-            let pasteboard = NSPasteboard.general
-            pasteboard.clearContents()
-            pasteboard.setString(text, forType: .string)
+    func completeRecognition(_ result: Result<String, OCRServiceError>) {
+        guard isRecognizing, !isClosed else { return }
+        isRecognizing = false
+        progressIndicator.stopAnimation(nil)
+        progressIndicator.superview?.isHidden = true
+        scrollView.isHidden = false
+        switch result {
+        case .success(let text):
+            configureTextView(with: text)
+            textView.isEditable = !text.isEmpty
+            copyButton.isEnabled = !text.isEmpty
+            if text.isEmpty {
+                characterCountLabel.stringValue = ""
+            } else {
+                updateCharacterCount()
+                copyTextToPasteboard(automatically: true)
+            }
+        case .failure(let error):
+            textView.string = error.localizedDescription
+            textView.isEditable = false
+            characterCountLabel.stringValue = L10n.text(.ocrFailed)
+        }
+        if !MoliDesign.reduceMotion {
+            scrollView.alphaValue = 0
+            NSAnimationContext.runAnimationGroup { context in
+                context.duration = 0.18
+                context.timingFunction = CAMediaTimingFunction(name: .easeOut)
+                scrollView.animator().alphaValue = 1
+            }
         }
     }
 
@@ -120,10 +172,15 @@ final class OCRWindowController: NSWindowController, NSWindowDelegate, NSTextVie
     }
 
     func windowWillClose(_ notification: Notification) {
+        isClosed = true
+        feedbackReset?.cancel()
+        progressIndicator.stopAnimation(nil)
         onClose(self)
     }
 
     func textDidChange(_ notification: Notification) {
+        resetCopyFeedback()
+        copyButton.isEnabled = !textView.string.isEmpty
         updateCharacterCount()
     }
 
@@ -193,9 +250,37 @@ final class OCRWindowController: NSWindowController, NSWindowDelegate, NSTextVie
     }
 
     @objc private func copyText() {
-        let pasteboard = NSPasteboard.general
+        guard copyButton.isEnabled else { return }
+        copyTextToPasteboard(automatically: false)
+    }
+
+    private func copyTextToPasteboard(automatically: Bool) {
+        resetCopyFeedback()
         pasteboard.clearContents()
-        pasteboard.setString(textView.string, forType: .string)
+        let succeeded = pasteboard.setString(textView.string, forType: .string)
+        let message = L10n.text(succeeded ? (automatically ? .ocrAutomaticallyCopied : .ocrCopied) : .ocrCopyFailed)
+        characterCountLabel.stringValue = message
+        if succeeded {
+            copyButton.image = NSImage(systemSymbolName: "checkmark", accessibilityDescription: message)
+            copyButton.contentTintColor = MoliDesign.accent
+        }
+        NSAccessibility.post(element: characterCountLabel, notification: .announcementRequested, userInfo: [
+            .announcement: message,
+            .priority: NSAccessibilityPriorityLevel.medium.rawValue
+        ])
+        let reset = DispatchWorkItem { [weak self] in
+            self?.resetCopyFeedback()
+            self?.updateCharacterCount()
+        }
+        feedbackReset = reset
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.2, execute: reset)
+    }
+
+    private func resetCopyFeedback() {
+        feedbackReset?.cancel()
+        feedbackReset = nil
+        copyButton.image = NSImage(systemSymbolName: "doc.on.doc", accessibilityDescription: L10n.text(.copy))
+        copyButton.contentTintColor = MoliDesign.icon
     }
 
     @objc private func toggleExpanded() {
@@ -205,6 +290,6 @@ final class OCRWindowController: NSWindowController, NSWindowDelegate, NSTextVie
         frame.origin.y -= delta
         frame.size.height += delta
         isExpanded.toggle()
-        window.setFrame(frame, display: true, animate: true)
+        window.setFrame(frame, display: true, animate: !MoliDesign.reduceMotion)
     }
 }

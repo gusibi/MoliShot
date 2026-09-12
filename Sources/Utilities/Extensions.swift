@@ -563,6 +563,9 @@ enum L10nKey {
     case ocrInProgress
     case ocrFailed
     case ocrCopiedToClipboard
+    case ocrCopied
+    case ocrAutomaticallyCopied
+    case ocrCopyFailed
     case ocrImageUnavailable
     case uploadInProgress
     case cropApplied
@@ -757,6 +760,9 @@ enum L10n {
         case .ocrInProgress: return "Recognizing text..."
         case .ocrFailed: return "OCR failed"
         case .ocrCopiedToClipboard: return "Recognized text copied to clipboard"
+        case .ocrCopied: return "Copied"
+        case .ocrAutomaticallyCopied: return "Automatically copied"
+        case .ocrCopyFailed: return "Copy failed. Please try again."
         case .ocrImageUnavailable: return "Could not read the captured image."
         case .uploadInProgress: return "Uploading image..."
         case .cropApplied: return "Crop applied"
@@ -897,6 +903,9 @@ enum L10n {
         case .ocrInProgress: return "正在识别文字..."
         case .ocrFailed: return "文字识别失败"
         case .ocrCopiedToClipboard: return "识别结果已复制到剪贴板"
+        case .ocrCopied: return "已复制"
+        case .ocrAutomaticallyCopied: return "已自动复制"
+        case .ocrCopyFailed: return "复制失败，请重试"
         case .ocrImageUnavailable: return "无法读取当前截图。"
         case .uploadInProgress: return "正在上传图片..."
         case .cropApplied: return "已应用裁剪"

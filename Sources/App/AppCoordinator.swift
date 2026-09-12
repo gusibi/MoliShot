@@ -128,16 +128,7 @@ final class AppCoordinator {
                 image = captured
             }
 
-            OCRService.shared.recognize(in: image) { result in
-                DispatchQueue.main.async {
-                    switch result {
-                    case .success(let text):
-                        self?.showOCRResult(text)
-                    case .failure(let error):
-                        self?.presentAlert(title: L10n.text(.ocr), message: error.localizedDescription)
-                    }
-                }
-            }
+            self?.recognizeText(in: image)
         }
         regionController?.begin(mode: .area)
     }
@@ -158,12 +149,17 @@ final class AppCoordinator {
         preferencesController?.showWindow(nil)
     }
 
-    func showOCRResult(_ text: String) {
-        let controller = OCRWindowController(text: text) { [weak self] window in
+    func recognizeText(in image: NSImage) {
+        let controller = OCRWindowController { [weak self] window in
             self?.ocrWindows.removeAll { $0 === window }
         }
         ocrWindows.append(controller)
         controller.showWindow(nil)
+        OCRService.shared.recognize(in: image) { [weak controller] result in
+            DispatchQueue.main.async {
+                controller?.completeRecognition(result)
+            }
+        }
     }
 
     func presentAlert(title: String, message: String) {

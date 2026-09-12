@@ -828,20 +828,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, Editor
     @objc private func fitToWindow() { zoomToFit() }
 
     @objc private func runOCR() {
-        showTransientStatus(L10n.text(.ocrInProgress), autoClear: false)
-        let image = editorView.renderFinalImage()
-        OCRService.shared.recognize(in: image) { [weak self] result in
-            DispatchQueue.main.async {
-                switch result {
-                case .success(let text):
-                    self?.showTransientStatus(text.isEmpty ? L10n.text(.noTextDetected) : L10n.text(.ocrCopiedToClipboard))
-                    AppCoordinator.shared.showOCRResult(text)
-                case .failure(let error):
-                    self?.showTransientStatus(L10n.text(.ocrFailed))
-                    AppCoordinator.shared.presentAlert(title: L10n.text(.ocr), message: error.localizedDescription)
-                }
-            }
-        }
+        AppCoordinator.shared.recognizeText(in: editorView.renderFinalImage())
     }
 
     @objc private func pinImage() {
