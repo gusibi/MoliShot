@@ -1,6 +1,7 @@
 name: Build and Release
 
 on:
+  workflow_dispatch:
   push:
     tags:
       - "v*"
@@ -35,7 +36,9 @@ jobs:
           from pathlib import Path
           names = ['CODE_SIGN_P12_BASE64', 'CODE_SIGN_P12_PASSWORD', 'SPARKLE_PRIVATE_KEY']
           if any(not os.environ.get(name) for name in names):
-              print('::notice::Signing secrets are not configured; tests will run, but installer publication is skipped.')
+              print('::warning::Validation only: signing secrets are missing. No DMG, update archive, or GitHub Release will be published by this run.')
+              with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as summary:
+                  summary.write('## No installer published\n\nSigning secrets are missing. This run validates the source only; archive, DMG packaging, uploads, and Release creation are skipped. Publish locally with `make dmg` and upload the signed artifacts, or configure the three release secrets and rerun this workflow on the version tag.\n')
               with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
                   output.write('enabled=false\n')
               raise SystemExit(0)
@@ -61,6 +64,8 @@ jobs:
           import os, plistlib
           from pathlib import Path
           info = plistlib.loads(Path('Resources/Info.plist').read_bytes())
+          if os.environ.get('GITHUB_REF_TYPE') != 'tag':
+              raise SystemExit('Run this workflow on a version tag, not a branch')
           if os.environ['GITHUB_REF_NAME'] != 'v' + info['CFBundleShortVersionString']:
               raise SystemExit('Git tag must match the app marketing version')
           if not info['CFBundleVersion'].isdigit():

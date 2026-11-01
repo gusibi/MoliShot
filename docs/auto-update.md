@@ -55,6 +55,9 @@ CI 在临时目录恢复材料，在临时钥匙串中导入 P12，按从内到�
 
 ## 本地打包与发布
 
+未配置 GitHub Secrets 时，可以在维护机器用原有固定签名材料构建，再将 DMG、更新 ZIP 和签名 appcast 一起上传到对应 tag 的 GitHub Release，并设为 Latest。安装包必须来自该 tag 对应的源码。`Build and Release` 的绿色状态可能仅表示验证通过；请检查步骤是否 skipped，以及 Release 是否确实附有安装包。手动重跑 workflow 时也必须选择版本 tag。
+
+
 本地需要已接受许可的完整 Xcode、XcodeGen、Python 3.9+、网络及原有签名材料：
 
 ```bash
