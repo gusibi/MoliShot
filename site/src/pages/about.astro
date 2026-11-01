@@ -18,7 +18,7 @@ import BaseLayout from '../layouts/BaseLayout.astro';
               class="font-mono text-sm text-mute-dim dark:text-[#555]"
               data-i18n="about.meta"
             >
-              最后更新：2026-05-26 · 版本 0.4.0 · macOS 14+
+              最后更新：2026-11-01 · 版本 0.8.0 · macOS 14+
             </div>
           </header>
 
@@ -45,6 +45,11 @@ import BaseLayout from '../layouts/BaseLayout.astro';
             class="font-mono font-semibold text-2xl mt-12 mb-4 pt-8 border-t border-bord dark:border-[#222]"
             data-i18n="about.features">功能模块</h2
           >
+
+          <h3 id="screenshot-shelf" class="font-mono font-semibold text-xl mt-8 mb-3 text-accent" data-i18n="shelf.label">新功能 · 截图暂存栏</h3>
+          <p class="text-mute dark:text-[#888] mb-5 leading-relaxed" data-i18n="shelf.desc">截三张，标三张，最后只切一次应用。把一组反馈、Bug 复现步骤或给 AI Agent 的图片上下文放在一起。</p>
+          <img src="/screenshots/screenshot-shelf-light.jpg" alt="截图暂存栏内的三张演示截图" data-i18n-alt="shelf.imageAlt" width="1360" height="554" class="rounded-xl mb-5 w-full h-auto" loading="lazy" />
+          <p class="text-sm text-mute dark:text-[#888] mb-5 leading-relaxed" data-i18n="shelf.note">多图粘贴取决于目标应用。复制全部使用 PNG 文件；请核对附件数量。也可整组拖入，或合成一张图片。</p>
 
           <h3
             id="region-capture"

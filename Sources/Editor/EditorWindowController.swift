@@ -1,30 +1,25 @@
 import AppKit
 
-final class EditorWindowController: NSWindowController, NSWindowDelegate, EditorViewDelegate {
+final class EditorWindowController: NSWindowController, NSWindowDelegate, EditorViewDelegate, NSToolbarDelegate, NSToolbarItemValidation {
 
     private let editorView: EditorView
     private let onClose: (EditorWindowController) -> Void
+    private let onAddToShelf: (NSImage) throws -> Void
 
     private let scrollView = NSScrollView()
     private let clipView = CenteringClipView()
-    private let toolBarView = MoliGlassBackground(cornerRadius: 0, fallbackMaterial: .headerView)
-    private let toolBarStack = NSStackView()
     private let statusLabel = NSTextField(labelWithString: "")
     private let zoomLabel = NSTextField(labelWithString: "")
     /// Bottom glass bar: style controls + status + image actions + zoom.
     /// Style lives here (not the top bar) so narrow windows only need to fit
     /// the tool row up top.
-    private let bottomBarView = MoliGlassBackground(cornerRadius: 0, fallbackMaterial: .headerView)
+    private let bottomBarView = NSVisualEffectView()
     private let bottomStack = NSStackView()
     private let outputGroup = NSStackView()
-    private var toolButtons: [AnnotationTool: MoliHoverButton] = [:]
-    private var cropButton: MoliHoverButton?
     private var cropConfirmBar: CropConfirmBar?
-    private var overflowButton: MoliHoverButton?
-    /// Collapsible style controls (swatches + sliders) and their group
-    /// separators, tucked into the overflow popover when the window is narrow.
-    private var styleGroup: NSStackView?
-    private var styleSeparators: [NSView] = []
+    private var overflowButton: NSButton?
+    /// Collapsible color and stroke controls; narrow windows use a native popover.
+    private var styleGroup: NSView?
     private var styleCollapsed = false
     private var lastExpandedWidth: CGFloat = 1040
 
@@ -45,9 +40,12 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, Editor
     private var lastImageSize: NSSize
     private var sliderValueRestoreItem: DispatchWorkItem?
 
-    init(image: NSImage, title: String, onClose: @escaping (EditorWindowController) -> Void) {
+    init(image: NSImage, title: String,
+         onAddToShelf: @escaping (NSImage) throws -> Void = { try AppCoordinator.shared.addToShelf($0) },
+         onClose: @escaping (EditorWindowController) -> Void) {
         self.editorView = EditorView(image: image)
         self.onClose = onClose
+        self.onAddToShelf = onAddToShelf
         self.lastImageSize = image.size
 
         let size = EditorWindowController.fitSize(for: image.size)
@@ -88,12 +86,12 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, Editor
     /// The window hugs the picture instead of forcing a fixed chrome box.
     private static func fitSize(for imageSize: NSSize) -> NSSize {
         let visible = NSScreen.main?.visibleFrame.size ?? NSSize(width: 1400, height: 900)
-        let chromeH: CGFloat = 38 + 36 // top toolbar + bottom bar (approx)
+        let chromeH: CGFloat = 56 + 52 // native toolbar + control bar (approx)
         let margin: CGFloat = 60
         let availW = max(320, visible.width - margin)
         let availH = max(200, visible.height - chromeH - margin)
         let zoom = min(1, availW / imageSize.width, availH / imageSize.height)
-        let w = max(560, (imageSize.width * zoom).rounded())
+        let w = max(700, (imageSize.width * zoom).rounded())
         let h = max(360, (imageSize.height * zoom).rounded() + chromeH)
         return NSSize(width: min(w, visible.width), height: min(h, visible.height))
     }
@@ -102,11 +100,6 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, Editor
         guard let content = window?.contentView else { return }
         content.wantsLayer = true
         configureToolbar()
-
-        toolBarView.translatesAutoresizingMaskIntoConstraints = false
-        toolBarView.addSubview(toolBarStack)
-
-        toolBarStack.translatesAutoresizingMaskIntoConstraints = false
 
         scrollView.translatesAutoresizingMaskIntoConstraints = false
         scrollView.hasHorizontalScroller = true
@@ -127,37 +120,31 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, Editor
         statusLabel.translatesAutoresizingMaskIntoConstraints = false
         statusLabel.font = NSFont.monospacedSystemFont(ofSize: 11, weight: .regular)
         statusLabel.textColor = MoliDesign.secondaryText
+        statusLabel.lineBreakMode = .byTruncatingTail
         statusLabel.setContentHuggingPriority(.defaultLow, for: .horizontal)
         statusLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
 
         zoomLabel.font = NSFont.monospacedSystemFont(ofSize: 11, weight: .semibold)
         zoomLabel.textColor = MoliDesign.secondaryText
-        configureZoomStack()
+        zoomLabel.widthAnchor.constraint(greaterThanOrEqualToConstant: 42).isActive = true
 
+        bottomBarView.material = .headerView
+        bottomBarView.blendingMode = .withinWindow
+        bottomBarView.state = .active
         bottomBarView.translatesAutoresizingMaskIntoConstraints = false
         bottomStack.translatesAutoresizingMaskIntoConstraints = false
         bottomStack.orientation = .horizontal
         bottomStack.alignment = .centerY
-        bottomStack.spacing = 6
+        bottomStack.spacing = 8
         bottomStack.detachesHiddenViews = true
-        bottomStack.edgeInsets = NSEdgeInsets(top: 4, left: 12, bottom: 4, right: 10)
-        bottomBarView.addSubview(bottomStack)
+        bottomStack.edgeInsets = NSEdgeInsets(top: 8, left: 12, bottom: 8, right: 12)
+        EditorChrome.install(bottomStack, in: bottomBarView, fallback: .headerView)
 
-        content.addSubview(toolBarView)
         content.addSubview(scrollView)
         content.addSubview(bottomBarView)
 
         NSLayoutConstraint.activate([
-            toolBarView.topAnchor.constraint(equalTo: content.topAnchor),
-            toolBarView.leadingAnchor.constraint(equalTo: content.leadingAnchor),
-            toolBarView.trailingAnchor.constraint(equalTo: content.trailingAnchor),
-
-            toolBarStack.topAnchor.constraint(equalTo: toolBarView.topAnchor, constant: 5),
-            toolBarStack.leadingAnchor.constraint(equalTo: toolBarView.leadingAnchor, constant: trafficLightInset()),
-            toolBarStack.trailingAnchor.constraint(equalTo: toolBarView.trailingAnchor, constant: -10),
-            toolBarStack.bottomAnchor.constraint(equalTo: toolBarView.bottomAnchor, constant: -5),
-
-            scrollView.topAnchor.constraint(equalTo: toolBarView.bottomAnchor),
+            scrollView.topAnchor.constraint(equalTo: content.safeAreaLayoutGuide.topAnchor),
             scrollView.leadingAnchor.constraint(equalTo: content.leadingAnchor),
             scrollView.trailingAnchor.constraint(equalTo: content.trailingAnchor),
             scrollView.bottomAnchor.constraint(equalTo: bottomBarView.topAnchor),
@@ -166,10 +153,6 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, Editor
             bottomBarView.trailingAnchor.constraint(equalTo: content.trailingAnchor),
             bottomBarView.bottomAnchor.constraint(equalTo: content.bottomAnchor),
 
-            bottomStack.topAnchor.constraint(equalTo: bottomBarView.topAnchor),
-            bottomStack.leadingAnchor.constraint(equalTo: bottomBarView.leadingAnchor),
-            bottomStack.trailingAnchor.constraint(equalTo: bottomBarView.trailingAnchor),
-            bottomStack.bottomAnchor.constraint(equalTo: bottomBarView.bottomAnchor),
         ])
 
         updateStatusLabel()
@@ -181,64 +164,82 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, Editor
     }
 
     private func configureToolbar() {
-        window?.titleVisibility = .hidden
-        window?.titlebarAppearsTransparent = true
-        window?.toolbar = nil
+        let toolbar = NSToolbar(identifier: "MoliShot.Editor")
+        toolbar.delegate = self
+        toolbar.displayMode = .iconOnly
+        toolbar.allowsUserCustomization = false
+        toolbar.autosavesConfiguration = false
+        toolbar.showsBaselineSeparator = false
+        window?.toolbar = toolbar
         window?.toolbarStyle = .unified
-        buildCompactToolbar()
+        configureZoomStack()
         buildBottomBar()
+        refreshToolButtons()
+        syncStyleControls(to: editorView)
     }
 
-    private func buildCompactToolbar() {
-        toolButtons.removeAll()
-        toolBarStack.arrangedSubviews.forEach {
-            toolBarStack.removeArrangedSubview($0)
-            $0.removeFromSuperview()
+    func toolbarDefaultItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
+        AnnotationTool.allCases.map { NSToolbarItem.Identifier($0.rawValue) } + [
+            .flexibleSpace, .init("editor.undo"), .init("editor.redo"), .space,
+            .init("editor.copy"), .init("editor.pin"), .init("editor.save")
+        ]
+    }
+
+    func toolbarAllowedItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
+        toolbarDefaultItemIdentifiers(toolbar)
+    }
+
+    func toolbarSelectableItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
+        AnnotationTool.allCases.map { NSToolbarItem.Identifier($0.rawValue) }
+    }
+
+    func toolbar(_ toolbar: NSToolbar, itemForItemIdentifier identifier: NSToolbarItem.Identifier,
+                 willBeInsertedIntoToolbar flag: Bool) -> NSToolbarItem? {
+        let item = NSToolbarItem(itemIdentifier: identifier)
+        item.target = self
+        item.isBordered = true
+        if let tool = AnnotationTool(rawValue: identifier.rawValue) {
+            item.label = tool.title
+            item.image = toolbarSymbol(tool.symbol, title: tool.title)
+            item.toolTip = tool.shortcutKey.map { "\(tool.title)  \($0)" } ?? tool.title
+            item.action = tool == .crop ? #selector(toggleCropMode) : #selector(toolbarToolTapped(_:))
+            item.visibilityPriority = [.select, .arrow, .rectangle, .text].contains(tool) ? .high : .standard
+            return item
         }
-
-        toolBarStack.orientation = .horizontal
-        toolBarStack.alignment = .centerY
-        toolBarStack.spacing = 3
-        // Hidden arranged subviews are removed from layout (no stranded gaps).
-        toolBarStack.detachesHiddenViews = true
-        styleSeparators.removeAll()
-
-        // Annotation tools + crop.
-        for tool in AnnotationTool.allCases where tool != .crop {
-            let button = compactToolbarButton(title: tool.title, symbol: tool.symbol, action: #selector(compactToolTapped(_:)), shortcut: tool.shortcutKey)
-            button.identifier = NSUserInterfaceItemIdentifier(tool.rawValue)
-            button.setButtonType(.toggle)
-            toolButtons[tool] = button
-            toolBarStack.addArrangedSubview(button)
+        let title: String
+        let symbol: String
+        switch identifier.rawValue {
+        case "editor.copy":
+            title = L10n.text(.copy); symbol = "doc.on.doc"; item.action = #selector(copyImage)
+            item.toolTip = title + "  ⌘C"
+            item.visibilityPriority = .high
+            if #available(macOS 26, *) { item.style = .prominent }
+        case "editor.pin":
+            title = L10n.text(.pin); symbol = "pin"; item.action = #selector(pinImage)
+        case "editor.save":
+            title = L10n.text(.save); symbol = "square.and.arrow.down"; item.action = #selector(saveImage)
+            item.toolTip = title + "  ⌘S"
+            item.visibilityPriority = .high
+        case "editor.undo":
+            title = L10n.text(.undo); symbol = "arrow.uturn.backward"; item.action = #selector(undoTap)
+            item.toolTip = title + "  ⌘Z"
+        case "editor.redo":
+            title = L10n.text(.redo); symbol = "arrow.uturn.forward"; item.action = #selector(redoTap)
+            item.toolTip = title + "  ⇧⌘Z"
+        default: return nil
         }
-        let crop = compactToolbarButton(title: L10n.text(.crop), symbol: "crop", action: #selector(toggleCropMode))
-        cropButton = crop
-        toolBarStack.addArrangedSubview(crop)
+        item.label = title
+        item.image = toolbarSymbol(symbol, title: title)
+        if item.toolTip == nil { item.toolTip = title }
+        return item
+    }
 
-        // Copy + Pin + Save are the most-used image actions — they live
-        // top-left, next to the tools, instead of buried in the bottom bar.
-        toolBarStack.addArrangedSubview(toolbarSeparator())
-        toolBarStack.addArrangedSubview(compactToolbarButton(title: L10n.text(.copy), symbol: "doc.on.doc", action: #selector(copyImage), shortcut: "⌘C"))
-        toolBarStack.addArrangedSubview(compactToolbarButton(title: L10n.text(.pin), symbol: "pin", action: #selector(pinImage)))
-        let saveButton = compactToolbarButton(title: L10n.text(.save), symbol: "square.and.arrow.down", action: #selector(saveImage), shortcut: "⌘S")
-        saveButton.isProminent = true
-        toolBarStack.addArrangedSubview(saveButton)
-
-        toolBarStack.addArrangedSubview(toolbarSeparator())
-
-        // History.
-        toolBarStack.addArrangedSubview(compactToolbarButton(title: L10n.text(.undo), symbol: "arrow.uturn.backward", action: #selector(undoTap), shortcut: "⌘Z"))
-        toolBarStack.addArrangedSubview(compactToolbarButton(title: L10n.text(.redo), symbol: "arrow.uturn.forward", action: #selector(redoTap), shortcut: "⇧⌘Z"))
-
-        // Flexible gap pushes close to the right edge.
-        let spacer = NSView()
-        spacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
-        spacer.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-        toolBarStack.addArrangedSubview(spacer)
-
-        toolBarStack.addArrangedSubview(compactToolbarButton(title: L10n.text(.close), symbol: "xmark", action: #selector(closeEditor)))
-
-        refreshToolButtons()
+    func validateToolbarItem(_ item: NSToolbarItem) -> Bool {
+        switch item.itemIdentifier.rawValue {
+        case "editor.undo": return editorView.canUndo
+        case "editor.redo": return editorView.canRedo
+        default: return true
+        }
     }
 
     /// Bottom bar: style controls (left), status (flexible middle), image
@@ -250,19 +251,8 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, Editor
             bottomStack.removeArrangedSubview($0)
             $0.removeFromSuperview()
         }
-        styleSeparators.removeAll()
 
-        let leadingSep = toolbarSeparator()
-        styleSeparators.append(leadingSep)
-        bottomStack.addArrangedSubview(leadingSep)
-
-        // Preset swatches cover the 95% "red box" case; the well stays as the
-        // custom-colour entrypoint.
         bottomStack.addArrangedSubview(buildStyleGroup())
-
-        let trailingSep = toolbarSeparator()
-        styleSeparators.append(trailingSep)
-        bottomStack.addArrangedSubview(trailingSep)
 
         // Overflow entry — reveals the collapsed style controls; hidden until
         // the bar actually collapses (see updateStyleCollapse).
@@ -281,12 +271,15 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, Editor
         // Image actions sit with zoom: they act on the whole picture.
         outputGroup.orientation = .horizontal
         outputGroup.alignment = .centerY
-        outputGroup.spacing = 3
+        outputGroup.spacing = 8
         outputGroup.detachesHiddenViews = true
-        if outputGroup.arrangedSubviews.isEmpty {
-            outputGroup.addArrangedSubview(compactToolbarButton(title: L10n.text(.clear), symbol: "trash", action: #selector(clearTap), destructive: true))
-            outputGroup.addArrangedSubview(compactToolbarButton(title: L10n.text(.ocr), symbol: "text.viewfinder", action: #selector(runOCR)))
+        outputGroup.arrangedSubviews.forEach {
+            outputGroup.removeArrangedSubview($0)
+            $0.removeFromSuperview()
         }
+        outputGroup.addArrangedSubview(compactToolbarButton(title: ShelfText.add, symbol: "tray.and.arrow.down", action: #selector(addToShelf(_:)), shortcut: "⌘↩"))
+        outputGroup.addArrangedSubview(compactToolbarButton(title: L10n.text(.clear), symbol: "trash", action: #selector(clearTap)))
+        outputGroup.addArrangedSubview(compactToolbarButton(title: L10n.text(.ocr), symbol: "text.viewfinder", action: #selector(runOCR)))
         bottomStack.addArrangedSubview(outputGroup)
 
         bottomStack.addArrangedSubview(zoomStack)
@@ -296,11 +289,12 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, Editor
 
     /// Build the collapsible style group: swatch palette, stroke/opacity sliders,
     /// and the contextual font-size / effect / fill containers.
-    private func buildStyleGroup() -> NSStackView {
+    private func buildStyleGroup() -> NSView {
         let group = NSStackView()
         group.orientation = .horizontal
         group.alignment = .centerY
-        group.spacing = 3
+        group.spacing = 8
+        group.edgeInsets = NSEdgeInsets(top: 6, left: 10, bottom: 6, right: 10)
         group.detachesHiddenViews = true
 
         group.addArrangedSubview(buildSwatchRow())
@@ -330,6 +324,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, Editor
         effectSlider.action = #selector(effectChanged(_:))
         configureSliderContainer(effectContainer, slider: effectSlider, symbol: "wand.and.rays", tooltip: L10n.text(.effectStrength), width: 58, in: group)
 
+        fillWell.colorWellStyle = .minimal
         fillWell.controlSize = .regular
         fillWell.target = self
         fillWell.action = #selector(fillColorChanged(_:))
@@ -345,14 +340,16 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, Editor
         fillContainer.isHidden = true  // shown only for rect/ellipse/highlight
         group.addArrangedSubview(fillContainer)
 
-        styleGroup = group
-        return group
+        let surface = EditorChrome.styleGroup(group)
+        styleGroup = surface
+        return surface
     }
 
-    private func compactToolbarButton(title: String, symbol: String, action: Selector, shortcut: String? = nil, destructive: Bool = false) -> MoliHoverButton {
-        let button = MoliHoverButton()
+    private func compactToolbarButton(title: String, symbol: String, action: Selector, shortcut: String? = nil) -> NSButton {
+        let button = NSButton()
+        button.title = ""
         button.controlSize = .regular
-        button.isDestructive = destructive
+        EditorChrome.style(button)
         button.image = toolbarSymbol(symbol, title: title)
         button.imagePosition = .imageOnly
         // Tooltip surfaces the shortcut ("Rectangle  R"); the accessibility
@@ -362,8 +359,8 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, Editor
         button.target = self
         button.action = action
         button.translatesAutoresizingMaskIntoConstraints = false
-        button.widthAnchor.constraint(equalToConstant: 30).isActive = true
-        button.heightAnchor.constraint(equalToConstant: 28).isActive = true
+        button.widthAnchor.constraint(equalToConstant: 36).isActive = true
+        button.heightAnchor.constraint(equalToConstant: 36).isActive = true
         return button
     }
 
@@ -406,16 +403,6 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, Editor
         }
     }
 
-    /// Room the toolbar must leave for the traffic-light buttons. Read from the
-    /// zoom button's frame so a future system layout change doesn't strand the
-    /// old 84pt magic number.
-    private func trafficLightInset() -> CGFloat {
-        if let zoom = window?.standardWindowButton(.zoomButton), zoom.frame.maxX > 0 {
-            return zoom.frame.maxX + 12
-        }
-        return 84
-    }
-
     private func toolbarGap(_ width: CGFloat = 14) -> NSView {
         let gap = NSView()
         gap.translatesAutoresizingMaskIntoConstraints = false
@@ -440,13 +427,18 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, Editor
             let swatch = ColorSwatchButton(color: color)
             swatch.target = self
             swatch.action = #selector(swatchTapped(_:))
+            swatch.toolTip = color.hexString
+            swatch.setAccessibilityLabel(color.hexString)
             colorSwatches.append(swatch)
             stack.addArrangedSubview(swatch)
         }
+        colorWell.colorWellStyle = .minimal
         colorWell.controlSize = .regular
         colorWell.color = editorView.strokeColor
         colorWell.target = self
         colorWell.action = #selector(colorChanged(_:))
+        colorWell.toolTip = customColorTitle
+        colorWell.setAccessibilityLabel(customColorTitle)
         stack.addArrangedSubview(colorWell)
         refreshSwatchSelection(current: editorView.effectiveStyle.color)
         return stack
@@ -456,6 +448,10 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, Editor
         for swatch in colorSwatches {
             swatch.isSelectedSwatch = ColorSwatchButton.colorsMatch(swatch.swatchColor, current)
         }
+    }
+
+    private var customColorTitle: String {
+        L10n.isChinese ? "自定义颜色" : "Custom Color"
     }
 
     /// Collapse the bottom-bar style group into the overflow popover when its
@@ -470,7 +466,6 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, Editor
             if available >= lastExpandedWidth + 30 { setStyleCollapsed(false) }
         } else {
             lastExpandedWidth = styleGroup.fittingSize.width
-                + (styleSeparators.first?.fittingSize.width ?? 0) * 2
             if available < lastExpandedWidth { setStyleCollapsed(true) }
         }
     }
@@ -478,7 +473,6 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, Editor
     private func setStyleCollapsed(_ collapsed: Bool) {
         styleCollapsed = collapsed
         styleGroup?.isHidden = collapsed
-        styleSeparators.forEach { $0.isHidden = collapsed }
         overflowButton?.isHidden = !collapsed
     }
 
@@ -509,8 +503,18 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, Editor
             swatch.isSelectedSwatch = ColorSwatchButton.colorsMatch(color, editorView.effectiveStyle.color)
             swatch.target = self
             swatch.action = #selector(swatchTapped(_:))
+            swatch.toolTip = color.hexString
+            swatch.setAccessibilityLabel(color.hexString)
             swatches.addArrangedSubview(swatch)
         }
+        let customWell = NSColorWell(frame: NSRect(x: 0, y: 0, width: 28, height: 24))
+        customWell.colorWellStyle = .minimal
+        customWell.color = editorView.effectiveStyle.color
+        customWell.target = self
+        customWell.action = #selector(colorChanged(_:))
+        customWell.toolTip = customColorTitle
+        customWell.setAccessibilityLabel(customColorTitle)
+        swatches.addArrangedSubview(customWell)
         stack.addArrangedSubview(swatches)
 
         let style = editorView.effectiveStyle
@@ -558,25 +562,6 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, Editor
         return row
     }
 
-    /// A 1×16 hairline with 8pt breathing room on each side, used to separate
-    /// toolbar groups. MoliCardView keeps the layer colour in sync with the
-    /// effective appearance so the line never strands an old cgColor.
-    private func toolbarSeparator() -> NSView {
-        let container = NSView()
-        container.translatesAutoresizingMaskIntoConstraints = false
-        let line = MoliCardView(fillColor: MoliDesign.hairline, cornerRadius: 0)
-        line.translatesAutoresizingMaskIntoConstraints = false
-        container.addSubview(line)
-        NSLayoutConstraint.activate([
-            container.widthAnchor.constraint(equalToConstant: 17),
-            line.widthAnchor.constraint(equalToConstant: 1),
-            line.heightAnchor.constraint(equalToConstant: 16),
-            line.centerXAnchor.constraint(equalTo: container.centerXAnchor),
-            line.centerYAnchor.constraint(equalTo: container.centerYAnchor),
-        ])
-        return container
-    }
-
     private func toolbarSymbol(_ symbol: String, title: String) -> NSImage? {
         let configuration = NSImage.SymbolConfiguration(pointSize: 15, weight: .regular)
         return NSImage(systemSymbolName: symbol, accessibilityDescription: title)?
@@ -584,6 +569,10 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, Editor
     }
 
     private func configureZoomStack() {
+        zoomStack.arrangedSubviews.forEach {
+            zoomStack.removeArrangedSubview($0)
+            $0.removeFromSuperview()
+        }
         zoomStack.orientation = .horizontal
         zoomStack.alignment = .centerY
         zoomStack.spacing = 2
@@ -598,16 +587,16 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, Editor
 
         zoomStack.addArrangedSubview(zoomBarButton(symbol: "minus.magnifyingglass", tooltip: L10n.text(.zoomOut), action: #selector(zoomOut), shortcut: "⌘−"))
         zoomLabel.alignment = .center
-        zoomLabel.widthAnchor.constraint(greaterThanOrEqualToConstant: 42).isActive = true
         zoomStack.addArrangedSubview(zoomLabel)
         zoomStack.addArrangedSubview(zoomBarButton(symbol: "plus.magnifyingglass", tooltip: L10n.text(.zoomIn), action: #selector(zoomIn), shortcut: "⌘+"))
         zoomStack.addArrangedSubview(zoomBarButton(symbol: "1.magnifyingglass", tooltip: L10n.text(.actualSize), action: #selector(actualSize), shortcut: "⌘1"))
         zoomStack.addArrangedSubview(zoomBarButton(symbol: "arrow.up.left.and.arrow.down.right", tooltip: L10n.text(.fit), action: #selector(fitToWindow), shortcut: "⌘0"))
     }
 
-    private func zoomBarButton(symbol: String, tooltip: String, action: Selector, shortcut: String? = nil) -> MoliHoverButton {
-        let button = MoliHoverButton()
-        button.layer?.cornerRadius = 5
+    private func zoomBarButton(symbol: String, tooltip: String, action: Selector, shortcut: String? = nil) -> NSButton {
+        let button = NSButton()
+        button.title = ""
+        EditorChrome.style(button)
         button.image = NSImage(systemSymbolName: symbol, accessibilityDescription: tooltip)?
             .withSymbolConfiguration(NSImage.SymbolConfiguration(pointSize: 11, weight: .regular))
         button.imagePosition = .imageOnly
@@ -617,7 +606,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, Editor
         button.action = action
         button.translatesAutoresizingMaskIntoConstraints = false
         button.widthAnchor.constraint(equalToConstant: 28).isActive = true
-        button.heightAnchor.constraint(equalToConstant: 22).isActive = true
+        button.heightAnchor.constraint(equalToConstant: 28).isActive = true
         return button
     }
 
@@ -644,23 +633,15 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, Editor
     }
 
     private func refreshToolButtons() {
-        for (tool, button) in toolButtons {
-            let isSelected = editorView.currentTool == tool && !editorView.cropMode
-            button.state = isSelected ? .on : .off
-            button.isSelectedAppearance = isSelected
-        }
-        cropButton?.isSelectedAppearance = editorView.cropMode
+        let selected = editorView.cropMode ? AnnotationTool.crop : editorView.currentTool
+        window?.toolbar?.selectedItemIdentifier = .init(selected.rawValue)
+        window?.toolbar?.validateVisibleItems()
     }
 
     // MARK: - Toolbar actions
 
-    @objc private func compactToolTapped(_ sender: NSButton) {
-        guard
-            let rawValue = sender.identifier?.rawValue,
-            let tool = AnnotationTool(rawValue: rawValue)
-        else {
-            return
-        }
+    @objc private func toolbarToolTapped(_ sender: NSToolbarItem) {
+        guard let tool = AnnotationTool(rawValue: sender.itemIdentifier.rawValue) else { return }
         editorView.commitActiveTextEditing()
         editorView.currentTool = tool
         refreshToolButtons()
@@ -725,7 +706,6 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, Editor
         editorView.setFillEnabled(sender.state == .on)
     }
 
-    @objc private func closeEditor() { close() }
 
     // MARK: - Main-menu actions (responder chain)
 
@@ -840,6 +820,17 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, Editor
         let image = editorView.renderFinalImage()
         NSPasteboard.general.writeImage(image)
         showTransientStatus(L10n.text(.copiedToClipboard))
+    }
+
+    @objc func addToShelf(_ sender: Any?) {
+        // A pending crop must be resolved before taking the final snapshot.
+        if editorView.cropMode, !editorView.applyCropModal() { return }
+        do {
+            try onAddToShelf(editorView.renderFinalImage())
+            close()
+        } catch {
+            showTransientStatus(error.localizedDescription, duration: 4)
+        }
     }
 
     @objc private func saveImage() {
@@ -1030,7 +1021,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, Editor
             let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
             if flags == [.command, .shift] {
                 switch event.charactersIgnoringModifiers {
-                case "z":
+                case "z", "Z":
                     self.redoTap()
                     return nil
                 case "]":

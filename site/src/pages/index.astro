@@ -1,5 +1,6 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
+import ScreenshotShelf from '../components/ScreenshotShelf.astro';
 ---
 
 <BaseLayout page="home">
@@ -19,7 +20,7 @@ import BaseLayout from '../layouts/BaseLayout.astro';
             >
               <span class="w-1.5 h-1.5 bg-accent rounded-full animate-pulse"></span>
               <span data-i18n="hero.badge"
-                >v0.4.0 — macOS 14+ / Apple Silicon & Intel</span
+                >v0.8.0 — macOS 14+ / Apple Silicon & Intel</span
               >
             </div>
             <h1
@@ -36,7 +37,7 @@ import BaseLayout from '../layouts/BaseLayout.astro';
               class="text-lg text-mute dark:text-[#888] max-w-xl mb-10 leading-relaxed"
               data-i18n="hero.desc"
             >
-              MoliShot 是一款面向 macOS 的专业截图与 OCR 工具。区域截图、滚动截图、标注编辑器、文字识别、贴图悬浮、屏幕取色 —— 一个工具覆盖完整屏幕工作流。
+              MoliShot 是一款面向 macOS 的专业截图与 OCR 工具。连续截图、逐张标注、暂存后一次分享。还支持滚动截图、OCR、贴图悬浮和屏幕取色。
             </p>
             <div class="flex gap-4 flex-wrap">
               <a
@@ -75,16 +76,18 @@ import BaseLayout from '../layouts/BaseLayout.astro';
             class="rounded-2xl overflow-hidden border border-bord-light dark:border-[#2a2a2a] bg-white dark:bg-[#161616] shadow-sm"
           >
             <img
-              src="/screenshots/screenshot--hero.jpg"
-              alt="MoliShot hero screenshot"
-              width="800"
-              height="450"
+              src="/screenshots/screenshot-editor-native.jpg"
+              alt="MoliShot 原生标注编辑器"
+              width="2080"
+              height="1416"
               class="w-full h-auto"
             />
           </div>
         </div>
       </div>
     </section>
+
+    <ScreenshotShelf />
 
     <!-- Features -->
     <section id="features" class="py-24">
@@ -726,7 +729,7 @@ import BaseLayout from '../layouts/BaseLayout.astro';
       "operatingSystem": "macOS",
       "url": "https://molishot.eztoolab.com",
       "downloadUrl": "https://github.com/gusibi/MoliShot/releases",
-      "softwareVersion": "0.7.1",
+      "softwareVersion": "0.8.0",
       "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
       "author": { "@type": "Person", "name": "gusibi", "url": "https://github.com/gusibi" },
       "softwareHelp": { "@type": "CreativeWork", "url": "https://molishot.eztoolab.com/about" },

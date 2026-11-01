@@ -9,6 +9,9 @@ final class AppCoordinator {
     private var historyController: HistoryWindowController?
     private var preferencesController: PreferencesWindowController?
     private var editors: [EditorWindowController] = []
+    private var shelfController: ScreenshotShelfWindowController?
+    private let captureVisibility = CaptureWindowVisibility()
+    private var captureInProgress = false
     private var pins: [PinWindowController] = []
     private var ocrWindows: [OCRWindowController] = []
     /// Set when a capture starts without accessibility permission and the
@@ -22,13 +25,20 @@ final class AppCoordinator {
         UserDefaults.standard.bool(forKey: Self.accessibilityNoticeKey)
     }
 
+    /// Editors hold annotations in memory; never restart an update over them.
+    var hasWorkToFinishBeforeUpdate: Bool {
+        captureInProgress || colorPickerController != nil || !editors.isEmpty || !ocrWindows.isEmpty || !pins.isEmpty
+    }
+
     private init() {}
 
     func captureArea() {
+        guard beginCapture() else { return }
         ensureAccessibilityAwareCaptureStart()
         guard regionController == nil else { return }
         regionController = RegionSelectionController { [weak self] result in
             self?.regionController = nil
+            self?.endCapture()
             guard let result else { return }
             let image: NSImage
             switch result {
@@ -43,12 +53,15 @@ final class AppCoordinator {
     }
 
     func captureFullScreen() {
+        guard beginCapture() else { return }
         ensureAccessibilityAwareCaptureStart()
         Task { @MainActor in
             do {
                 let image = try await ScreenCaptureService.shared.captureDisplayUnderMouse()
+                endCapture()
                 handleCapturedImage(image)
             } catch {
+                endCapture()
                 NSLog("Capture full screen failed: \(error)")
                 presentAlert(title: L10n.text(.captureFullScreen), message: error.localizedDescription)
             }
@@ -56,10 +69,12 @@ final class AppCoordinator {
     }
 
     func captureScrolling() {
+        guard beginCapture() else { return }
         ensureAccessibilityAwareCaptureStart()
         guard scrollingController == nil else { return }
         scrollingController = ScrollingCaptureController { [weak self] image in
             self?.scrollingController = nil
+            self?.endCapture()
             guard let image = image else { return }
             self?.handleCapturedImage(image)
         }
@@ -114,10 +129,12 @@ final class AppCoordinator {
     }
 
     func runScreenOCR() {
+        guard beginCapture() else { return }
         ensureAccessibilityAwareCaptureStart()
         guard regionController == nil else { return }
         regionController = RegionSelectionController { [weak self] result in
             self?.regionController = nil
+            self?.endCapture()
             guard let result else { return }
 
             let image: NSImage
@@ -139,6 +156,33 @@ final class AppCoordinator {
         }
         NSApp.activate(ignoringOtherApps: true)
         historyController?.showWindow(nil)
+    }
+
+    func addToShelf(_ image: NSImage) throws {
+        try ScreenshotShelfStore.shared.append(image: image)
+        openShelf()
+    }
+
+    func openShelf() {
+        guard !captureInProgress else { return }
+        if shelfController == nil {
+            ScreenshotShelfStore.shared.pruneUnreferencedFiles()
+            shelfController = ScreenshotShelfWindowController { [weak self] in self?.captureArea() }
+        }
+        shelfController?.present()
+    }
+
+    private func beginCapture() -> Bool {
+        guard !captureInProgress else { return false }
+        captureInProgress = true
+        let candidates = editors.compactMap(\.window) + [shelfController?.window, shelfController?.previewWindow].compactMap { $0 }
+        captureVisibility.hide(candidates)
+        return true
+    }
+
+    private func endCapture() {
+        captureVisibility.restore()
+        captureInProgress = false
     }
 
     func openPreferences() {

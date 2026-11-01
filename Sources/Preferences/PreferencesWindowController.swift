@@ -4,7 +4,7 @@ import HotKey
 
 // MARK: - Window Controller
 
-final class PreferencesWindowController: NSWindowController {
+final class PreferencesWindowController: NSWindowController, NSWindowDelegate {
     /// System Settings uses a fixed-width window; we match that. The detail
     /// Form scrolls, so the height stays fixed too.
     private static let windowWidth: CGFloat = 720
@@ -12,7 +12,11 @@ final class PreferencesWindowController: NSWindowController {
 
     private var hostingController: NSHostingController<PreferencesContentView>?
 
-    init() {
+    private let permissionStatus: PermissionStatusModel
+    private var permissionTimer: Timer?
+
+    init(permissionStatus: PermissionStatusModel = PermissionStatusModel()) {
+        self.permissionStatus = permissionStatus
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: Self.windowWidth, height: Self.windowHeight),
             styleMask: [.titled, .closable, .miniaturizable, .fullSizeContentView],
@@ -23,7 +27,8 @@ final class PreferencesWindowController: NSWindowController {
         window.titlebarAppearsTransparent = true
         super.init(window: window)
 
-        let hosting = NSHostingController(rootView: PreferencesContentView())
+        let hosting = NSHostingController(rootView: PreferencesContentView(permissionStatus: permissionStatus))
+        window.delegate = self
         window.contentViewController = hosting
         window.setContentSize(NSSize(width: Self.windowWidth, height: Self.windowHeight))
         window.center()
@@ -37,7 +42,25 @@ final class PreferencesWindowController: NSWindowController {
         )
     }
 
+    override func showWindow(_ sender: Any?) {
+        super.showWindow(sender)
+        permissionStatus.refresh()
+        permissionTimer?.invalidate()
+        let timer = Timer(timeInterval: 1, repeats: true) { [weak self] _ in
+            guard let self, self.window?.isVisible == true else { return }
+            self.permissionStatus.refresh()
+        }
+        RunLoop.main.add(timer, forMode: .common)
+        permissionTimer = timer
+    }
+
+    func windowWillClose(_ notification: Notification) {
+        permissionTimer?.invalidate()
+        permissionTimer = nil
+    }
+
     deinit {
+        permissionTimer?.invalidate()
         NotificationCenter.default.removeObserver(self)
     }
 
@@ -45,7 +68,7 @@ final class PreferencesWindowController: NSWindowController {
 
     @objc private func languageDidChange() {
         // Rebuild the SwiftUI tree; it diffs and only re-renders changed text.
-        hostingController?.rootView = PreferencesContentView()
+        hostingController?.rootView = PreferencesContentView(permissionStatus: permissionStatus)
         window?.title = L10n.text(.preferences)
     }
 }
@@ -77,6 +100,7 @@ private enum PreferencesPane: String, CaseIterable {
 // MARK: - Main Content View
 
 struct PreferencesContentView: View {
+    let permissionStatus: PermissionStatusModel
     @State private var selectedPane: PreferencesPane? = .general
 
     var body: some View {
@@ -89,7 +113,7 @@ struct PreferencesContentView: View {
             Form {
                 switch selectedPane ?? .general {
                 case .general:
-                    GeneralPane()
+                    GeneralPane(permissionStatus: permissionStatus)
                 case .hotkeys:
                     HotkeysPane()
                 case .storage:
@@ -119,15 +143,38 @@ private struct PermissionBadge: View {
     }
 }
 
+/// Keep both permissions symmetrical, with room for localized action titles.
+private struct PermissionRow: View {
+    let title: String
+    let granted: Bool
+    let settingsTitle: String
+    let request: () -> Void
+    let openSettings: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            LabeledContent(title) { PermissionBadge(granted: granted) }
+            HStack {
+                Spacer(minLength: 0)
+                Button(L10n.text(.requestAccessibilityPermission), action: request)
+                    .disabled(granted)
+                Button(settingsTitle, action: openSettings)
+            }
+            .buttonStyle(.bordered)
+            .controlSize(.small)
+        }
+        .padding(.vertical, 4)
+    }
+}
+
 // MARK: - General Pane
 
 private struct GeneralPane: View {
+    @ObservedObject var permissionStatus: PermissionStatusModel
     @AppStorage("app.language")
     private var languageRaw: String = AppLanguage.system.rawValue
 
     @State private var launchesAtLogin = AppSettings.launchesAtLogin
-    @State private var hasScreenCapturePermission = Permissions.hasScreenCapturePermission
-    @State private var hasAccessibilityPermission = Permissions.hasAccessibilityPermission
     @State private var hotkeyRegistrationMode = HotkeyManager.shared.registrationMode
     @State private var showLaunchError = false
     @State private var launchErrorMessage = ""
@@ -163,28 +210,20 @@ private struct GeneralPane: View {
         }
 
         Section {
-            LabeledContent(L10n.text(.screenRecording)) {
-                HStack(spacing: 8) {
-                    PermissionBadge(granted: hasScreenCapturePermission)
-                    Button(L10n.text(.openScreenRecordingSettings)) {
-                        Permissions.openScreenRecordingPrivacySettings()
-                    }
-                }
-            }
-
-            LabeledContent(L10n.text(.accessibility)) {
-                PermissionBadge(granted: hasAccessibilityPermission)
-            }
-
-            HStack {
-                Spacer()
-                Button(L10n.text(.requestAccessibilityPermission)) {
-                    _ = Permissions.requestAccessibilityAccessUserInitiated()
-                }
-                Button(L10n.text(.openAccessibilitySettings)) {
-                    Permissions.openAccessibilityPrivacySettings()
-                }
-            }
+            PermissionRow(
+                title: L10n.text(.screenRecording),
+                granted: permissionStatus.screenCaptureGranted,
+                settingsTitle: L10n.text(.openScreenRecordingSettings),
+                request: permissionStatus.requestScreenAccess,
+                openSettings: Permissions.openScreenRecordingPrivacySettings
+            )
+            PermissionRow(
+                title: L10n.text(.accessibility),
+                granted: permissionStatus.accessibilityGranted,
+                settingsTitle: L10n.text(.openAccessibilitySettings),
+                request: permissionStatus.requestAccessibilityAccess,
+                openSettings: Permissions.openAccessibilityPrivacySettings
+            )
 
             LabeledContent(L10n.text(.hotkeyRegistrationMode)) {
                 Text(hotkeyModeText)
@@ -193,7 +232,7 @@ private struct GeneralPane: View {
         } header: {
             Text(L10n.text(.permissions))
         } footer: {
-            Text(L10n.text(.accessibilityPermissionHint))
+            Text(L10n.text(.permissionRequestHint) + "\n" + L10n.text(.accessibilityPermissionHint))
         }
         .onAppear {
             refreshPermissionState()
@@ -216,8 +255,7 @@ private struct GeneralPane: View {
     }
 
     private func refreshPermissionState() {
-        hasScreenCapturePermission = Permissions.hasScreenCapturePermission
-        hasAccessibilityPermission = Permissions.hasAccessibilityPermission
+        permissionStatus.refresh()
         hotkeyRegistrationMode = HotkeyManager.shared.registrationMode
     }
 }

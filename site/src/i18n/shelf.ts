@@ -1,0 +1,51 @@
+export const shelfTranslations = {
+  'zh-CN': {
+    label: '新功能 · 截图暂存栏', title: '先收集，\n再一次分享。',
+    desc: '截三张，标三张，最后只切一次应用。把一组反馈、Bug 复现步骤或给 AI Agent 的图片上下文放在一起。',
+    step1: '截图并标注', detail1: '用箭头、文字或模糊标出重点。',
+    step2: '加入暂存，继续截', detail2: '按 ⌘Return 收好这一张，接着截下一张。',
+    step3: '整组交付', detail3: '复制全部或拖出整组，再切换到目标应用。',
+    caption: 'macOS 原生界面实拍 · 内含演示图片',
+    controls: '顺手整理，再交出去',
+    controlDesc: '拖动排序，空格预览；每张可单独移除，也能一键清空。关闭窗口或重启 App，暂存内容仍保留。',
+    note: '多图粘贴取决于目标应用。复制全部使用 PNG 文件；请核对附件数量。也可整组拖入，或合成一张图片。',
+    editorTitle: '每一张，都把重点说清楚。',
+    editorDesc: '原生工具栏、熟悉的快捷键。macOS 26 使用 Liquid Glass 按钮和样式控件，macOS 14/15 保留系统控件。标注完成，直接加入暂存。',
+    editorAlt: 'MoliShot 原生编辑器，展示标注工具、画布和底部操作栏',
+    imageAlt: '截图暂存栏内的三张演示截图，以及继续截图、复制、删除和拖出按钮',
+  },
+  en: {
+    label: 'NEW · SCREENSHOT SHELF', title: 'Collect first.\nShare the whole set.',
+    desc: 'Capture three screens, annotate each, and switch apps once. Keep feedback, bug reproduction steps, or visual context for your AI agent together.',
+    step1: 'Capture and annotate', detail1: 'Point out what matters with arrows, text, or blur.',
+    step2: 'Add to Shelf. Keep going.', detail2: 'Press ⌘Return to collect this capture, then take the next.',
+    step3: 'Deliver the set', detail3: 'Copy All or drag every file, then switch to your destination.',
+    caption: 'Actual native macOS UI · Sample captures',
+    controls: 'A little order before you share',
+    controlDesc: 'Drag to reorder, press Space to preview. Remove one capture or clear the set. Your shelf survives closing the window and restarting the app.',
+    note: 'Multi-image paste depends on the destination. Copy All uses PNG files; check the attachment count. You can also drag the set or combine it into one image.',
+    editorTitle: 'Make every capture clear.',
+    editorDesc: 'A native toolbar and familiar shortcuts. Liquid Glass buttons and style controls on macOS 26, with system controls on macOS 14/15. Finish annotating and add straight to the shelf.',
+    editorAlt: 'MoliShot native editor with annotation tools, canvas, and bottom controls',
+    imageAlt: 'Screenshot Shelf with three sample captures and capture, copy, remove, and drag controls',
+  },
+};
+
+export const releaseTranslations = {
+  'zh-CN': {
+    v080Title: '截图暂存栏：连续截图，一次分享',
+    v080Item1: '标注成品加入暂存，继续截图；支持排序、快速预览、单张移除与整组清空，重启后仍保留。',
+    v080Item2: '复制全部以 PNG 文件交付，支持整组拖出、复制多张图片或合成一张图片；接收端支持情况各异。',
+    v080Item3: '编辑器与暂存栏使用原生图标控件；macOS 26 支持 Liquid Glass，较早系统保留原生回退。',
+    v080Item4: '两项权限均可主动请求，状态及时刷新；辅助功能变化重新注册快捷键。改进 OCR 编辑窗口与深浅色适配。',
+    v080Item5: '接入应用内更新，旧版需要手动迁移。下载请以 GitHub Releases 实际提供的附件为准。',
+  },
+  en: {
+    v080Title: 'Screenshot Shelf: capture a set, share it once',
+    v080Item1: 'Collect annotated captures, keep capturing, reorder, Quick Look, remove one, or clear all. The shelf survives app restarts.',
+    v080Item2: 'Copy All delivers PNG files. Drag the set, copy separate images, or combine into one image; destination support varies.',
+    v080Item3: 'Native icon controls for the editor and shelf, with Liquid Glass on macOS 26 and system control fallbacks on earlier versions.',
+    v080Item4: 'Request both permissions explicitly, refresh their status, and re-register hotkeys when Accessibility changes. Refined OCR editing and appearance support.',
+    v080Item5: 'Integrated in-app updates; older versions need a manual migration. Check GitHub Releases for available installer assets.',
+  },
+};

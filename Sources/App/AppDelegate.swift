@@ -5,6 +5,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var hotkeyManager: HotkeyManager?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        UpdateController.shared.start()
         buildMainMenu()
         menuBarController = MenuBarController()
         hotkeyManager = HotkeyManager.shared
@@ -44,6 +45,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func appMenu() -> NSMenuItem {
         let menu = NSMenu()
         menu.addItem(menuItem("About MoliShot", action: #selector(NSApplication.orderFrontStandardAboutPanel(_:))))
+        menu.addItem(UpdateController.shared.menuItem())
         menu.addItem(.separator())
         menu.addItem(menuItem("\(L10n.text(.preferences))…", action: #selector(openPreferences), key: ",", target: self))
         menu.addItem(.separator())
@@ -63,6 +65,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(menuItem(L10n.text(.newAreaScreenshot), action: #selector(captureArea), key: "n", target: self))
         menu.addItem(.separator())
         menu.addItem(menuItem(L10n.text(.save), action: #selector(EditorWindowController.saveDocument(_:)), key: "s"))
+        menu.addItem(menuItem(ShelfText.add, action: #selector(EditorWindowController.addToShelf(_:)), key: "\r"))
         menu.addItem(.separator())
         menu.addItem(menuItem(L10n.text(.close), action: #selector(NSWindow.performClose(_:)), key: "w"))
         let item = NSMenuItem(title: L10n.text(.fileMenu), action: nil, keyEquivalent: "")
@@ -86,6 +89,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func viewMenu() -> NSMenuItem {
         let menu = NSMenu(title: L10n.text(.viewMenu))
+        menu.addItem(menuItem(ShelfText.title, action: #selector(openShelf), key: "b", modifiers: [.command, .shift], target: self))
+        menu.addItem(.separator())
         menu.addItem(menuItem(L10n.text(.zoomIn), action: #selector(EditorWindowController.menuZoomIn(_:)), key: "+", modifiers: .command))
         menu.addItem(menuItem(L10n.text(.zoomOut), action: #selector(EditorWindowController.menuZoomOut(_:)), key: "-"))
         menu.addItem(.separator())
@@ -117,6 +122,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func captureArea() { AppCoordinator.shared.captureArea() }
     @objc private func openPreferences() { AppCoordinator.shared.openPreferences() }
+    @objc private func openShelf() { AppCoordinator.shared.openShelf() }
     @objc private func openHelp() {
         if let url = URL(string: "https://github.com/gusibi/MoliShot") {
             NSWorkspace.shared.open(url)
@@ -125,6 +131,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidBecomeActive(_ notification: Notification) {
         hotkeyManager?.refreshRegistrationMode()
+    }
+
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        UpdateController.shared.mayTerminateForUpdate() ? .terminateNow : .terminateCancel
     }
 
     func applicationWillTerminate(_ notification: Notification) {

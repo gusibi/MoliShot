@@ -434,11 +434,13 @@ class MoliCardView: NSView {
     }
 
     func applyStyle() {
-        layer?.backgroundColor = fillColor.cgColor
-        layer?.cornerRadius = cornerRadius
-        layer?.borderWidth = borderColor == nil ? 0 : 1
-        layer?.borderColor = borderColor?.cgColor
-        layer?.masksToBounds = cornerRadius > 0
+        effectiveAppearance.performAsCurrentDrawingAppearance {
+            layer?.backgroundColor = fillColor.cgColor
+            layer?.cornerRadius = cornerRadius
+            layer?.borderWidth = borderColor == nil ? 0 : 1
+            layer?.borderColor = borderColor?.cgColor
+            layer?.masksToBounds = cornerRadius > 0
+        }
     }
 }
 
@@ -526,6 +528,7 @@ enum L10nKey {
     case accessibilityPermissionHint
     case secureInputWarning
     case openAccessibilitySettings
+    case permissionRequestHint
     case requestAccessibilityPermission
     case hotkeyRegistrationMode
     case hotkeyRegistrationModeEventTap
@@ -559,6 +562,12 @@ enum L10nKey {
     case noScreenshotsYet
     case delete
     case ocrResult
+    case ocrEditorHint
+    case ocrFind
+    case ocrSmallerText
+    case ocrLargerText
+    case ocrEditing
+    case ocrReady
     case noTextDetected
     case ocrInProgress
     case ocrFailed
@@ -723,6 +732,7 @@ enum L10n {
         case .accessibilityPermissionHint: return "Needed to keep menus and popovers open while starting a capture."
         case .secureInputWarning: return "Secure Input is active — password areas will appear black in the capture"
         case .openAccessibilitySettings: return "Open Accessibility Settings"
+        case .permissionRequestHint: return "Request access, then enable MoliShot in System Settings. If no prompt appears, use Open Settings. If macOS asks you to quit and reopen the app, follow that instruction."
         case .requestAccessibilityPermission: return "Request Access"
         case .hotkeyRegistrationMode: return "Hotkey Capture Mode"
         case .hotkeyRegistrationModeEventTap: return "Keep-open mode active"
@@ -756,6 +766,12 @@ enum L10n {
         case .noScreenshotsYet: return "No screenshots yet."
         case .delete: return "Delete"
         case .ocrResult: return "OCR Result"
+        case .ocrEditorHint: return "Review, edit, and copy the text you captured."
+        case .ocrFind: return "Find in text (⌘F)"
+        case .ocrSmallerText: return "Smaller text"
+        case .ocrLargerText: return "Larger text"
+        case .ocrEditing: return "Edited · copy to update clipboard"
+        case .ocrReady: return "⌘↩ Copy all text"
         case .noTextDetected: return "(no text detected)"
         case .ocrInProgress: return "Recognizing text..."
         case .ocrFailed: return "OCR failed"
@@ -866,6 +882,7 @@ enum L10n {
         case .accessibilityPermissionHint: return "用于在截图热键触发时尽量保持菜单和弹窗不被提前关闭。"
         case .secureInputWarning: return "当前处于安全输入状态，密码区域在截图中会显示为黑色"
         case .openAccessibilitySettings: return "打开辅助功能设置"
+        case .permissionRequestHint: return "请求授权后，请在系统设置中开启 MoliShot。若没有弹出提示，可直接打开对应设置；如系统要求退出并重新打开 App，请按提示操作。"
         case .requestAccessibilityPermission: return "请求授权"
         case .hotkeyRegistrationMode: return "快捷键捕获模式"
         case .hotkeyRegistrationModeEventTap: return "保持菜单模式已启用"
@@ -899,6 +916,12 @@ enum L10n {
         case .noScreenshotsYet: return "还没有截图。"
         case .delete: return "删除"
         case .ocrResult: return "文字识别结果"
+        case .ocrEditorHint: return "校对、编辑，让捕捉的文字即刻可用。"
+        case .ocrFind: return "查找文字 (⌘F)"
+        case .ocrSmallerText: return "缩小字号"
+        case .ocrLargerText: return "放大字号"
+        case .ocrEditing: return "已编辑 · 复制以更新剪贴板"
+        case .ocrReady: return "⌘↩ 复制全部文字"
         case .noTextDetected: return "（未识别到文字）"
         case .ocrInProgress: return "正在识别文字..."
         case .ocrFailed: return "文字识别失败"

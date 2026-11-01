@@ -1,51 +1,27 @@
 #!/bin/zsh
-
 set -euo pipefail
-
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
-APP_NAME="MoliShot"
-SCHEME="MoliShot"
-CONFIGURATION="Release"
-DIST_DIR="$ROOT_DIR/dist"
-STAGE_DIR="$DIST_DIR/dmg-root"
-DMG_PATH="$DIST_DIR/$APP_NAME.dmg"
-
-echo "==> Generating Xcode project"
+SIGNING_DIR="${MOLISHOT_SIGNING_DIR:-$HOME/Library/Application Support/MoliShotSigning}"
 cd "$ROOT_DIR"
-xcodegen generate
-
-echo "==> Building $APP_NAME ($CONFIGURATION)"
-xcodebuild \
-  -project "$ROOT_DIR/$APP_NAME.xcodeproj" \
-  -scheme "$SCHEME" \
-  -configuration "$CONFIGURATION" \
-  build
-
-echo "==> Locating built app"
-APP_PATH="$(find "$HOME/Library/Developer/Xcode/DerivedData" -path "*/Build/Products/$CONFIGURATION/$APP_NAME.app" -print -quit)"
-
-if [[ -z "$APP_PATH" ]]; then
-  echo "Failed to locate $APP_NAME.app in DerivedData" >&2
+if [[ ! -f "$SIGNING_DIR/code-signing.p12" ]]; then
+  echo "Missing fixed signing identity. See docs/auto-update.md; do not regenerate existing release keys." >&2
   exit 1
 fi
-
-echo "==> Preparing dist folder"
-rm -rf "$STAGE_DIR" "$DMG_PATH"
-mkdir -p "$STAGE_DIR"
-cp -R "$APP_PATH" "$STAGE_DIR/"
-ln -s /Applications "$STAGE_DIR/Applications"
-
-echo "==> Creating DMG at $DMG_PATH"
-hdiutil create \
-  -volname "$APP_NAME" \
-  -srcfolder "$STAGE_DIR" \
-  -ov \
-  -format UDZO \
-  "$DMG_PATH"
-
-rm -rf "$STAGE_DIR"
-
-echo "==> Done"
-echo "$DMG_PATH"
-
-open "$DIST_DIR"
+# A unique output directory avoids accidentally packaging an old DerivedData app.
+OUTPUT_DIR="$(mktemp -d "$ROOT_DIR/dist-update-XXXXXX")"
+trap 'rm -rf "$OUTPUT_DIR"' EXIT
+xcodegen generate
+xcodebuild archive -project MoliShot.xcodeproj -scheme MoliShot \
+  -archivePath "$OUTPUT_DIR/MoliShot.xcarchive" -configuration Release CODE_SIGNING_ALLOWED=NO
+APP_PATH="$OUTPUT_DIR/MoliShot.xcarchive/Products/Applications/MoliShot.app"
+python3 scripts/sign-app.py "$APP_PATH" --signing-dir "$SIGNING_DIR"
+./scripts/fetch-sparkle.sh "$OUTPUT_DIR/Sparkle"
+python3 scripts/package-update.py "$APP_PATH" --output "$OUTPUT_DIR/release" \
+  --sparkle-tools "$OUTPUT_DIR/Sparkle/bin" --key "$SIGNING_DIR/sparkle-private-key.txt"
+mkdir -p "$OUTPUT_DIR/dmg"
+ditto "$APP_PATH" "$OUTPUT_DIR/dmg/MoliShot.app"
+ln -s /Applications "$OUTPUT_DIR/dmg/Applications"
+hdiutil create -volname MoliShot -srcfolder "$OUTPUT_DIR/dmg" -ov -format UDZO "$OUTPUT_DIR/release/MoliShot.dmg"
+mkdir -p "$ROOT_DIR/dist"
+cp "$OUTPUT_DIR/release/"* "$ROOT_DIR/dist/"
+echo "Created DMG, update ZIP and signed appcast in $ROOT_DIR/dist"

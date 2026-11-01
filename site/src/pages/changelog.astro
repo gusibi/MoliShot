@@ -23,6 +23,22 @@ import BaseLayout from '../layouts/BaseLayout.astro';
         </div>
       </header>
 
+      <!-- v0.8.0 -->
+      <article class="py-8 border-b border-bord dark:border-[#222]">
+        <div class="inline-flex items-center gap-3 mb-2">
+          <span class="px-3 py-1 bg-accent/10 border border-accent/20 rounded-full font-mono text-sm font-semibold text-accent">v0.8.0</span>
+          <time class="font-mono text-sm text-mute-dim dark:text-[#777]" datetime="2026-11-01">2026-11-01</time>
+        </div>
+        <h2 class="font-mono font-semibold text-xl mb-4" data-i18n="changelog.v080Title">截图暂存栏：连续截图，一次分享</h2>
+        <ul class="space-y-3 text-mute dark:text-[#aaa]">
+          <li data-i18n="changelog.v080Item1">标注成品加入暂存，继续截图；支持排序、快速预览、单张移除与整组清空，重启后仍保留。</li>
+          <li data-i18n="changelog.v080Item2">复制全部以 PNG 文件交付，支持整组拖出、复制多张图片或合成一张图片；接收端支持情况各异。</li>
+          <li data-i18n="changelog.v080Item3">编辑器与暂存栏使用原生图标控件；macOS 26 支持 Liquid Glass，较早系统保留原生回退。</li>
+          <li data-i18n="changelog.v080Item4">两项权限均可主动请求，状态及时刷新；辅助功能变化重新注册快捷键。改进 OCR 编辑窗口与深浅色适配。</li>
+          <li data-i18n="changelog.v080Item5">接入应用内更新，旧版需要手动迁移。下载请以 GitHub Releases 实际提供的附件为准。</li>
+        </ul>
+      </article>
+
       <!-- v0.7.1 -->
       <article
         class="py-8 border-b border-bord dark:border-[#222]"

@@ -43,12 +43,14 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         menu.addItem(makeHotkeyItem(for: .ocr, action: #selector(runScreenOCR), title: L10n.text(.ocr)))
         menu.addItem(.separator())
         menu.addItem(makeItem(L10n.text(.history) + "...", action: #selector(openHistory), key: "h"))
+        menu.addItem(makeItem(ShelfText.title + "…", action: #selector(openShelf), key: "b"))
         menu.addItem(makeItem(L10n.text(.preferences) + "...", action: #selector(openPreferences), key: ","))
         menu.addItem(.separator())
         menu.addItem(makeItem(L10n.text(.about), action: #selector(about), key: ""))
+        menu.addItem(UpdateController.shared.menuItem())
         menu.addItem(makeItem(L10n.text(.quit), action: #selector(quit), key: "q"))
 
-        for item in menu.items { item.target = self }
+        for item in menu.items where item.target == nil { item.target = self }
         statusItem.menu = menu
     }
 
@@ -126,6 +128,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     @objc private func openPicker() { coordinator.openColorPicker() }
     @objc private func runScreenOCR() { coordinator.runScreenOCR() }
     @objc private func openHistory() { coordinator.openHistory() }
+    @objc private func openShelf() { coordinator.openShelf() }
     @objc private func openPreferences() { coordinator.openPreferences() }
     @objc private func about() { NSApp.orderFrontStandardAboutPanel(nil); NSApp.activate(ignoringOtherApps: true) }
     @objc private func quit() { NSApp.terminate(nil) }

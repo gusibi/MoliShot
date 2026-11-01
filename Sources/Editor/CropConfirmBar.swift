@@ -15,17 +15,6 @@ final class CropConfirmBar: NSView {
         translatesAutoresizingMaskIntoConstraints = false
         wantsLayer = true // backing for the pop-in scale animation only
 
-        // Liquid Glass on macOS 26+, hud material below. Content stays a
-        // sibling above the glass so controls never sit under the refraction.
-        let background = MoliGlassBackground(cornerRadius: 10, fallbackMaterial: .hudWindow)
-        addSubview(background)
-        NSLayoutConstraint.activate([
-            background.topAnchor.constraint(equalTo: topAnchor),
-            background.leadingAnchor.constraint(equalTo: leadingAnchor),
-            background.trailingAnchor.constraint(equalTo: trailingAnchor),
-            background.bottomAnchor.constraint(equalTo: bottomAnchor),
-        ])
-
         let apply = makeButton(symbol: "checkmark", title: L10n.text(.apply),
                                tooltip: "\(L10n.text(.apply))  ⏎", prominent: true,
                                action: #selector(applyTapped))
@@ -36,35 +25,28 @@ final class CropConfirmBar: NSView {
         let stack = NSStackView(views: [apply, cancel])
         stack.orientation = .horizontal
         stack.spacing = 8
-        stack.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(stack)
-        NSLayoutConstraint.activate([
-            stack.topAnchor.constraint(equalTo: topAnchor, constant: 8),
-            stack.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -8),
-            stack.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 10),
-            stack.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -10),
-        ])
+        stack.edgeInsets = NSEdgeInsets(top: 8, left: 10, bottom: 8, right: 10)
+        EditorChrome.install(stack, in: self, fallback: .hudWindow)
     }
 
     required init?(coder: NSCoder) { fatalError() }
 
-    private func makeButton(symbol: String, title: String, tooltip: String, prominent: Bool, action: Selector) -> MoliHoverButton {
-        let button = MoliHoverButton()
-        button.isProminent = prominent
+    private func makeButton(symbol: String, title: String, tooltip: String, prominent: Bool, action: Selector) -> NSButton {
+        let button = NSButton()
         button.font = NSFont.systemFont(ofSize: 12, weight: .medium)
         button.image = NSImage(systemSymbolName: symbol, accessibilityDescription: title)?
             .withSymbolConfiguration(NSImage.SymbolConfiguration(pointSize: 11, weight: .semibold))
         button.imagePosition = .imageLeading
         button.imageHugsTitle = true
         button.title = title
+        EditorChrome.style(button, prominent: prominent)
         button.toolTip = tooltip
         button.setAccessibilityLabel(title)
         button.target = self
         button.action = action
         button.translatesAutoresizingMaskIntoConstraints = false
         button.widthAnchor.constraint(greaterThanOrEqualToConstant: 84).isActive = true
-        button.heightAnchor.constraint(equalToConstant: 30).isActive = true
-        button.refreshStyle()  // rebuild the tinted title now that it's set
+        button.heightAnchor.constraint(equalToConstant: 34).isActive = true
         return button
     }
 

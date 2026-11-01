@@ -14,11 +14,14 @@ settings:
     CODE_SIGN_IDENTITY: "-"
     ENABLE_HARDENED_RUNTIME: NO
     PRODUCT_BUNDLE_IDENTIFIER: com.molishot.app
-    MARKETING_VERSION: "0.7.9"
-    CURRENT_PROJECT_VERSION: "15"
+    MARKETING_VERSION: "0.8.0"
+    CURRENT_PROJECT_VERSION: "16"
     INFOPLIST_KEY_LSUIElement: YES
 
 packages:
+  Sparkle:
+    url: https://github.com/sparkle-project/Sparkle
+    exactVersion: "2.10.1"
   HotKey:
     url: https://github.com/soffes/HotKey
     from: "0.2.0"
@@ -37,8 +40,15 @@ targets:
         LSUIElement: true
         CFBundleName: MoliShot
         CFBundleDisplayName: MoliShot
-        CFBundleShortVersionString: "0.7.9"
-        CFBundleVersion: "15"
+        CFBundleShortVersionString: "0.8.0"
+        CFBundleVersion: "16"
+        SUFeedURL: "https://github.com/gusibi/MoliShot/releases/latest/download/appcast.xml"
+        SUPublicEDKey: "ml8yLk6ziYWICBIyy/74S8pO0aeFDxMQu+3COfHUp28="
+        SUEnableAutomaticChecks: true
+        SUAutomaticallyUpdate: false
+        SUAllowsAutomaticUpdates: false
+        SUVerifyUpdateBeforeExtraction: true
+        SURequireSignedFeed: true
         NSHumanReadableCopyright: "Copyright (c) 2026"
         NSScreenCaptureUsageDescription: "MoliShot needs screen recording permission to capture screenshots."
         NSAppleEventsUsageDescription: "MoliShot uses AppleEvents for window detection."
@@ -48,6 +58,7 @@ targets:
         com.apple.security.app-sandbox: false
         com.apple.security.device.camera: true
     dependencies:
+      - package: Sparkle
       - package: HotKey
     settings:
       base:
@@ -62,9 +73,25 @@ targets:
       - path: Tests
     dependencies:
       - target: MoliShot
+      - package: Sparkle
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.molishot.tests
         GENERATE_INFOPLIST_FILE: YES
         CODE_SIGN_IDENTITY: "-"
         CODE_SIGN_STYLE: Automatic
+
+schemes:
+  MoliShot:
+    build:
+      targets:
+        MoliShot: all
+        MoliShotTests: [test]
+    run:
+      config: Debug
+    test:
+      config: Debug
+      targets:
+        - MoliShotTests
+    archive:
+      config: Release

@@ -4,9 +4,19 @@ English | [中文版](README_zh.md)
 
 A macOS screenshot utility based on Swift + AppKit + ScreenCaptureKit + Vision, targeting the core features of Shottr Pro.
 
-**Current Version**: v0.7.9 — OCR recognition progress and copy feedback.
+**Current Version**: v0.8.0 — Screenshot Shelf, native Liquid Glass controls, and clearer permission requests.
 
 **⚠ Status**: A functional baseline version, covering the complete screenshot workflow from the menu bar and hotkeys. Compared to mature products, some limitations remain, mainly rolling screenshot stability and OCR structured output.
+
+## Collect first. Share the whole set.
+
+**Capture a few screens, annotate each one, and switch apps once.** The Screenshot Shelf keeps a set of feedback, bug reproduction steps, or visual context for your AI agent together. Remove individual captures, reorder, preview, copy the set, or drag every file at once.
+
+![Screenshot Shelf with three annotated captures, Capture Next, and Copy All](site/public/screenshots/screenshot-shelf-light.jpg)
+
+*Actual native macOS UI with sample captures. Liquid Glass on macOS 26; system controls on macOS 14/15.*
+
+Capture and annotate → `⌘Return` to add to the shelf → capture the next screen → Copy All and paste into a file attachment field such as Codex. Destination support varies: check the attachment count, drag the set, or copy a combined image.
 
 ## Features Implemented
 
@@ -20,9 +30,30 @@ A macOS screenshot utility based on Swift + AppKit + ScreenCaptureKit + Vision, 
 | Color Picker | System `NSColorSampler` with auto-copy to HEX + HUD notification. |
 | Pin (Sticky Notes) | Float window kept on top, hover to show toolbar. |
 | History | Persisted in the Application Support directory, browsing via grid layout. |
+| Screenshot Shelf | Collect annotated captures, reorder, Quick Look, copy multiple images, drag all files, or combine into one image. |
 | Global Hotkeys | Prioritizes intercepting screenshot hotkeys using `CGEventTap`; automatically downgrades to HotKey when Accessibility permissions are not granted. Defaults: ⇧⌘1 / ⇧⌘3 / ⇧⌘4 / ⇧⌘P / ⇧⌘R. |
 | Preferences | Shortcut list, screen recording/accessibility permission status, history path. |
 | Export & Share | Clipboard, save to PNG/JPEG, upload to 0x0.st. |
+
+### In-app updates
+
+Version 0.8.0 introduces Sparkle updates: check, download, and restart to install. Migrating from an older version requires a manual installation. Permission continuity with the fixed self-signed identity still requires a real upgrade test. See [signing, publishing, and verification](docs/auto-update.md).
+
+## Capture a Set
+
+The editor uses a native macOS toolbar. Narrow windows move less prominent tools into the system overflow menu; the bottom ellipsis opens the style controls. macOS 26 and later use native Liquid Glass buttons, style groups, and crop confirmation controls, with system control fallbacks on macOS 14/15.
+
+After annotating, choose **Add to Shelf** in the editor’s bottom bar or press `⌘Return`. Use the viewfinder icon (**Capture Next**) or your usual screenshot shortcut to collect another image, then the copy icon (**Copy All**) and paste into the destination app once. Hover over an icon to see its action name.
+
+Copy All writes the PNG files for attachment fields such as Codex. Drag thumbnails to reorder, double-click or press Space for Quick Look, and click the visible × on a thumbnail to remove it. The context menu and Delete also remove items; the trash icon (**Clear Shelf**) removes the entire set. The sharing menu offers **Copy as Separate Images** and **Copy as One Image**. Hold the hand icon (**Drag All**) to drag every PNG into an app that accepts file attachments. Check the attachment count after pasting: clipboard success does not confirm that the destination accepted every image.
+
+Closing the panel preserves the set; reopen it from the menu bar or `⇧⌘B`. The shelf survives app restarts and hides with editor windows during capture. Each item stores the rendered annotations at the time it was added. Multi-image paste support depends on the destination app; file copy, drag, and a combined image provide alternatives. Removed PNGs remain available for at least seven days to protect clipboard references, then become eligible for cleanup when the shelf is opened in a later app session.
+
+### Native editing, ready for the next capture
+
+![Native editor with annotation toolbar, canvas, and bottom controls](site/public/screenshots/screenshot-editor-native.jpg)
+
+Screen Recording and Accessibility both provide Request Access and Open Settings. Status refreshes after a request, when returning to the app, and while Preferences is visible. Accessibility changes refresh hotkey registration. Migrating from an older app identity may require granting permissions again; follow any system instruction to reopen the app.
 
 ## Download & Installation
 
@@ -30,9 +61,9 @@ A macOS screenshot utility based on Swift + AppKit + ScreenCaptureKit + Vision, 
 
 Download the latest `MoliShot-vX.Y.Z.dmg` from [GitHub Releases](https://github.com/gusibi/MoliShot/releases), then drag and drop it into `/Applications`.
 
-### DMG Unsigned: What if it is blocked on first launch?
+### First launch and Gatekeeper
 
-Since MoliShot's DMG **is not signed with a developer certificate** (Gatekeeper won't allow it automatically), macOS might show one of the following prompts when double-clicking to open the app:
+MoliShot uses a fixed self-signed identity, without Apple Developer ID signing or notarization. macOS may block the first launch and show one of these prompts:
 
 - **"MoliShot can't be opened because it is from an unidentified developer"**
 - **"MoliShot is damaged and can't be opened"** (macOS misleading error for some unsigned apps)
@@ -111,7 +142,7 @@ The script automatically:
 
 ### Screen Recording Permission Prompting Repeatedly?
 
-Do not call `CGRequestScreenCaptureAccess()` at startup. In **Debug / Unsigned** builds run from Xcode, `CGPreflightScreenCaptureAccess()` sometimes returns `false` indefinitely, prompting the system sheet on every launch. This behavior has been removed in the current version. If issues persist, ensure that the **specific path** of `MoliShot` currently checked in System Settings is correct (e.g. `DerivedData/.../Debug/MoliShot.app` vs `/Applications/MoliShot.app` are treated as separate entries by the system). For release versions, placing the app in `/Applications` with a consistent signature solves this.
+Do not call `CGRequestScreenCaptureAccess()` at startup. In **Debug / Unsigned** builds run from Xcode, `CGPreflightScreenCaptureAccess()` sometimes returns `false` indefinitely, prompting the system sheet on every launch. This behavior has been removed in the current version. If issues persist, ensure that the **specific path** of `MoliShot` currently checked in System Settings is correct (e.g. `DerivedData/.../Debug/MoliShot.app` vs `/Applications/MoliShot.app` are treated as separate entries by the system). Keep one installed copy in `/Applications` and a consistent signing identity. These reduce identity mismatches but do not guarantee permission continuity.
 
 ### Xcodebuild Plugin Errors?
 

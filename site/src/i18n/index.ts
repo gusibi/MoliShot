@@ -1,7 +1,10 @@
+import { shelfTranslations, releaseTranslations } from './shelf';
+
 type TranslationValue = string | { [key: string]: TranslationValue };
 
 const I18N: Record<string, Record<string, TranslationValue>> = {
   'zh-CN': {
+      shelf: shelfTranslations['zh-CN'],
     lang: 'zh-CN',
     langLabel: 'EN',
     langSwitch: 'Switch to English',
@@ -12,12 +15,12 @@ const I18N: Record<string, Record<string, TranslationValue>> = {
     },
     meta: {
       description:
-        'MoliShot 是一款 macOS 专业截图与 OCR 工具，支持区域截图、滚动截图、标注编辑、文字识别、贴图悬浮、屏幕取色。免费开源，替代 Shottr。',
+        'MoliShot 是一款 macOS 专业截图与 OCR 工具，支持截图暂存栏、连续截图与批量分享，以及滚动截图、标注编辑、OCR、贴图和取色。免费开源，替代 Shottr。',
       keywords:
         'MoliShot, macOS screenshot, screenshot tool, OCR, 截图工具, 滚动截图, 标注, Shottr alternative',
       ogTitle: 'MoliShot — macOS 截图 & OCR 工具',
       ogDesc:
-        '专业截图与 OCR 工具，支持区域截图、滚动截图、标注编辑、文字识别、贴图悬浮、屏幕取色。',
+        '专业截图与 OCR 工具，支持截图暂存栏、连续截图与批量分享，以及滚动截图、标注编辑、OCR、贴图和取色。',
     },
     nav: {
       features: '功能',
@@ -28,11 +31,11 @@ const I18N: Record<string, Record<string, TranslationValue>> = {
       download: 'Download',
     },
     hero: {
-      badge: 'v0.4.0 — macOS 14+ / Apple Silicon & Intel',
+      badge: 'v0.8.0 — macOS 14+ / Apple Silicon & Intel',
       line1: 'Capture.',
       line2: 'Annotate.',
       line3: 'Share.',
-      desc: 'MoliShot 是一款面向 macOS 的专业截图与 OCR 工具。区域截图、滚动截图、标注编辑器、文字识别、贴图悬浮、屏幕取色 —— 一个工具覆盖完整屏幕工作流。',
+      desc: 'MoliShot 是一款面向 macOS 的专业截图与 OCR 工具。连续截图、逐张标注、暂存后一次分享。还支持滚动截图、OCR、贴图悬浮和屏幕取色。',
       downloadDmg: '下载 DMG',
       github: 'GitHub',
     },
@@ -138,7 +141,7 @@ const I18N: Record<string, Record<string, TranslationValue>> = {
       llms: 'llms.txt',
       onlinestool: 'OnlineStool',
     },
-    changelog: {
+    changelog: { ...releaseTranslations['zh-CN'],
       title: '更新日志',
       meta: 'MoliShot 版本历史',
       v040Title: '设计系统全面升级，明暗主题适配',
@@ -181,7 +184,7 @@ const I18N: Record<string, Record<string, TranslationValue>> = {
     },
     about: {
       title: 'MoliShot 详细介绍',
-      meta: '最后更新：2026-05-26 · 版本 0.4.0 · macOS 14+',
+      meta: '最后更新：2026-11-01 · 版本 0.8.0 · macOS 14+',
       toc: '目录',
       overview: '产品概述',
       overviewP1:
@@ -295,6 +298,7 @@ const I18N: Record<string, Record<string, TranslationValue>> = {
   },
 
   en: {
+      shelf: shelfTranslations['en'],
     lang: 'en',
     langLabel: '中文',
     langSwitch: '切换到中文',
@@ -306,12 +310,12 @@ const I18N: Record<string, Record<string, TranslationValue>> = {
     },
     meta: {
       description:
-        'MoliShot is a professional macOS screenshot and OCR tool. Region capture, scroll capture, annotation editor, OCR, pin, color picker. Free and open source, alternative to Shottr.',
+        'MoliShot is a professional macOS screenshot and OCR tool. Screenshot Shelf, batch sharing, annotation, scrolling capture, OCR, pin, and color picker. Free and open source, alternative to Shottr.',
       keywords:
         'MoliShot, macOS screenshot, screenshot tool, OCR, scroll capture, annotation, Shottr alternative',
       ogTitle: 'MoliShot — macOS Screenshot & OCR Tool',
       ogDesc:
-        'Professional screenshot and OCR tool for macOS. Region capture, scroll capture, annotation editor, OCR, pin, color picker.',
+        'Professional screenshot and OCR tool for macOS. Screenshot Shelf, batch sharing, annotation, scrolling capture, OCR, pin, and color picker.',
     },
     nav: {
       features: 'Features',
@@ -322,11 +326,11 @@ const I18N: Record<string, Record<string, TranslationValue>> = {
       download: 'Download',
     },
     hero: {
-      badge: 'v0.4.0 — macOS 14+ / Apple Silicon & Intel',
+      badge: 'v0.8.0 — macOS 14+ / Apple Silicon & Intel',
       line1: 'Capture.',
       line2: 'Annotate.',
       line3: 'Share.',
-      desc: 'MoliShot is a professional screenshot and OCR tool for macOS. Region capture, scroll capture, annotation editor, OCR, pin overlay, color picker — a complete screen workflow in one app.',
+      desc: 'Capture a set, annotate each image, and share it once with Screenshot Shelf. A native macOS screenshot and OCR tool, with scrolling capture, pin, and color picker.',
       downloadDmg: 'Download DMG',
       github: 'GitHub',
     },
@@ -434,7 +438,7 @@ const I18N: Record<string, Record<string, TranslationValue>> = {
       llms: 'llms.txt',
       onlinestool: 'OnlineStool',
     },
-    changelog: {
+    changelog: { ...releaseTranslations['en'],
       title: 'Changelog',
       meta: 'MoliShot version history',
       v040Title:
@@ -491,7 +495,7 @@ const I18N: Record<string, Record<string, TranslationValue>> = {
     },
     about: {
       title: 'About MoliShot',
-      meta: 'Last updated: 2026-05-26 · Version 0.4.0 · macOS 14+',
+      meta: 'Last updated: 2026-11-01 · Version 0.8.0 · macOS 14+',
       toc: 'Contents',
       overview: 'Overview',
       overviewP1:

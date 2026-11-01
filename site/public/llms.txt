@@ -6,9 +6,11 @@
 
 MoliShot 是一个 macOS 原生截图工具，对标 Shottr Pro 的核心功能。它不是简单的系统截图替代品，而是一套覆盖"捕获、编辑、识别、分享、回看"的完整屏幕信息工作流工具。目标用户包括产品经理、设计师、开发者、测试工程师、内容创作者和高频办公用户。
 
-MoliShot 使用 Swift 语言开发，基于 Apple 原生框架 AppKit、ScreenCaptureKit 和 Vision，唯一第三方依赖是 [HotKey](https://github.com/soffes/HotKey)（全局快捷键管理）。
+MoliShot 使用 Swift 语言开发，基于 Apple 原生框架 AppKit、ScreenCaptureKit 和 Vision，第三方依赖包括 [HotKey](https://github.com/soffes/HotKey)（全局快捷键）和 Sparkle（应用内更新）。
 
 ## Features
+
+- **截图暂存栏（v0.8.0）** — 连续截图、逐张标注后按 ⌘Return 暂存，最后一次复制 PNG 文件或整组拖出。支持排序、Quick Look、单张移除、清空、跨重启保留及合成单图。多图粘贴取决于目标应用，请核对附件数量。
 
 - **区域截图** — 十字线框选、放大镜精准定位、pt/px 实时尺寸、Space 移动选区、Shift 锁定比例、Option 中心缩放
 - **全屏截图** — 一键捕获当前显示器，支持多显示器独立输出

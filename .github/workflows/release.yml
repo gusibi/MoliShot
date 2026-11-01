@@ -8,12 +8,14 @@ on:
 permissions:
   contents: write
 
+# Serialize publication to avoid overlapping release uploads.
+concurrency:
+  group: molishot-release
+  cancel-in-progress: false
+
 jobs:
   build:
-    # Liquid Glass (NSGlassEffectView / SwiftUI.glassEffect) needs the
-    # macOS 26 SDK — Xcode 16 on macos-15 runners cannot compile it.
     runs-on: macos-26
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -21,49 +23,105 @@ jobs:
       - name: Install XcodeGen
         run: brew install xcodegen
 
-      - name: Generate Xcode project
-        run: xcodegen generate
+      - name: Prepare signing material
+        id: signing
+        env:
+          CODE_SIGN_P12_BASE64: ${{ secrets.MOLISHOT_CODE_SIGN_P12_BASE64 }}
+          CODE_SIGN_P12_PASSWORD: ${{ secrets.MOLISHOT_CODE_SIGN_P12_PASSWORD }}
+          SPARKLE_PRIVATE_KEY: ${{ secrets.MOLISHOT_SPARKLE_PRIVATE_KEY }}
+        run: |
+          python3 - <<'PY'
+          import base64, os
+          from pathlib import Path
+          names = ['CODE_SIGN_P12_BASE64', 'CODE_SIGN_P12_PASSWORD', 'SPARKLE_PRIVATE_KEY']
+          if any(not os.environ.get(name) for name in names):
+              print('::notice::Signing secrets are not configured; tests will run, but installer publication is skipped.')
+              with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
+                  output.write('enabled=false\n')
+              raise SystemExit(0)
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
+              output.write('enabled=true\n')
+          directory = Path(os.environ['RUNNER_TEMP']) / 'molishot-signing'
+          directory.mkdir(mode=0o700)
+          files = {
+              'code-signing.p12': base64.b64decode(os.environ['CODE_SIGN_P12_BASE64'], validate=True),
+              'p12-password.txt': os.environ['CODE_SIGN_P12_PASSWORD'].encode(),
+              'sparkle-private-key.txt': os.environ['SPARKLE_PRIVATE_KEY'].encode(),
+          }
+          for name, data in files.items():
+              path = directory / name
+              path.write_bytes(data)
+              path.chmod(0o600)
+          PY
+
+      - name: Generate Xcode project and check release version
+        run: |
+          xcodegen generate
+          python3 - <<'PY'
+          import os, plistlib
+          from pathlib import Path
+          info = plistlib.loads(Path('Resources/Info.plist').read_bytes())
+          if os.environ['GITHUB_REF_NAME'] != 'v' + info['CFBundleShortVersionString']:
+              raise SystemExit('Git tag must match the app marketing version')
+          if not info['CFBundleVersion'].isdigit():
+              raise SystemExit('The app build number must be an increasing integer')
+          PY
+
+      - name: Test release metadata and application
+        run: |
+          python3 -m unittest discover -s scripts/tests -v
+          xcodebuild -project MoliShot.xcodeproj -scheme MoliShot \
+            -destination 'platform=macOS' test CODE_SIGNING_ALLOWED=NO
+
+      - name: Download pinned Sparkle tools
+        if: steps.signing.outputs.enabled == 'true'
+        run: ./scripts/fetch-sparkle.sh ./build/Sparkle
 
       - name: Build archive
-        # Ad-hoc signed (CODE_SIGN_IDENTITY="-"): the bundle gets a real,
-        # validating signature. macOS 26 TCC refuses to persist Screen
-        # Recording grants for unsigned/linker-signed bundles — the user
-        # grants the toggle and the system keeps asking. Ad-hoc is not
-        # notarized (Gatekeeper still warns on first open), but TCC can pin
-        # the grant to the bundle's cdhash for the life of that build.
+        if: steps.signing.outputs.enabled == 'true'
+        # Signing is performed inside out with the fixed identity in the next step.
         run: |
           xcodebuild archive \
             -project MoliShot.xcodeproj \
             -scheme MoliShot \
             -archivePath ./build/MoliShot.xcarchive \
             -configuration Release \
-            CODE_SIGN_IDENTITY="-" \
-            CODE_SIGN_STYLE=Manual \
-            DEVELOPMENT_TEAM=""
+            CODE_SIGNING_ALLOWED=NO
 
-      - name: Package DMG
+      - name: Sign application and package update
+        if: steps.signing.outputs.enabled == 'true'
         run: |
           APP_PATH="./build/MoliShot.xcarchive/Products/Applications/MoliShot.app"
-          DMG_NAME="MoliShot-${GITHUB_REF##*/}.dmg"
-          DMG_PATH="./build/$DMG_NAME"
-
+          python3 scripts/sign-app.py "$APP_PATH" --signing-dir "$RUNNER_TEMP/molishot-signing"
+          python3 scripts/package-update.py "$APP_PATH" \
+            --output ./build/release \
+            --sparkle-tools ./build/Sparkle/bin \
+            --key "$RUNNER_TEMP/molishot-signing/sparkle-private-key.txt"
           mkdir -p ./build/dmg
-          cp -R "$APP_PATH" ./build/dmg/
+          ditto "$APP_PATH" ./build/dmg/MoliShot.app
+          ln -s /Applications ./build/dmg/Applications
+          hdiutil create -volname MoliShot -srcfolder ./build/dmg -ov -format UDZO \
+            "./build/release/MoliShot-${GITHUB_REF_NAME}.dmg"
 
-          hdiutil create \
-            -volname "MoliShot" \
-            -srcfolder ./build/dmg \
-            -ov \
-            -format UDZO \
-            "$DMG_PATH"
-
-          echo "DMG_PATH=$DMG_PATH" >> $GITHUB_ENV
-          echo "DMG_NAME=$DMG_NAME" >> $GITHUB_ENV
+      - name: Save release artifacts
+        if: steps.signing.outputs.enabled == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: MoliShot-${{ github.ref_name }}
+          path: build/release/*
+          if-no-files-found: error
 
       - name: Create Release
+        if: steps.signing.outputs.enabled == 'true'
         uses: softprops/action-gh-release@v2
         with:
-          files: ./build/MoliShot-*.dmg
+          files: build/release/*
+          fail_on_unmatched_files: true
           generate_release_notes: true
+          make_latest: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Remove temporary signing material
+        if: always()
+        run: rm -rf "$RUNNER_TEMP/molishot-signing"

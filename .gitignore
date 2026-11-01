@@ -53,3 +53,9 @@ fastlane/test_output
 *.swp
 *.swo
 *~
+
+# Local update packaging staging
+/dist-update-*/
+
+# Python release tooling
+__pycache__/
