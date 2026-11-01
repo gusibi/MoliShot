@@ -2,6 +2,7 @@
 """Sign nested code inside out, using a temporary keychain and a pinned identity."""
 import argparse
 from pathlib import Path
+import plistlib
 import secrets
 import subprocess
 import tempfile
@@ -45,7 +46,12 @@ def sign_app(app, signing_dir):
             magic = {b'\xfe\xed\xfa\xce', b'\xce\xfa\xed\xfe', b'\xfe\xed\xfa\xcf',
                      b'\xcf\xfa\xed\xfe', b'\xca\xfe\xba\xbe', b'\xbe\xba\xfe\xca',
                      b'\xca\xfe\xba\xbf', b'\xbf\xba\xfe\xca'}
+            executable = plistlib.loads((app / 'Contents/Info.plist').read_bytes())['CFBundleExecutable']
+            main_executable = app / 'Contents/MacOS' / executable
             for path in app.rglob('*'):
+                # Signing the enclosing app signs its main executable after all libraries.
+                if path == main_executable:
+                    continue
                 if path.is_symlink():
                     continue
                 if path.is_dir() and path.suffix in ('.app', '.framework', '.xpc'):
@@ -55,7 +61,7 @@ def sign_app(app, signing_dir):
                         if file.read(4) in magic:
                             targets.append(path)
             for target in sorted(targets, key=lambda p: len(p.parts), reverse=True):
-                run(*common, str(target), stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                run(*common, str(target), stdout=subprocess.DEVNULL)
             # Pin the signer, not the cdhash or a forgeable certificate display name.
             requirement = f'designated => identifier "com.molishot.app" and certificate leaf = H"{expected}"'
             run(*common, '--identifier', 'com.molishot.app', '--requirements', '=' + requirement,
