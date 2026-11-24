@@ -56,12 +56,23 @@ final class ColorPickerController {
         view.addSubview(label)
 
         window.contentView = view
+        window.alphaValue = MoliDesign.reduceMotion ? 1 : 0
         window.makeKeyAndOrderFront(nil)
+        if !MoliDesign.reduceMotion {
+            view.layer?.animateCenteredScale(from: 0.96, to: 1, duration: MoliMotion.quick, timingFunction: MoliMotion.easeOut)
+            MoliMotion.run(duration: MoliMotion.quick, curve: MoliMotion.easeOut) {
+                window.animator().alphaValue = 1
+            }
+        }
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.6) {
-            NSAnimationContext.runAnimationGroup({ ctx in
-                ctx.duration = 0.3
+            if MoliDesign.reduceMotion {
+                window.orderOut(nil)
+                return
+            }
+            view.layer?.animateCenteredScale(from: 1, to: 0.97, duration: MoliMotion.quick, timingFunction: MoliMotion.easeIn)
+            MoliMotion.run(duration: MoliMotion.quick, curve: MoliMotion.easeIn, animations: {
                 window.animator().alphaValue = 0
-            }, completionHandler: {
+            }, completion: {
                 window.orderOut(nil)
             })
         }

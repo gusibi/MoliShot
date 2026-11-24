@@ -124,6 +124,55 @@ enum MoliDesign {
     }
 }
 
+/// Unified motion language for MoliShot: one set of durations, curves, and
+/// Reduce Motion rules across every window and micro-interaction.
+enum MoliMotion {
+    /// Repeated micro-interactions: hover highlights, swatch selection, focus cue.
+    static let micro: TimeInterval = 0.12
+    /// Contextual state changes: HUDs, toasts, conditional controls, hover bars.
+    static let quick: TimeInterval = 0.18
+    /// Structural transitions: shelf expand/collapse, zoom glide, pin arrival, OCR reveal.
+    static let standard: TimeInterval = 0.24
+
+    /// Apple-style crisp deceleration curve (fast start, gentle settle).
+    static var easeOut: CAMediaTimingFunction {
+        CAMediaTimingFunction(controlPoints: 0.22, 1.0, 0.36, 1.0)
+    }
+
+    /// Clean exit curve.
+    static var easeIn: CAMediaTimingFunction {
+        CAMediaTimingFunction(controlPoints: 0.4, 0.0, 1.0, 1.0)
+    }
+
+    /// Balanced curve for symmetric layout/size transitions.
+    static var easeInOut: CAMediaTimingFunction {
+        CAMediaTimingFunction(controlPoints: 0.25, 0.1, 0.25, 1.0)
+    }
+
+    static func run(
+        duration: TimeInterval,
+        curve: CAMediaTimingFunction = easeOut,
+        allowsImplicitAnimation: Bool = false,
+        animations: () -> Void,
+        completion: (() -> Void)? = nil
+    ) {
+        if MoliDesign.reduceMotion {
+            NSAnimationContext.runAnimationGroup({ ctx in
+                ctx.duration = 0
+                ctx.allowsImplicitAnimation = false
+                animations()
+            }, completionHandler: completion)
+            return
+        }
+        NSAnimationContext.runAnimationGroup({ ctx in
+            ctx.duration = duration
+            ctx.timingFunction = curve
+            ctx.allowsImplicitAnimation = allowsImplicitAnimation
+            animations()
+        }, completionHandler: completion)
+    }
+}
+
 /// Toolbar/utility button with instant press feedback and an animated hover
 /// highlight. `isSelectedAppearance` renders the accent-tinted selected state;
 /// `isProminent` renders a filled accent (primary action) button.
@@ -204,7 +253,8 @@ final class MoliHoverButton: NSButton {
         }
         if animated && !MoliDesign.reduceMotion {
             CATransaction.begin()
-            CATransaction.setAnimationDuration(0.15)
+            CATransaction.setAnimationDuration(MoliMotion.micro)
+            CATransaction.setAnimationTimingFunction(MoliMotion.easeOut)
             apply()
             CATransaction.commit()
         } else {
@@ -218,7 +268,7 @@ final class MoliHoverButton: NSButton {
 /// native control for this, so it's drawn.
 final class ColorSwatchButton: NSButton {
     let swatchColor: NSColor
-    var isSelectedSwatch = false { didSet { refresh() } }
+    var isSelectedSwatch = false { didSet { refresh(animated: oldValue != isSelectedSwatch) } }
 
     init(color: NSColor) {
         self.swatchColor = color.usingColorSpace(.sRGB) ?? color
@@ -260,19 +310,33 @@ final class ColorSwatchButton: NSButton {
         swatchColor.redComponent > 0.9 && swatchColor.greenComponent > 0.9 && swatchColor.blueComponent > 0.9
     }
 
-    private func refresh() {
+    private func refresh(animated: Bool = false) {
         guard let layer else { return }
-        layer.cornerRadius = bounds.width / 2
-        layer.backgroundColor = swatchColor.cgColor
-        if isSelectedSwatch {
-            layer.borderColor = MoliDesign.accent.cgColor
-            layer.borderWidth = 2
-        } else if isWhiteish {
-            // Hairline so a white swatch doesn't vanish into the toolbar.
-            layer.borderColor = MoliDesign.hairline.cgColor
-            layer.borderWidth = 1
+        let apply = {
+            layer.cornerRadius = self.bounds.width / 2
+            layer.backgroundColor = self.swatchColor.cgColor
+            if self.isSelectedSwatch {
+                layer.borderColor = MoliDesign.accent.cgColor
+                layer.borderWidth = 2
+            } else if self.isWhiteish {
+                // Hairline so a white swatch doesn't vanish into the toolbar.
+                layer.borderColor = MoliDesign.hairline.cgColor
+                layer.borderWidth = 1
+            } else {
+                layer.borderWidth = 0
+            }
+        }
+        if animated && !MoliDesign.reduceMotion {
+            CATransaction.begin()
+            CATransaction.setAnimationDuration(MoliMotion.micro)
+            CATransaction.setAnimationTimingFunction(MoliMotion.easeOut)
+            apply()
+            CATransaction.commit()
+            if isSelectedSwatch {
+                layer.animateCenteredScale(from: 0.9, to: 1, duration: MoliMotion.micro, timingFunction: MoliMotion.easeOut)
+            }
         } else {
-            layer.borderWidth = 0
+            apply()
         }
     }
 }
@@ -282,8 +346,11 @@ final class ColorSwatchButton: NSButton {
 /// feedback appears where the user is looking.
 final class MoliToast {
     private static var current: NSView?
+    private static var dismissWorkItem: DispatchWorkItem?
 
     static func show(_ message: String, in host: NSView, duration: TimeInterval = 2.2) {
+        dismissWorkItem?.cancel()
+        dismissWorkItem = nil
         current?.removeFromSuperview()
 
         let effect = MoliGlassBackground(cornerRadius: 14, fallbackMaterial: .hudWindow)
@@ -309,29 +376,38 @@ final class MoliToast {
         host.layoutSubtreeIfNeeded()  // final bounds so the scale anchors correctly
 
         current = effect
-        effect.alphaValue = 0
-        let reduce = MoliDesign.reduceMotion
-        NSAnimationContext.runAnimationGroup { ctx in
-            ctx.duration = reduce ? 0.01 : 0.18
-            effect.animator().alphaValue = 1
+        if MoliDesign.reduceMotion {
+            effect.alphaValue = 1
+        } else {
+            effect.alphaValue = 0
+            effect.layer?.animateCenteredScale(from: 0.96, to: 1, duration: MoliMotion.quick, timingFunction: MoliMotion.easeOut)
+            MoliMotion.run(duration: MoliMotion.quick, curve: MoliMotion.easeOut) {
+                effect.animator().alphaValue = 1
+            }
         }
-        if !reduce { effect.layer?.animateCenteredScale(from: 0.96, to: 1, duration: 0.18, curve: .easeOut) }
 
-        DispatchQueue.main.asyncAfter(deadline: .now() + duration) { [weak effect] in
+        let work = DispatchWorkItem { [weak effect] in
             guard let effect, effect === current else { return }
-            let reduceOut = MoliDesign.reduceMotion
-            if !reduceOut { effect.layer?.animateCenteredScale(from: 1, to: 0.97, duration: 0.25, curve: .easeIn) }
-            NSAnimationContext.runAnimationGroup({ ctx in
-                ctx.duration = reduceOut ? 0.01 : 0.25
+            if MoliDesign.reduceMotion {
+                current = nil
+                effect.removeFromSuperview()
+                return
+            }
+            effect.layer?.animateCenteredScale(from: 1, to: 0.97, duration: MoliMotion.quick, timingFunction: MoliMotion.easeIn)
+            MoliMotion.run(duration: MoliMotion.quick, curve: MoliMotion.easeIn, animations: {
                 effect.animator().alphaValue = 0
-            }, completionHandler: {
+            }, completion: {
                 if effect === current { current = nil }
                 effect.removeFromSuperview()
             })
         }
+        dismissWorkItem = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + duration, execute: work)
     }
 
     static func dismiss() {
+        dismissWorkItem?.cancel()
+        dismissWorkItem = nil
         current?.removeFromSuperview()
         current = nil
     }
@@ -342,6 +418,10 @@ extension CALayer {
     /// anchorPoint: the built transform is T(c)·S·T(-c), which keeps the centre
     /// fixed no matter what the layer's anchorPoint is.
     func animateCenteredScale(from start: CGFloat, to end: CGFloat, duration: CFTimeInterval, curve: CAMediaTimingFunctionName) {
+        animateCenteredScale(from: start, to: end, duration: duration, timingFunction: CAMediaTimingFunction(name: curve))
+    }
+
+    func animateCenteredScale(from start: CGFloat, to end: CGFloat, duration: CFTimeInterval, timingFunction: CAMediaTimingFunction) {
         let c = CGPoint(x: bounds.midX, y: bounds.midY)
         func centered(_ s: CGFloat) -> CATransform3D {
             CATransform3DTranslate(
@@ -352,7 +432,7 @@ extension CALayer {
         anim.fromValue = NSValue(caTransform3D: centered(start))
         anim.toValue = NSValue(caTransform3D: centered(end))
         anim.duration = duration
-        anim.timingFunction = CAMediaTimingFunction(name: curve)
+        anim.timingFunction = timingFunction
         add(anim, forKey: "moliToastScale")
     }
 }
@@ -580,6 +660,9 @@ enum L10nKey {
     case cropApplied
     case editingCancelled
     case selectionCancelled
+    case textInputPlaceholder
+    case textEditingHint
+    case textSelectedHint
     case undoApplied
     case redoApplied
     case nothingToUndo
@@ -713,7 +796,7 @@ enum L10n {
         case .ocr: return "OCR"
         case .pin: return "Pin"
         case .copy: return "Copy"
-        case .save: return "Save..."
+        case .save: return "Save"
         case .upload: return "Upload"
         case .copiedToClipboard: return "Copied to clipboard"
         case .pastedAnnotation: return "Annotation pasted"
@@ -784,11 +867,14 @@ enum L10n {
         case .cropApplied: return "Crop applied"
         case .editingCancelled: return "Text editing cancelled"
         case .selectionCancelled: return "Selection cancelled"
+        case .textInputPlaceholder: return "Type text…"
+        case .textEditingHint: return "Return to finish · ⇧Return new line · ⎋ Cancel"
+        case .textSelectedHint: return "Double-click or Return to edit"
         case .undoApplied: return "Undo applied"
         case .redoApplied: return "Redo applied"
         case .nothingToUndo: return "Nothing to undo"
         case .nothingToRedo: return "Nothing to redo"
-        case .clearedAnnotations: return "Annotations cleared"
+        case .clearedAnnotations: return "Annotations cleared (⌘Z to undo)"
         case .pinCreated: return "Pinned image created"
         case .scrollInstruction: return "Scroll the content manually, then click Done."
         case .scrollCaptureFailedTitle: return "Scrolling Capture Failed"
@@ -863,7 +949,7 @@ enum L10n {
         case .ocr: return "识别文字"
         case .pin: return "贴图"
         case .copy: return "复制"
-        case .save: return "保存..."
+        case .save: return "保存"
         case .upload: return "上传"
         case .copiedToClipboard: return "已复制到剪贴板"
         case .pastedAnnotation: return "已粘贴标注"
@@ -934,11 +1020,14 @@ enum L10n {
         case .cropApplied: return "已应用裁剪"
         case .editingCancelled: return "已取消文字编辑"
         case .selectionCancelled: return "已取消当前操作"
+        case .textInputPlaceholder: return "输入文字…"
+        case .textEditingHint: return "回车完成 · ⇧回车换行 · ⎋ 取消"
+        case .textSelectedHint: return "双击或按回车编辑"
         case .undoApplied: return "已撤销"
         case .redoApplied: return "已重做"
         case .nothingToUndo: return "没有可撤销的内容"
         case .nothingToRedo: return "没有可重做的内容"
-        case .clearedAnnotations: return "已清空标注"
+        case .clearedAnnotations: return "已清空标注（⌘Z 可撤销）"
         case .pinCreated: return "已创建贴图窗口"
         case .scrollInstruction: return "手动滚动内容，然后点击完成。"
         case .scrollCaptureFailedTitle: return "滚动截图失败"

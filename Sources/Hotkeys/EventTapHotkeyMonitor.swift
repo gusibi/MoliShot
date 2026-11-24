@@ -105,6 +105,10 @@ final class CaptureSessionEventTap {
     private var runLoopSource: CFRunLoopSource?
     private var handler: ((Event) -> Void)?
 
+    var isRunning: Bool {
+        eventTap != nil
+    }
+
     @discardableResult
     func start(handler: @escaping (Event) -> Void) -> Bool {
         stop()
@@ -136,8 +140,12 @@ final class CaptureSessionEventTap {
             return monitor.handleEventTap(type: type, event: event)
         }
 
+        // Use `.cgSessionEventTap` so WindowServer keeps native macOS cursor
+        // acceleration (no raw-delta drift) while our head-inserted tap still
+        // swallows all pointer events before any foreground app or open menu
+        // sees them — and it works reliably with standard Accessibility access.
         guard let tap = CGEvent.tapCreate(
-            tap: .cghidEventTap,
+            tap: .cgSessionEventTap,
             place: .headInsertEventTap,
             options: .defaultTap,
             eventsOfInterest: mask,

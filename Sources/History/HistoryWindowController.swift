@@ -282,9 +282,16 @@ final class HistoryCell: NSCollectionViewItem {
         v.onHoverChanged = { [weak self, weak v] hovered in
             guard let self, let v else { return }
             v.fillColor = hovered ? MoliDesign.cardElevated : MoliDesign.card
-            v.applyStyle()
-            NSAnimationContext.runAnimationGroup { ctx in
-                ctx.duration = MoliDesign.reduceMotion ? 0.01 : 0.15
+            if !MoliDesign.reduceMotion {
+                CATransaction.begin()
+                CATransaction.setAnimationDuration(MoliMotion.micro)
+                CATransaction.setAnimationTimingFunction(MoliMotion.easeOut)
+                v.applyStyle()
+                CATransaction.commit()
+            } else {
+                v.applyStyle()
+            }
+            MoliMotion.run(duration: MoliMotion.micro, curve: MoliMotion.easeOut) {
                 self.openBtn.animator().alphaValue = hovered ? 1 : 0
                 self.deleteBtn.animator().alphaValue = hovered ? 1 : 0
             }

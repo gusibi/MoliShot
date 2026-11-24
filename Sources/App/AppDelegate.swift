@@ -10,6 +10,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menuBarController = MenuBarController()
         hotkeyManager = HotkeyManager.shared
         hotkeyManager?.registerDefaults()
+        // 把识别模型的加载成本放在启动后，而不是用户按下热键时。
+        OCRService.shared.warmUp()
         NotificationCenter.default.addObserver(self, selector: #selector(languageDidChange), name: .appLanguageDidChange, object: nil)
     }
 

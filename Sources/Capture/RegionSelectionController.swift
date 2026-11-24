@@ -63,16 +63,22 @@ final class RegionSelectionController {
 
         Task { @MainActor in
             prepareInitialOverlayState()
-            // ① 先采集当前屏幕内容（覆盖层还没出现）
+            // ① 立刻吞掉鼠标事件（在异步截图开始之前），避免截图准备的 150-400ms
+            // 空窗期里鼠标移动或点击漏到下层 App 导致已打开的菜单被收起。
+            if Permissions.hasAccessibilityPermission {
+                _ = self.captureEventTap.start { [weak self = self] event in
+                    self?.primarySelectionView?.handleInterceptedEvent(event)
+                }
+            }
+            // ② 采集当前屏幕内容（覆盖层还没出现，但鼠标事件已被拦截保护菜单）
             do {
                 try await self.captureScreenSnapshots()
             } catch {
                 NSLog("Pre-capture screen snapshots failed: \(error)")
             }
-            // ② 立刻显示覆盖层并吞掉点击，再去做慢的窗口列表查询 ——
-            // 否则这段时间用户的点击会漏到下层 App，关掉它的菜单。
+            // ③ 显示冻结画面的覆盖层
             showOverlay(secureInputNotice: secureInputActive)
-            // ③ 加载窗口信息（只影响悬停高亮，异步补上即可）
+            // ④ 加载窗口信息（只影响悬停高亮，异步补上即可）
             do {
                 try await self.loadOverlayContent()
             } catch {
@@ -194,11 +200,8 @@ final class RegionSelectionController {
             self?.handleResult(.cancelled)
         }
 
-        // Swallow pointer input BEFORE any window orders front: from this
-        // point on, clicks can't leak through to the app underneath (whose
-        // open menus would otherwise close on an outside mousedown).
-        // The handler no-ops until the primary view is assigned below.
-        if Permissions.hasAccessibilityPermission {
+        // Ensure pointer interception is active if not already started in `begin`.
+        if Permissions.hasAccessibilityPermission, !captureEventTap.isRunning {
             _ = captureEventTap.start { [weak self] event in
                 self?.primarySelectionView?.handleInterceptedEvent(event)
             }
@@ -248,11 +251,6 @@ final class RegionSelectionController {
             panel.orderFrontRegardless()
             overlayWindows.append(panel)
         }
-
-        if Permissions.hasAccessibilityPermission, !RegionSelectionView.pointerPreservationDisabled {
-            primarySelectionView?.beginPointerPreservationSession()
-        }
-
     }
 
     @MainActor

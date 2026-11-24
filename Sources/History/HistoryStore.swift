@@ -47,7 +47,12 @@ final class HistoryStore {
     }
 
     func delete(_ entry: HistoryEntry) {
-        try? FileManager.default.removeItem(at: entry.url(in: directory))
+        let url = entry.url(in: directory)
+        do {
+            try FileManager.default.trashItem(at: url, resultingItemURL: nil)
+        } catch {
+            try? FileManager.default.removeItem(at: url)
+        }
         entries.removeAll { $0.id == entry.id }
         save()
         onChange?()

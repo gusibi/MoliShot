@@ -175,9 +175,20 @@ final class OCRWindowController: NSWindowController, NSWindowDelegate, NSTextVie
 
     required init?(coder: NSCoder) { fatalError() }
 
+    /// 快速识别的结果先上屏，让用户立刻看到文字；`completeRecognition` 随后
+    /// 用 accurate 的结果覆盖。此时仍保持加载状态，编辑和复制继续禁用。
+    func showPartialRecognition(_ text: String) {
+        guard isRecognizing, !isClosed, !text.isEmpty else { return }
+        scrollView.isHidden = false
+        configureTextView(with: text)
+        textView.isEditable = false
+        updateCharacterCount()
+    }
+
     func completeRecognition(_ result: Result<String, OCRServiceError>) {
         guard isRecognizing, !isClosed else { return }
         isRecognizing = false
+        let wasHidden = scrollView.isHidden
         progressIndicator.stopAnimation(nil)
         progressIndicator.superview?.isHidden = true
         scrollView.isHidden = false
@@ -199,13 +210,15 @@ final class OCRWindowController: NSWindowController, NSWindowDelegate, NSTextVie
             statusLabel.stringValue = L10n.text(.ocrFailed)
         }
         updateActions()
-        if !MoliDesign.reduceMotion {
+        // Only fade in on first reveal; if partial text was already visible,
+        // update in place without a jarring fade-out/fade-in blink.
+        if wasHidden && !MoliDesign.reduceMotion {
             scrollView.alphaValue = 0
-            NSAnimationContext.runAnimationGroup { context in
-                context.duration = 0.18
-                context.timingFunction = CAMediaTimingFunction(name: .easeOut)
+            MoliMotion.run(duration: MoliMotion.standard, curve: MoliMotion.easeOut) {
                 scrollView.animator().alphaValue = 1
             }
+        } else {
+            scrollView.alphaValue = 1
         }
     }
 

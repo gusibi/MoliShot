@@ -199,7 +199,11 @@ final class AppCoordinator {
         }
         ocrWindows.append(controller)
         controller.showWindow(nil)
-        OCRService.shared.recognize(in: image) { [weak controller] result in
+        OCRService.shared.recognize(in: image, onPartial: { [weak controller] text in
+            DispatchQueue.main.async {
+                controller?.showPartialRecognition(text)
+            }
+        }) { [weak controller] result in
             DispatchQueue.main.async {
                 controller?.completeRecognition(result)
             }

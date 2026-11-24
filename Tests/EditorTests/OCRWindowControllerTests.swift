@@ -147,6 +147,30 @@ final class OCRWindowControllerTests: XCTestCase {
         XCTAssertGreaterThan(text.frame.height, scroll.contentSize.height)
     }
 
+    func testPartialResultShowsTextButKeepsLoadingState() throws {
+        let pasteboard = NSPasteboard.withUniqueName()
+        defer { pasteboard.releaseGlobally() }
+        let controller = OCRWindowController(pasteboard: pasteboard) { _ in }
+        defer { controller.close() }
+        controller.showPartialRecognition("Quick text")
+        let views = descendants(of: try XCTUnwrap(controller.window?.contentView))
+        let copy = try XCTUnwrap(views.compactMap { $0 as? NSButton }.first { $0.toolTip == L10n.text(.copy) })
+        let text = try XCTUnwrap(views.compactMap { $0 as? NSTextView }.first)
+        let progress = try XCTUnwrap(views.compactMap { $0 as? NSProgressIndicator }.first)
+        XCTAssertEqual(text.string, "Quick text")
+        XCTAssertFalse(text.isEditable)
+        XCTAssertFalse(copy.isEnabled)
+        XCTAssertFalse(progress.isHiddenOrHasHiddenAncestor)
+        XCTAssertNil(pasteboard.string(forType: .string))
+
+        controller.completeRecognition(.success("Accurate text"))
+        XCTAssertEqual(text.string, "Accurate text")
+        XCTAssertTrue(text.isEditable)
+        XCTAssertTrue(copy.isEnabled)
+        XCTAssertTrue(progress.isHiddenOrHasHiddenAncestor)
+        XCTAssertEqual(pasteboard.string(forType: .string), "Accurate text")
+    }
+
     func testClosedWindowIgnoresRecognitionResult() throws {
         let controller = OCRWindowController { _ in }
         let window = try XCTUnwrap(controller.window)

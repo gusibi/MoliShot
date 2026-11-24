@@ -32,6 +32,9 @@ final class PinWindowController: NSWindowController, NSWindowDelegate {
         view.onCopy = { [weak self] in
             guard let self = self else { return }
             NSPasteboard.general.writeImage(self.image)
+            if let host = self.window?.contentView {
+                MoliToast.show(L10n.text(.copiedToClipboard), in: host, duration: 1.8)
+            }
         }
         view.onSave = { [weak self] in self?.save() }
         view.onOCR = { [weak self] in
@@ -54,10 +57,8 @@ final class PinWindowController: NSWindowController, NSWindowDelegate {
             return
         }
         let finalFrame = window.frame
-        window.setFrame(finalFrame.offsetBy(dx: 0, dy: -10), display: false)
-        NSAnimationContext.runAnimationGroup { ctx in
-            ctx.duration = 0.28
-            ctx.timingFunction = CAMediaTimingFunction(name: .easeOut)
+        window.setFrame(finalFrame.offsetBy(dx: 0, dy: -8), display: false)
+        MoliMotion.run(duration: MoliMotion.standard, curve: MoliMotion.easeOut) {
             window.animator().alphaValue = 1
             window.animator().setFrame(finalFrame, display: true)
         }
@@ -69,11 +70,10 @@ final class PinWindowController: NSWindowController, NSWindowDelegate {
             super.close()
             return
         }
-        NSAnimationContext.runAnimationGroup({ ctx in
-            ctx.duration = 0.15
+        MoliMotion.run(duration: MoliMotion.quick, curve: MoliMotion.easeIn, animations: {
             window.animator().alphaValue = 0
-            window.animator().setFrame(window.frame.offsetBy(dx: 0, dy: -8), display: true)
-        }, completionHandler: {
+            window.animator().setFrame(window.frame.offsetBy(dx: 0, dy: -6), display: true)
+        }, completion: {
             super.close()
         })
     }
@@ -87,7 +87,16 @@ final class PinWindowController: NSWindowController, NSWindowDelegate {
     }
 
     private func save() {
-        _ = try? AppSettings.save(image: image, prefix: "Pin")
+        do {
+            let url = try AppSettings.save(image: image, prefix: "Pin")
+            if let host = window?.contentView {
+                MoliToast.show(L10n.text(.saved, url.lastPathComponent), in: host, duration: 2.2)
+            }
+        } catch {
+            if let host = window?.contentView {
+                MoliToast.show(L10n.text(.saveFailed, error.localizedDescription), in: host, duration: 3.5)
+            }
+        }
     }
 
     func windowWillClose(_ notification: Notification) {
@@ -188,14 +197,12 @@ final class PinView: NSView {
     }
 
     override func mouseEntered(with event: NSEvent) {
-        NSAnimationContext.runAnimationGroup { ctx in
-            ctx.duration = MoliDesign.reduceMotion ? 0.01 : 0.15
+        MoliMotion.run(duration: MoliMotion.micro, curve: MoliMotion.easeOut) {
             toolbarChrome.animator().alphaValue = 1
         }
     }
     override func mouseExited(with event: NSEvent) {
-        NSAnimationContext.runAnimationGroup { ctx in
-            ctx.duration = MoliDesign.reduceMotion ? 0.01 : 0.2
+        MoliMotion.run(duration: MoliMotion.quick, curve: MoliMotion.easeOut) {
             toolbarChrome.animator().alphaValue = 0
         }
     }

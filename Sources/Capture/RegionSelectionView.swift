@@ -227,6 +227,18 @@ final class RegionSelectionView: NSView {
 
     private func drawMask(excluding highlight: NSRect?, in ctx: CGContext) {
         ctx.clear(bounds)
+        // Draw the pre-captured frozen screen snapshot first so open menus,
+        // popovers, and hover tooltips stay visually frozen during selection.
+        if mode == .area, let snapshotImage {
+            snapshotImage.draw(
+                in: bounds,
+                from: .zero,
+                operation: .copy,
+                fraction: 1,
+                respectFlipped: false,
+                hints: [.interpolation: NSNumber(value: NSImageInterpolation.none.rawValue)]
+            )
+        }
         ctx.setFillColor(NSColor.black.withAlphaComponent(0.35).cgColor)
 
         guard let highlight, highlight.width > 0, highlight.height > 0 else {
@@ -483,10 +495,13 @@ final class RegionSelectionView: NSView {
     }
 
     private func localPoint(fromInterceptedGlobalLocation location: CGPoint) -> NSPoint {
-        let desktop = NSScreen.screens.desktopBounds
+        // Quartz CGEvent.location has y = 0 at the top of the PRIMARY display
+        // (NSScreen.screens.first), not desktopBounds.maxY. Using desktopBounds
+        // causes vertical drift whenever a secondary display extends above the primary.
+        let primaryMaxY = NSScreen.screens.first?.frame.maxY ?? NSScreen.screens.desktopBounds.maxY
         let appKitGlobal = NSPoint(
             x: location.x,
-            y: desktop.maxY - location.y
+            y: primaryMaxY - location.y
         )
         return NSPoint(
             x: appKitGlobal.x - desktopBounds.origin.x,

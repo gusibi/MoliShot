@@ -393,14 +393,26 @@ struct TextAnnotation: Annotation, Codable {
     var origin: NSPoint
     var text: String
     var style: AnnotationStyle
+    /// Optional wrapping width in base-image coordinates. `nil` means unconstrained
+    /// single/explicit-line layout; non-nil wraps long text cleanly within that width.
+    var maxWidth: CGFloat?
 
-    init(id: UUID = UUID(), origin: NSPoint, text: String = L10n.text(.text), style: AnnotationStyle = AnnotationStyle(color: .systemRed)) {
-        self.id = id; self.origin = origin; self.text = text; self.style = style
+    init(
+        id: UUID = UUID(),
+        origin: NSPoint,
+        text: String = L10n.text(.text),
+        style: AnnotationStyle = AnnotationStyle(color: .systemRed),
+        maxWidth: CGFloat? = nil
+    ) {
+        self.id = id
+        self.origin = origin
+        self.text = text
+        self.style = style
+        self.maxWidth = maxWidth
     }
 
     var bounds: NSRect {
-        let attrs = attributes()
-        let size = (text as NSString).size(withAttributes: attrs)
+        let size = Self.measureSize(text: text, font: font, maxWidth: maxWidth)
         return NSRect(origin: origin, size: size)
     }
 
@@ -413,8 +425,10 @@ struct TextAnnotation: Annotation, Codable {
     }
 
     func draw(in ctx: CGContext, base: NSImage) {
+        guard !text.isEmpty else { return }
+        let rect = bounds
         let str = NSAttributedString(string: text, attributes: attributes())
-        str.draw(at: origin)
+        str.draw(with: rect, options: [.usesLineFragmentOrigin, .usesFontLeading])
     }
 
     func resized(to newBounds: CGRect) -> any Annotation {
@@ -422,17 +436,59 @@ struct TextAnnotation: Annotation, Codable {
         let old = bounds
         copy.origin = newBounds.origin
         if old.height > 0 {
-            // Resize = scale font size by height ratio (D14).
-            copy.style.fontSize = min(200, max(8, style.fontSize * (newBounds.height / old.height)))
+            let heightRatio = newBounds.height / old.height
+            let widthChanged = abs(newBounds.width - old.width) > 0.5
+            let heightChanged = abs(newBounds.height - old.height) > 0.5
+            if widthChanged && !heightChanged {
+                // Horizontal-only handle drag reflows wrapping width.
+                copy.maxWidth = max(40, newBounds.width)
+            } else {
+                // Resize = scale font size by height ratio (D14).
+                let nextFontSize = min(200, max(8, style.fontSize * heightRatio))
+                let appliedRatio = style.fontSize > 0 ? nextFontSize / style.fontSize : 1
+                copy.style.fontSize = nextFontSize
+                if let mw = style.fontSize > 0 ? maxWidth : nil {
+                    copy.maxWidth = max(40, mw * appliedRatio)
+                }
+            }
         }
         return copy
     }
 
+    var font: NSFont {
+        NSFont.systemFont(ofSize: style.fontSize, weight: .semibold)
+    }
+
     private func attributes() -> [NSAttributedString.Key: Any] {
+        Self.textAttributes(font: font, color: style.color)
+    }
+
+    static func textAttributes(font: NSFont, color: NSColor) -> [NSAttributedString.Key: Any] {
+        let paragraph = NSMutableParagraphStyle()
+        paragraph.lineBreakMode = .byWordWrapping
         return [
-            .font: NSFont.systemFont(ofSize: style.fontSize, weight: .semibold),
-            .foregroundColor: style.color
+            .font: font,
+            .foregroundColor: color,
+            .paragraphStyle: paragraph
         ]
+    }
+
+    static func measureSize(text: String, font: NSFont, maxWidth: CGFloat?) -> NSSize {
+        let attrs = textAttributes(font: font, color: .labelColor)
+        let lineHeight = ceil(("Ag" as NSString).size(withAttributes: attrs).height)
+        guard !text.isEmpty else {
+            return NSSize(width: 0, height: lineHeight)
+        }
+        // Append a space after trailing newline so boundingRect counts the empty last line.
+        let sample = text.hasSuffix("\n") ? text + " " : text
+        let constraintWidth = maxWidth.map { max($0, 20) } ?? CGFloat.greatestFiniteMagnitude
+        let rect = (sample as NSString).boundingRect(
+            with: NSSize(width: constraintWidth, height: CGFloat.greatestFiniteMagnitude),
+            options: [.usesLineFragmentOrigin, .usesFontLeading],
+            attributes: attrs
+        )
+        let width = maxWidth.map { min(ceil(rect.width), ceil($0)) } ?? ceil(rect.width)
+        return NSSize(width: max(width, 1), height: max(ceil(rect.height), lineHeight))
     }
 }
 

@@ -59,6 +59,13 @@ final class EditorView: NSView {
     private var didDragMove = false
     private var pendingTextCreation = false
     private var styleCoalesceID: UUID?
+    private var editingAnnotationID: UUID?
+    private var editingOriginalAnnotation: TextAnnotation?
+    private var editingTopAnchorY: CGFloat = 0
+    private var editingAppliedMaxWidth: CGFloat?
+
+    var isEditingText: Bool { editingTextView != nil }
+    var hasClearableContent: Bool { !annotations.isEmpty || cropRect != nil }
 
     private var resizeHandle: ResizeHandle?
     private var resizeOriginalBounds: CGRect = .zero
@@ -220,7 +227,11 @@ final class EditorView: NSView {
         mutate(&st)
         sel.style = st
         writeBack(sel)
-        commitStyleChange(sel.id)
+        if let textAnn = sel as? TextAnnotation, editingAnnotationID == textAnn.id {
+            syncEditingTextViewStyle(textAnn.style)
+        } else {
+            commitStyleChange(sel.id)
+        }
         delegate?.editorViewDidChangeContent(self)
         needsDisplay = true
     }
@@ -272,6 +283,7 @@ final class EditorView: NSView {
     /// Draw committed + in-progress annotations, each with its own opacity.
     private func drawAnnotations(in ctx: CGContext) {
         for ann in annotations {
+            if ann.id == editingAnnotationID { continue }
             ctx.saveGState()
             ctx.setAlpha(ann.style.opacity)
             ann.draw(in: ctx, base: baseImage)
@@ -286,7 +298,7 @@ final class EditorView: NSView {
     }
 
     private func drawSelectionOverlay(in ctx: CGContext) {
-        guard let sel = selected else { return }
+        guard editingAnnotationID == nil, let sel = selected else { return }
         let pad: CGFloat = 4 / viewScale
         let box = sel.bounds.insetBy(dx: -pad, dy: -pad)
         ctx.setStrokeColor(NSColor.systemBlue.cgColor)
@@ -357,6 +369,18 @@ final class EditorView: NSView {
 
         switch currentTool {
         case .select:
+            // Double-click on a text annotation always enters text editing —
+            // check this BEFORE resize handles so the 8pt handles around a short
+            // text box never hijack the second click.
+            if event.clickCount >= 2,
+               let id = AnnotationHitTester.hitTest(point: bp, annotations: annotations, toleranceScale: viewScale),
+               let text = annotations.first(where: { $0.id == id }) as? TextAnnotation {
+                selected = text
+                delegate?.editorViewDidChangeSelection(self)
+                beginEditingText(text)
+                needsDisplay = true
+                return
+            }
             if let sel = selected, let h = sel.handle(at: bp, toleranceScale: viewScale) {
                 resizeHandle = h
                 resizeOriginalBounds = sel.bounds
@@ -368,9 +392,6 @@ final class EditorView: NSView {
             } else {
                 selected = nil
             }
-            if event.clickCount == 2, let text = selected as? TextAnnotation {
-                beginEditingText(text)
-            }
             delegate?.editorViewDidChangeSelection(self)
             updateCursor()
             needsDisplay = true
@@ -380,10 +401,22 @@ final class EditorView: NSView {
             let pen = PenAnnotation(points: [bp], style: defaultStyle())
             inProgress = pen
         case .text:
-            let t = TextAnnotation(origin: bp, text: "", style: defaultStyle())
+            // Clicking an existing text annotation while in Text tool edits it
+            // directly instead of stacking a new empty annotation on top.
+            if let id = AnnotationHitTester.hitTest(point: bp, annotations: annotations, toleranceScale: viewScale),
+               let existing = annotations.first(where: { $0.id == id }) as? TextAnnotation {
+                selected = existing
+                delegate?.editorViewDidChangeSelection(self)
+                beginEditingText(existing, isNew: false)
+                needsDisplay = true
+                return
+            }
+            let clampedOrigin = clampedNewTextOrigin(for: bp, fontSize: fontSize)
+            let t = TextAnnotation(origin: clampedOrigin, text: "", style: defaultStyle())
             annotations.append(t)
             selected = t
             pendingTextCreation = true
+            delegate?.editorViewDidChangeSelection(self)
             beginEditingText(t, isNew: true)
             delegate?.editorViewDidChangeContent(self)
             needsDisplay = true
@@ -393,6 +426,7 @@ final class EditorView: NSView {
             annotations.append(n)
             selected = n
             commitHistory()
+            delegate?.editorViewDidChangeSelection(self)
             delegate?.editorViewDidChangeContent(self)
             currentTool = .select
             needsDisplay = true
@@ -448,7 +482,10 @@ final class EditorView: NSView {
             }
         case .arrow, .rectangle, .ellipse, .line, .highlight, .blur, .pixelate:
             if var shape = inProgress as? any BoundedShapeAnnotation {
-                shape.end = bp
+                let target = event.modifierFlags.contains(.shift)
+                    ? constrainedEndPoint(from: shape.start, to: bp, for: currentTool)
+                    : bp
+                shape.end = target
                 inProgress = shape
                 needsDisplay = true
             }
@@ -477,17 +514,28 @@ final class EditorView: NSView {
         }
 
         if let ip = inProgress {
+            var committedShape: Annotation?
             if let shape = ip as? any BoundedShapeAnnotation {
-                if shape.bounds.width > 2 && shape.bounds.height > 2 {
+                let isLinear = shape is LineAnnotation || shape is ArrowAnnotation
+                let isValid = isLinear
+                    ? hypot(shape.end.x - shape.start.x, shape.end.y - shape.start.y) > 2
+                    : (shape.bounds.width > 2 && shape.bounds.height > 2)
+                if isValid {
                     annotations.append(shape)
+                    committedShape = shape
+                    selected = shape
                     commitHistory()
                 }
             } else if let pen = ip as? PenAnnotation, pen.points.count > 1 {
                 annotations.append(pen)
+                committedShape = pen
                 commitHistory()
             }
-            delegate?.editorViewDidChangeContent(self)
             inProgress = nil
+            if committedShape != nil {
+                delegate?.editorViewDidChangeSelection(self)
+            }
+            delegate?.editorViewDidChangeContent(self)
             if currentTool != .select && currentTool != .pen {
                 currentTool = .select
             }
@@ -511,8 +559,63 @@ final class EditorView: NSView {
             deleteSelection()
         } else if event.keyCode == 53 { // esc
             cancelCurrentInteraction()
+        } else if event.keyCode == 36 || event.keyCode == 76 { // return / enter
+            if !editSelectedTextIfApplicable() {
+                super.keyDown(with: event)
+            }
+        } else if handleArrowNudge(event) {
+            return
         } else {
             super.keyDown(with: event)
+        }
+    }
+
+    @discardableResult
+    func editSelectedTextIfApplicable() -> Bool {
+        guard !cropMode, editingTextView == nil, let text = selected as? TextAnnotation else { return false }
+        beginEditingText(text, isNew: false)
+        return true
+    }
+
+    @discardableResult
+    func nudgeSelection(dx: CGFloat, dy: CGFloat) -> Bool {
+        guard !cropMode, editingTextView == nil, var sel = selected else { return false }
+        sel.move(by: NSSize(width: dx, height: dy))
+        writeBack(sel)
+        commitStyleChange(sel.id)
+        delegate?.editorViewDidChangeContent(self)
+        needsDisplay = true
+        return true
+    }
+
+    private func handleArrowNudge(_ event: NSEvent) -> Bool {
+        guard !cropMode, editingTextView == nil, selected != nil else { return false }
+        let step: CGFloat = event.modifierFlags.contains(.shift) ? 10 : 1
+        switch event.keyCode {
+        case 123: return nudgeSelection(dx: -step, dy: 0) // left
+        case 124: return nudgeSelection(dx: step, dy: 0)  // right
+        case 125: return nudgeSelection(dx: 0, dy: -step) // down (y-up)
+        case 126: return nudgeSelection(dx: 0, dy: step)  // up (y-up)
+        default: return false
+        }
+    }
+
+    private func constrainedEndPoint(from start: NSPoint, to end: NSPoint, for tool: AnnotationTool) -> NSPoint {
+        let dx = end.x - start.x
+        let dy = end.y - start.y
+        switch tool {
+        case .line, .arrow:
+            let len = hypot(dx, dy)
+            guard len > 0 else { return end }
+            let step = CGFloat.pi / 4
+            let snapped = (atan2(dy, dx) / step).rounded() * step
+            return NSPoint(x: start.x + cos(snapped) * len, y: start.y + sin(snapped) * len)
+        case .rectangle, .ellipse:
+            let side = max(abs(dx), abs(dy))
+            return NSPoint(x: start.x + (dx >= 0 ? side : -side),
+                           y: start.y + (dy >= 0 ? side : -side))
+        default:
+            return end
         }
     }
 
@@ -616,6 +719,17 @@ final class EditorView: NSView {
     private func basePoint(from viewPoint: NSPoint) -> NSPoint {
         let o = cropOrigin
         return NSPoint(x: viewPoint.x + o.x, y: viewPoint.y + o.y)
+    }
+
+    /// Map a base-image point to view coordinates (accounts for committed crop).
+    private func viewPoint(from basePoint: NSPoint) -> NSPoint {
+        let o = cropOrigin
+        return NSPoint(x: basePoint.x - o.x, y: basePoint.y - o.y)
+    }
+
+    /// Visible canvas rect in base-image coordinates.
+    private var visibleCanvasBaseRect: NSRect {
+        NSRect(origin: cropOrigin, size: effectiveSize)
     }
 
     private func syncFrameToCrop() {
@@ -819,7 +933,7 @@ final class EditorView: NSView {
 
     @discardableResult
     func undo() -> EditorUndoResult {
-        if editingField != nil {
+        if editingTextView != nil {
             cancelCurrentInteraction()
             return .cancelledTextEditing
         }
@@ -835,13 +949,13 @@ final class EditorView: NSView {
 
     @discardableResult
     func redo() -> EditorUndoResult {
-        if editingField != nil { return .nothingToRedo }
+        if editingTextView != nil { return .nothingToRedo }
         guard let next = history.redo() else { return .nothingToRedo }
         restore(next)
         return .redid
     }
 
-    var canUndo: Bool { history.canUndo || editingField != nil || inProgress != nil }
+    var canUndo: Bool { history.canUndo || editingTextView != nil || inProgress != nil }
     var canRedo: Bool { history.canRedo }
 
     // MARK: - Z-order
@@ -970,11 +1084,16 @@ final class EditorView: NSView {
 
     // MARK: - Text editing
 
-    private var editingField: EscapableTextField?
+    private static let textEditorPaddingX: CGFloat = 6
+    private static let textEditorPaddingY: CGFloat = 4
+    private static let textCanvasMargin: CGFloat = 8
+
+    private var editingContainer: InlineTextEditorContainer?
+    private var editingTextView: InlineTextEditorView?
 
     func commitActiveTextEditing() {
-        if let field = editingField {
-            commitEditing(field)
+        if let tv = editingTextView {
+            commitEditing(tv)
         }
     }
 
@@ -984,8 +1103,8 @@ final class EditorView: NSView {
             return
         }
 
-        if let field = editingField {
-            cancelEditing(field)
+        if let tv = editingTextView {
+            cancelEditing(tv)
             return
         }
 
@@ -1010,149 +1129,324 @@ final class EditorView: NSView {
         }
     }
 
+    /// Ensure a newly clicked text origin leaves comfortable horizontal room
+    /// inside the canvas so typing near the right edge never starts clipped.
+    private func clampedNewTextOrigin(for point: NSPoint, fontSize: CGFloat) -> NSPoint {
+        let canvas = visibleCanvasBaseRect
+        let font = NSFont.systemFont(ofSize: fontSize, weight: .semibold)
+        let lineHeight = TextAnnotation.measureSize(text: "", font: font, maxWidth: nil).height
+        let minRoom = min(180, max(60, canvas.width - Self.textCanvasMargin * 2))
+        let maxX = max(canvas.minX + Self.textCanvasMargin, canvas.maxX - Self.textCanvasMargin - minRoom)
+        let clampedX = min(max(point.x, canvas.minX + Self.textCanvasMargin), maxX)
+        let minY = canvas.minY + Self.textCanvasMargin
+        let maxY = max(minY, canvas.maxY - Self.textCanvasMargin - lineHeight)
+        let clampedY = min(max(point.y, minY), maxY)
+        return NSPoint(x: clampedX, y: clampedY)
+    }
+
     private func beginEditingText(_ annotation: TextAnnotation, isNew: Bool = false) {
         commitActiveTextEditing()
-        let font = NSFont.systemFont(ofSize: annotation.style.fontSize, weight: .semibold)
-        // Frame matches the drawn text origin exactly (no extra inset) so the
-        // field doesn't sit offset from the committed text. New (empty) text
-        // gets a default-size frame showing the placeholder hint.
-        let initialFrame: NSRect
-        if annotation.text.isEmpty {
-            let lineHeight = ceil(("Ag" as NSString).size(withAttributes: [.font: font]).height)
-            initialFrame = NSRect(origin: annotation.origin,
-                                  size: NSSize(width: 140, height: lineHeight + 8))
-        } else {
-            initialFrame = annotation.bounds
+
+        editingAnnotationID = annotation.id
+        editingOriginalAnnotation = annotation
+        editingAppliedMaxWidth = annotation.maxWidth
+
+        let currentBounds = annotation.bounds
+        editingTopAnchorY = currentBounds.maxY
+
+        let container = InlineTextEditorContainer(frame: .zero)
+        let tv = InlineTextEditorView(frame: .zero)
+        tv.placeholderText = L10n.text(.textInputPlaceholder)
+        tv.string = annotation.text
+        tv.delegate = self
+        tv.onCommit = { [weak self, weak tv] in
+            guard let self, let tv else { return }
+            self.commitEditing(tv)
+            self.currentTool = .select
         }
-        let tf = EscapableTextField(frame: initialFrame)
-        tf.stringValue = annotation.text
-        tf.placeholderString = L10n.text(.text)
-        tf.font = font
-        tf.textColor = annotation.style.color
-        tf.backgroundColor = NSColor.adaptive(
-            light: NSColor.white.withAlphaComponent(0.15),
-            dark: NSColor.black.withAlphaComponent(0.25)
-        )
-        tf.isBordered = false
-        tf.focusRingType = .none
-        tf.target = self
-        tf.action = #selector(textFieldAction(_:))
-        tf.delegate = self
-        tf.onEscape = { [weak self, weak tf] in
-            guard let self, let tf else { return }
-            self.cancelEditing(tf)
+        tv.onCancel = { [weak self, weak tv] in
+            guard let self, let tv else { return }
+            self.cancelEditing(tv)
         }
-        addSubview(tf)
-        window?.makeFirstResponder(tf)
-        editingField = tf
-        resizeEditingField(tf)
+        container.addSubview(tv)
+        addSubview(container)
+
+        editingContainer = container
+        editingTextView = tv
+
+        syncEditingTextViewStyle(annotation.style)
+        if !MoliDesign.reduceMotion {
+            container.alphaValue = 0
+            MoliMotion.run(duration: MoliMotion.micro, curve: MoliMotion.easeOut) {
+                container.animator().alphaValue = 1
+            }
+        }
+        window?.makeFirstResponder(tv)
         if !isNew, !annotation.text.isEmpty {
-            // Editing existing text: select all so typing replaces it instead
-            // of appending (the old placeholder-append bug).
-            tf.selectText(nil)
+            tv.selectAll(nil)
         }
-        // Retain the struct copy (boxed) so commit/cancel can read it back;
-        // ASSIGN is for weak object references and would not retain a value type.
-        objc_setAssociatedObject(tf, &textAnnotationKey, annotation, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+        delegate?.editorViewDidChangeSelection(self)
+        needsDisplay = true
     }
 
-    @objc private func textFieldAction(_ sender: NSTextField) {
-        commitEditing(sender)
+    private func syncEditingTextViewStyle(_ style: AnnotationStyle) {
+        guard let tv = editingTextView else { return }
+        let font = NSFont.systemFont(ofSize: style.fontSize, weight: .semibold)
+        let attrs = TextAnnotation.textAttributes(font: font, color: style.color)
+        tv.font = font
+        tv.textColor = style.color
+        tv.insertionPointColor = style.color
+        tv.typingAttributes = attrs
+        tv.defaultParagraphStyle = attrs[.paragraphStyle] as? NSParagraphStyle
+        if let storage = tv.textStorage, storage.length > 0 {
+            storage.setAttributes(attrs, range: NSRange(location: 0, length: storage.length))
+        }
+        tv.alphaValue = style.opacity
+        resizeEditingTextView()
     }
 
-    private func commitEditing(_ sender: NSTextField) {
-        // Guard against double-commit: controlTextDidEndEditing fires after
-        // textFieldAction / commitActiveTextEditing already detached the field.
-        guard let field = editingField, field === sender else { return }
-        let trimmed = sender.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
-        if let ann = objc_getAssociatedObject(sender, &textAnnotationKey) as? TextAnnotation {
+    /// Auto-grow horizontally while short, then automatically wrap at the right
+    /// canvas margin and expand downward so long or multi-line text is never clipped.
+    private func resizeEditingTextView() {
+        guard let tv = editingTextView,
+              let container = editingContainer,
+              let id = editingAnnotationID,
+              var ann = annotations.first(where: { $0.id == id }) as? TextAnnotation else { return }
+
+        let font = ann.font
+        let canvas = visibleCanvasBaseRect
+        let availableWidth = max(60, canvas.maxX - ann.origin.x - Self.textCanvasMargin)
+        let minWidth = min(availableWidth, max(80, ceil((tv.placeholderText as NSString).size(withAttributes: [.font: font]).width) + 12))
+
+        let liveText = tv.string
+        let sampleText = liveText.isEmpty ? tv.placeholderText : liveText
+        let unconstrained = TextAnnotation.measureSize(text: sampleText, font: font, maxWidth: nil)
+
+        let contentWidth: CGFloat
+        let contentHeight: CGFloat
+        if let fixedMax = editingOriginalAnnotation?.maxWidth {
+            let wrapWidth = max(40, min(fixedMax, availableWidth))
+            let measured = TextAnnotation.measureSize(text: sampleText, font: font, maxWidth: wrapWidth)
+            contentWidth = wrapWidth
+            contentHeight = measured.height
+            editingAppliedMaxWidth = wrapWidth
+        } else if unconstrained.width > availableWidth {
+            let measured = TextAnnotation.measureSize(text: sampleText, font: font, maxWidth: availableWidth)
+            contentWidth = availableWidth
+            contentHeight = measured.height
+            editingAppliedMaxWidth = availableWidth
+        } else {
+            contentWidth = max(unconstrained.width + 6, minWidth)
+            contentHeight = unconstrained.height
+            editingAppliedMaxWidth = nil
+        }
+
+        // Keep top line anchored (y-up coordinates); if text grows past bottom
+        // of canvas, gently push it up so it remains visible.
+        let minOriginY = canvas.minY + Self.textCanvasMargin
+        let newOriginY = max(minOriginY, editingTopAnchorY - contentHeight)
+        ann.origin.y = newOriginY
+        ann.maxWidth = editingAppliedMaxWidth
+        writeBack(ann)
+
+        let viewOrigin = viewPoint(from: ann.origin)
+        let padX = Self.textEditorPaddingX
+        let padY = Self.textEditorPaddingY
+        container.frame = NSRect(
+            x: viewOrigin.x - padX,
+            y: viewOrigin.y - padY,
+            width: contentWidth + padX * 2,
+            height: contentHeight + padY * 2
+        )
+        tv.textContainer?.containerSize = NSSize(width: contentWidth, height: CGFloat.greatestFiniteMagnitude)
+        tv.frame = NSRect(x: padX, y: padY, width: contentWidth, height: contentHeight)
+        tv.needsDisplay = true
+        needsDisplay = true
+    }
+
+    private func commitEditing(_ sender: InlineTextEditorView) {
+        guard let tv = editingTextView, tv === sender else { return }
+        let rawText = tv.string
+        let trimmed = rawText.trimmingCharacters(in: .whitespacesAndNewlines)
+        let original = editingOriginalAnnotation
+        let targetID = editingAnnotationID
+
+        detachTextEditor()
+
+        if let id = targetID,
+           var liveAnn = annotations.first(where: { $0.id == id }) as? TextAnnotation {
             if trimmed.isEmpty {
-                // Empty commit removes the annotation instead of leaving a
-                // "Text" zombie. Deleting existing text is undoable; dropping a
-                // never-typed new annotation just restores the baseline.
-                annotations.removeAll { $0.id == ann.id }
-                if selected?.id == ann.id { selected = nil }
+                annotations.removeAll { $0.id == id }
+                if selected?.id == id { selected = nil }
                 if !pendingTextCreation { commitHistory() }
                 delegate?.editorViewDidChangeSelection(self)
             } else {
-                var copy = ann
-                copy.text = sender.stringValue
-                let changed = pendingTextCreation || copy.text != ann.text
-                if let idx = annotations.firstIndex(where: { $0.id == copy.id }) {
-                    annotations[idx] = copy
-                }
-                if selected?.id == copy.id {
-                    selected = copy
-                }
+                liveAnn.text = rawText
+                liveAnn.maxWidth = editingAppliedMaxWidth
+                let changed = pendingTextCreation
+                    || liveAnn.text != original?.text
+                    || liveAnn.maxWidth != original?.maxWidth
+                    || liveAnn.style != original?.style
+                    || liveAnn.origin != original?.origin
+                writeBack(liveAnn)
                 if changed {
                     commitHistory()
                 }
             }
         }
         pendingTextCreation = false
-        sender.removeFromSuperview()
-        editingField = nil
+        editingAppliedMaxWidth = nil
         window?.makeFirstResponder(self)
+        delegate?.editorViewDidChangeSelection(self)
         delegate?.editorViewDidChangeContent(self)
         updateCursor()
         needsDisplay = true
     }
 
-    /// Grow the in-place editor to fit its current content so long text is
-    /// never clipped while typing.
-    private func resizeEditingField(_ tf: NSTextField) {
-        guard let font = tf.font else { return }
-        let text = tf.stringValue.isEmpty ? (tf.placeholderString ?? " ") : tf.stringValue
-        let measured = (text as NSString).size(withAttributes: [.font: font])
-        var frame = tf.frame
-        frame.size.width = max(ceil(measured.width) + 14, 40)
-        frame.size.height = max(ceil(measured.height) + 8, frame.size.height)
-        tf.frame = frame
-    }
+    private func cancelEditing(_ sender: InlineTextEditorView) {
+        guard editingTextView === sender else { return }
+        let original = editingOriginalAnnotation
+        let targetID = editingAnnotationID
+        let wasNew = pendingTextCreation
 
-    private func cancelEditing(_ sender: NSTextField) {
-        guard editingField === sender else { return }
-        let shouldRemovePlaceholder =
-            sender.stringValue.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
-            sender.stringValue == L10n.text(.text)
-        if shouldRemovePlaceholder,
-           let ann = objc_getAssociatedObject(sender, &textAnnotationKey) as? TextAnnotation {
-            annotations.removeAll { $0.id == ann.id }
-            selected = nil
-            delegate?.editorViewDidChangeSelection(self)
-            delegate?.editorViewDidChangeContent(self)
+        detachTextEditor()
+
+        if wasNew, let id = targetID {
+            annotations.removeAll { $0.id == id }
+            if selected?.id == id { selected = nil }
+        } else if let original {
+            // Restore the existing annotation completely (text, position, style, wrap).
+            writeBack(original)
+            selected = original
         }
+
         pendingTextCreation = false
-        sender.removeFromSuperview()
-        editingField = nil
+        editingAppliedMaxWidth = nil
         currentTool = .select
         window?.makeFirstResponder(self)
+        delegate?.editorViewDidChangeSelection(self)
+        delegate?.editorViewDidChangeContent(self)
         updateCursor()
         needsDisplay = true
     }
-}
 
-private var textAnnotationKey: UInt8 = 0
-
-extension EditorView: NSTextFieldDelegate {
-    func controlTextDidChange(_ obj: Notification) {
-        if let tf = obj.object as? EscapableTextField, tf === editingField {
-            resizeEditingField(tf)
-        }
-    }
-
-    func controlTextDidEndEditing(_ obj: Notification) {
-        if let tf = obj.object as? NSTextField {
-            commitEditing(tf)
-            currentTool = .select
-        }
+    private func detachTextEditor() {
+        editingTextView?.delegate = nil
+        editingContainer?.removeFromSuperview()
+        editingContainer = nil
+        editingTextView = nil
+        editingAnnotationID = nil
+        editingOriginalAnnotation = nil
     }
 }
 
-private final class EscapableTextField: NSTextField {
-    var onEscape: (() -> Void)?
+extension EditorView: NSTextViewDelegate {
+    func textDidChange(_ notification: Notification) {
+        guard let tv = notification.object as? InlineTextEditorView, tv === editingTextView else { return }
+        resizeEditingTextView()
+    }
+
+    func textDidEndEditing(_ notification: Notification) {
+        guard let tv = notification.object as? InlineTextEditorView, tv === editingTextView else { return }
+        commitEditing(tv)
+        currentTool = .select
+    }
+}
+
+private final class InlineTextEditorContainer: NSView {
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        wantsLayer = true
+        applyStyle()
+    }
+
+    required init?(coder: NSCoder) { fatalError() }
+
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        applyStyle()
+    }
+
+    private func applyStyle() {
+        effectiveAppearance.performAsCurrentDrawingAppearance {
+            layer?.cornerRadius = 5
+            layer?.backgroundColor = NSColor.adaptive(
+                light: NSColor.white.withAlphaComponent(0.28),
+                dark: NSColor.black.withAlphaComponent(0.32)
+            ).cgColor
+            layer?.borderWidth = 1.5
+            layer?.borderColor = NSColor.controlAccentColor.withAlphaComponent(0.85).cgColor
+        }
+    }
+}
+
+private final class InlineTextEditorView: NSTextView {
+    var placeholderText: String = "" {
+        didSet { needsDisplay = true }
+    }
+    var onCommit: (() -> Void)?
+    var onCancel: (() -> Void)?
+
+    override init(frame frameRect: NSRect) {
+        let storage = NSTextStorage()
+        let layoutManager = NSLayoutManager()
+        storage.addLayoutManager(layoutManager)
+        let container = NSTextContainer(size: NSSize(width: max(frameRect.width, 60), height: CGFloat.greatestFiniteMagnitude))
+        container.lineFragmentPadding = 0
+        container.widthTracksTextView = false
+        layoutManager.addTextContainer(container)
+        super.init(frame: frameRect, textContainer: container)
+        drawsBackground = false
+        isRichText = false
+        importsGraphics = false
+        allowsUndo = true
+        isEditable = true
+        isSelectable = true
+        isHorizontallyResizable = false
+        isVerticallyResizable = true
+        textContainerInset = .zero
+        focusRingType = .none
+    }
+
+    override init(frame frameRect: NSRect, textContainer container: NSTextContainer?) {
+        super.init(frame: frameRect, textContainer: container)
+    }
+
+    required init?(coder: NSCoder) { fatalError() }
+
+    override func draw(_ dirtyRect: NSRect) {
+        super.draw(dirtyRect)
+        if string.isEmpty, !placeholderText.isEmpty, let font {
+            let color = (textColor ?? .labelColor).withAlphaComponent(0.45)
+            let attrs = TextAnnotation.textAttributes(font: font, color: color)
+            (placeholderText as NSString).draw(in: bounds, withAttributes: attrs)
+        }
+    }
+
+    override func keyDown(with event: NSEvent) {
+        // Never hijack Return/Esc while an IME (e.g. Chinese Pinyin) has marked text.
+        if hasMarkedText() {
+            super.keyDown(with: event)
+            return
+        }
+        let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+        if event.keyCode == 53 { // Esc
+            onCancel?()
+            return
+        }
+        if event.keyCode == 36 || event.keyCode == 76 { // Return / Enter
+            if flags.contains(.shift) || flags.contains(.option) {
+                insertNewlineIgnoringFieldEditor(nil)
+                return
+            }
+            onCommit?()
+            return
+        }
+        super.keyDown(with: event)
+    }
 
     override func cancelOperation(_ sender: Any?) {
-        onEscape?()
+        guard !hasMarkedText() else { return }
+        onCancel?()
     }
 }

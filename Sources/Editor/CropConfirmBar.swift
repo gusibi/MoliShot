@@ -56,15 +56,14 @@ final class CropConfirmBar: NSView {
     // MARK: - Show / hide
 
     func animateIn() {
-        alphaValue = 0
         if MoliDesign.reduceMotion {
             alphaValue = 1
             return
         }
+        alphaValue = 0
         layoutSubtreeIfNeeded()
-        layer?.animateCenteredScale(from: 0.96, to: 1, duration: 0.18, curve: .easeOut)
-        NSAnimationContext.runAnimationGroup { ctx in
-            ctx.duration = 0.18
+        layer?.animateCenteredScale(from: 0.96, to: 1, duration: MoliMotion.quick, timingFunction: MoliMotion.easeOut)
+        MoliMotion.run(duration: MoliMotion.quick, curve: MoliMotion.easeOut) {
             animator().alphaValue = 1
         }
     }
@@ -75,10 +74,9 @@ final class CropConfirmBar: NSView {
             completion()
             return
         }
-        layer?.animateCenteredScale(from: 1, to: 0.96, duration: 0.18, curve: .easeIn)
-        NSAnimationContext.runAnimationGroup({ ctx in
-            ctx.duration = 0.18
+        layer?.animateCenteredScale(from: 1, to: 0.96, duration: MoliMotion.quick, timingFunction: MoliMotion.easeIn)
+        MoliMotion.run(duration: MoliMotion.quick, curve: MoliMotion.easeIn, animations: {
             animator().alphaValue = 0
-        }, completionHandler: completion)
+        }, completion: completion)
     }
 }

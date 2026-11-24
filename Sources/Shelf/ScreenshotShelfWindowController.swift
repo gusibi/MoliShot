@@ -293,6 +293,10 @@ final class ScreenshotShelfWindowController: NSWindowController, NSWindowDelegat
             try store.copy(format, to: pasteboard)
             statusLabel.stringValue = ShelfText.copied(store.entries.count, format: format)
             copyButton.image = actionSymbol("checkmark")
+            if !MoliDesign.reduceMotion {
+                copyButton.wantsLayer = true
+                copyButton.layer?.animateCenteredScale(from: 0.88, to: 1, duration: MoliMotion.quick, timingFunction: MoliMotion.easeOut)
+            }
             feedbackReset?.cancel()
             let reset = DispatchWorkItem { [weak self] in
                 self?.copyButton.image = self?.actionSymbol("doc.on.doc")
@@ -316,13 +320,53 @@ final class ScreenshotShelfWindowController: NSWindowController, NSWindowDelegat
     @objc private func toggleCollapsed() {
         guard let window else { return }
         collapsed.toggle()
-        scroll.isHidden = collapsed
-        footer.isHidden = collapsed
+        let targetHeight: CGFloat = collapsed ? 66 : 252
         let top = window.frame.maxY
-        window.setContentSize(NSSize(width: 680, height: collapsed ? 66 : 252))
-        window.setFrameOrigin(NSPoint(x: window.frame.minX, y: top - window.frame.height))
+        let targetFrame = window.frameRect(forContentRect: NSRect(
+            x: window.frame.minX,
+            y: 0,
+            width: 680,
+            height: targetHeight
+        ))
+        let anchoredFrame = NSRect(
+            x: window.frame.minX,
+            y: top - targetFrame.height,
+            width: targetFrame.width,
+            height: targetFrame.height
+        )
+        if MoliDesign.reduceMotion {
+            scroll.isHidden = collapsed
+            footer.isHidden = collapsed
+            scroll.alphaValue = collapsed ? 0 : 1
+            footer.alphaValue = collapsed ? 0 : 1
+            window.setFrame(anchoredFrame, display: true, animate: false)
+            refresh()
+            keepOnScreen()
+            return
+        }
+        if !collapsed {
+            scroll.isHidden = false
+            footer.isHidden = false
+            scroll.alphaValue = 0
+            footer.alphaValue = 0
+        } else {
+            // Hide before shrinking so scrollView's fixed 132pt height constraint
+            // doesn't fight the window's animated collapse to 66pt.
+            scroll.isHidden = true
+            footer.isHidden = true
+        }
+        let targetCollapsed = collapsed
+        MoliMotion.run(duration: MoliMotion.standard, curve: MoliMotion.easeInOut, animations: {
+            window.animator().setFrame(anchoredFrame, display: true)
+            if !targetCollapsed {
+                scroll.animator().alphaValue = 1
+                footer.animator().alphaValue = 1
+            }
+        }, completion: { [weak self] in
+            guard let self, self.collapsed == targetCollapsed else { return }
+            self.keepOnScreen()
+        })
         refresh()
-        keepOnScreen()
     }
 
     @objc private func screensChanged() { keepOnScreen() }

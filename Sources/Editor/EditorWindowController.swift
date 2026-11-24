@@ -25,7 +25,9 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, Editor
 
     private let colorWell = NSColorWell(frame: NSRect(x: 0, y: 0, width: 28, height: 24))
     private var colorSwatches: [ColorSwatchButton] = []
+    private var swatchRowContainer: NSStackView?
     private let strokeSlider = NSSlider()
+    private var strokeContainer: NSStackView?
     private let fontSizeSlider = NSSlider()
     private let fontSizeContainer = NSStackView()  // hides font size when not editing text
     private let opacitySlider = NSSlider()
@@ -34,6 +36,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, Editor
     private let fillWell = NSColorWell(frame: NSRect(x: 0, y: 0, width: 28, height: 24))
     private let fillCheckbox = NSButton(checkboxWithTitle: "", target: nil, action: nil)
     private let fillContainer = NSStackView()  // fill colour + on/off, conditional
+    private var clearButton: NSButton?
     private let zoomStack = NSStackView()
 
     private var eventMonitor: Any?
@@ -278,8 +281,11 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, Editor
             $0.removeFromSuperview()
         }
         outputGroup.addArrangedSubview(compactToolbarButton(title: ShelfText.add, symbol: "tray.and.arrow.down", action: #selector(addToShelf(_:)), shortcut: "⌘↩"))
-        outputGroup.addArrangedSubview(compactToolbarButton(title: L10n.text(.clear), symbol: "trash", action: #selector(clearTap)))
         outputGroup.addArrangedSubview(compactToolbarButton(title: L10n.text(.ocr), symbol: "text.viewfinder", action: #selector(runOCR)))
+        let clear = compactToolbarButton(title: L10n.text(.clear), symbol: "trash", action: #selector(clearTap))
+        clear.isEnabled = editorView.hasClearableContent
+        clearButton = clear
+        outputGroup.addArrangedSubview(clear)
         bottomStack.addArrangedSubview(outputGroup)
 
         bottomStack.addArrangedSubview(zoomStack)
@@ -297,14 +303,18 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, Editor
         group.edgeInsets = NSEdgeInsets(top: 6, left: 10, bottom: 6, right: 10)
         group.detachesHiddenViews = true
 
-        group.addArrangedSubview(buildSwatchRow())
+        let swatches = buildSwatchRow()
+        swatchRowContainer = swatches
+        group.addArrangedSubview(swatches)
 
         strokeSlider.doubleValue = Double(editorView.strokeWidth)
         strokeSlider.minValue = 1
         strokeSlider.maxValue = 12
         strokeSlider.target = self
         strokeSlider.action = #selector(strokeChanged(_:))
-        group.addArrangedSubview(sliderControl(strokeSlider, symbol: "lineweight", tooltip: L10n.text(.strokeWidth), width: 72))
+        let strokeControl = sliderControl(strokeSlider, symbol: "lineweight", tooltip: L10n.text(.strokeWidth), width: 72)
+        strokeContainer = strokeControl
+        group.addArrangedSubview(strokeControl)
 
         opacitySlider.doubleValue = 100
         opacitySlider.minValue = 0
@@ -495,37 +505,57 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, Editor
         stack.edgeInsets = NSEdgeInsets(top: 12, left: 12, bottom: 12, right: 12)
         stack.translatesAutoresizingMaskIntoConstraints = false
 
-        let swatches = NSStackView()
-        swatches.orientation = .horizontal
-        swatches.spacing = 4
-        for color in Self.swatchColors {
-            let swatch = ColorSwatchButton(color: color)
-            swatch.isSelectedSwatch = ColorSwatchButton.colorsMatch(color, editorView.effectiveStyle.color)
-            swatch.target = self
-            swatch.action = #selector(swatchTapped(_:))
-            swatch.toolTip = color.hexString
-            swatch.setAccessibilityLabel(color.hexString)
-            swatches.addArrangedSubview(swatch)
+        let vis = styleControlVisibility(for: editorView)
+        if vis.showColor {
+            let swatches = NSStackView()
+            swatches.orientation = .horizontal
+            swatches.spacing = 4
+            for color in Self.swatchColors {
+                let swatch = ColorSwatchButton(color: color)
+                swatch.isSelectedSwatch = ColorSwatchButton.colorsMatch(color, editorView.effectiveStyle.color)
+                swatch.target = self
+                swatch.action = #selector(swatchTapped(_:))
+                swatch.toolTip = color.hexString
+                swatch.setAccessibilityLabel(color.hexString)
+                swatches.addArrangedSubview(swatch)
+            }
+            let customWell = NSColorWell(frame: NSRect(x: 0, y: 0, width: 28, height: 24))
+            customWell.colorWellStyle = .minimal
+            customWell.color = editorView.effectiveStyle.color
+            customWell.target = self
+            customWell.action = #selector(colorChanged(_:))
+            customWell.toolTip = customColorTitle
+            customWell.setAccessibilityLabel(customColorTitle)
+            swatches.addArrangedSubview(customWell)
+            stack.addArrangedSubview(swatches)
         }
-        let customWell = NSColorWell(frame: NSRect(x: 0, y: 0, width: 28, height: 24))
-        customWell.colorWellStyle = .minimal
-        customWell.color = editorView.effectiveStyle.color
-        customWell.target = self
-        customWell.action = #selector(colorChanged(_:))
-        customWell.toolTip = customColorTitle
-        customWell.setAccessibilityLabel(customColorTitle)
-        swatches.addArrangedSubview(customWell)
-        stack.addArrangedSubview(swatches)
 
         let style = editorView.effectiveStyle
-        stack.addArrangedSubview(overflowSlider(symbol: "lineweight", tooltip: L10n.text(.strokeWidth), min: 1, max: 12, value: Double(style.strokeWidth), action: #selector(strokeChanged(_:))))
+        if vis.showStroke {
+            stack.addArrangedSubview(overflowSlider(symbol: "lineweight", tooltip: L10n.text(.strokeWidth), min: 1, max: 12, value: Double(style.strokeWidth), action: #selector(strokeChanged(_:))))
+        }
         stack.addArrangedSubview(overflowSlider(symbol: "circle.lefthalf.filled", tooltip: L10n.text(.opacity), min: 0, max: 100, value: Double(style.opacity * 100), action: #selector(opacityChanged(_:))))
-        if editorView.selectedIsText {
+        if vis.showFontSize {
             stack.addArrangedSubview(overflowSlider(symbol: "textformat.size", tooltip: L10n.text(.fontSize), min: 8, max: 72, value: Double(style.fontSize), action: #selector(fontSizeChanged(_:))))
         }
-        if editorView.selectedIsBlur || editorView.selectedIsPixelate {
+        if vis.showEffect {
             let isBlur = editorView.selectedIsBlur
             stack.addArrangedSubview(overflowSlider(symbol: "wand.and.rays", tooltip: L10n.text(.effectStrength), min: isBlur ? 1 : 2, max: isBlur ? 50 : 40, value: Double(editorView.selectedEffectValue), action: #selector(effectChanged(_:))))
+        }
+        if vis.showFill {
+            let fillRow = NSStackView()
+            fillRow.orientation = .horizontal
+            fillRow.spacing = 6
+            let checkbox = NSButton(checkboxWithTitle: "", target: self, action: #selector(fillToggleChanged(_:)))
+            checkbox.state = editorView.effectiveFillColor == nil ? .off : .on
+            let well = NSColorWell(frame: NSRect(x: 0, y: 0, width: 28, height: 24))
+            well.colorWellStyle = .minimal
+            well.color = editorView.effectiveFillColor ?? style.color
+            well.target = self
+            well.action = #selector(fillColorChanged(_:))
+            fillRow.addArrangedSubview(checkbox)
+            fillRow.addArrangedSubview(well)
+            stack.addArrangedSubview(fillRow)
         }
 
         let container = NSView()
@@ -684,15 +714,13 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, Editor
         showSliderValue("\(L10n.text(.effectStrength)) \(Int(v.rounded()))")
     }
 
-    /// Briefly surface a slider's live value where the zoom % normally sits,
-    /// then restore the zoom readout — the sliders otherwise give no numeric
-    /// feedback while dragging.
+    /// Briefly surface a slider's live value in the flexible status area,
+    /// then restore the normal status readout without jittering the zoom label.
     private func showSliderValue(_ text: String) {
-        zoomLabel.stringValue = text
+        statusLabel.stringValue = text
         sliderValueRestoreItem?.cancel()
         let item = DispatchWorkItem { [weak self] in
-            guard let self else { return }
-            self.zoomLabel.stringValue = "\(Int((self.scrollView.magnification * 100).rounded()))%"
+            self?.updateStatusLabel()
         }
         sliderValueRestoreItem = item
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.8, execute: item)
@@ -866,9 +894,49 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, Editor
         syncStyleControls(to: view)
     }
 
+    private struct StyleControlVisibility {
+        let showColor: Bool
+        let showStroke: Bool
+        let showFontSize: Bool
+        let showEffect: Bool
+        let showFill: Bool
+    }
+
+    /// Show only the style controls that actually affect the current selection
+    /// or active tool ("此刻没用的，就不出现").
+    private func styleControlVisibility(for view: EditorView) -> StyleControlVisibility {
+        if let sel = view.selected {
+            if sel is TextAnnotation {
+                return StyleControlVisibility(showColor: true, showStroke: false, showFontSize: true, showEffect: false, showFill: false)
+            }
+            if sel is BlurAnnotation || sel is PixelateAnnotation {
+                return StyleControlVisibility(showColor: false, showStroke: false, showFontSize: false, showEffect: true, showFill: false)
+            }
+            if sel is HighlightAnnotation {
+                return StyleControlVisibility(showColor: true, showStroke: false, showFontSize: false, showEffect: false, showFill: true)
+            }
+            if sel is NumberAnnotation {
+                return StyleControlVisibility(showColor: true, showStroke: false, showFontSize: false, showEffect: false, showFill: false)
+            }
+            let supportsFill = view.selectedSupportsFill
+            return StyleControlVisibility(showColor: true, showStroke: true, showFontSize: false, showEffect: false, showFill: supportsFill)
+        }
+
+        switch view.currentTool {
+        case .text:
+            return StyleControlVisibility(showColor: true, showStroke: false, showFontSize: true, showEffect: false, showFill: false)
+        case .blur, .pixelate:
+            return StyleControlVisibility(showColor: false, showStroke: false, showFontSize: false, showEffect: false, showFill: false)
+        case .highlight, .number:
+            return StyleControlVisibility(showColor: true, showStroke: false, showFontSize: false, showEffect: false, showFill: false)
+        case .select, .arrow, .rectangle, .ellipse, .line, .pen, .crop:
+            return StyleControlVisibility(showColor: true, showStroke: true, showFontSize: false, showEffect: false, showFill: false)
+        }
+    }
+
     /// Reflect the effective style (selection's, or defaults) in the color,
-    /// stroke, and font-size controls; hide font size unless a text annotation
-    /// is selected.
+    /// stroke, and font-size controls; hide controls that do not apply to the
+    /// active tool or selection.
     private func syncStyleControls(to view: EditorView) {
         let style = view.effectiveStyle
         colorWell.color = style.color
@@ -887,18 +955,25 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, Editor
             effectSlider.doubleValue = Double(view.selectedEffectValue)
         }
 
-        let supportsFill = view.selectedSupportsFill
-        if supportsFill {
+        let vis = styleControlVisibility(for: view)
+        if vis.showFill {
             let fc = view.effectiveFillColor
             fillCheckbox.state = fc == nil ? .off : .on
             fillWell.color = fc ?? view.effectiveStyle.color
         }
 
-        setContainersHidden([
-            (fontSizeContainer, !view.selectedIsText),
-            (effectContainer, !(isBlur || isPixelate)),
-            (fillContainer, !supportsFill),
-        ])
+        var changes: [(NSView, Bool)] = [
+            (fontSizeContainer, !vis.showFontSize),
+            (effectContainer, !vis.showEffect),
+            (fillContainer, !vis.showFill),
+        ]
+        if let swatchRowContainer {
+            changes.append((swatchRowContainer, !vis.showColor))
+        }
+        if let strokeContainer {
+            changes.append((strokeContainer, !vis.showStroke))
+        }
+        setContainersHidden(changes)
     }
 
     /// Show/hide the conditional toolbar containers with a short layout
@@ -910,9 +985,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, Editor
             dirty.forEach { $0.0.isHidden = $0.1 }
             return
         }
-        NSAnimationContext.runAnimationGroup { ctx in
-            ctx.duration = 0.18
-            ctx.allowsImplicitAnimation = true
+        MoliMotion.run(duration: MoliMotion.quick, curve: MoliMotion.easeInOut, allowsImplicitAnimation: true) {
             dirty.forEach { $0.0.isHidden = $0.1 }
             bottomBarView.layoutSubtreeIfNeeded()
         }
@@ -927,8 +1000,10 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, Editor
     }
     func editorViewDidChangeTool(_ view: EditorView) {
         refreshToolButtons()
+        syncStyleControls(to: view)
         updateStatusLabel()
         updateCropConfirmBar()
+        updateStyleCollapse()
     }
 
     /// Show the crop confirm bar while the crop modal is active; hide it once
@@ -1078,6 +1153,35 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, Editor
                 }
             }
 
+            // Consistent canvas keys regardless of which toolbar control or
+            // slider last had focus (text editing is already passed through above).
+            if !self.editorView.cropMode {
+                if flags.isEmpty && (event.keyCode == 51 || event.keyCode == 117) {
+                    if self.editorView.deleteSelection() {
+                        return nil
+                    }
+                }
+                if flags.isEmpty && event.keyCode == 53 {
+                    self.editorView.cancelCurrentInteraction()
+                    return nil
+                }
+                if flags.isEmpty && (event.keyCode == 36 || event.keyCode == 76) {
+                    if self.editorView.editSelectedTextIfApplicable() {
+                        return nil
+                    }
+                }
+                if (flags.isEmpty || flags == [.shift]) && self.editorView.hasSelection {
+                    let step: CGFloat = flags.contains(.shift) ? 10 : 1
+                    switch event.keyCode {
+                    case 123: if self.editorView.nudgeSelection(dx: -step, dy: 0) { return nil }
+                    case 124: if self.editorView.nudgeSelection(dx: step, dy: 0) { return nil }
+                    case 125: if self.editorView.nudgeSelection(dx: 0, dy: -step) { return nil }
+                    case 126: if self.editorView.nudgeSelection(dx: 0, dy: step) { return nil }
+                    default: break
+                    }
+                }
+            }
+
             // Single-key tool switching (no modifiers). Disabled in crop modal
             // (those keys would conflict with crop interactions). Text-editing
             // is already passed through above.
@@ -1114,11 +1218,9 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, Editor
     private func setZoom(_ value: CGFloat, centerAt center: NSPoint, animated: Bool = true) {
         let clamped = min(max(value, scrollView.minMagnification), scrollView.maxMagnification)
         if animated && !MoliDesign.reduceMotion {
-            NSAnimationContext.runAnimationGroup({ ctx in
-                ctx.duration = 0.2
-                ctx.allowsImplicitAnimation = true
+            MoliMotion.run(duration: MoliMotion.standard, curve: MoliMotion.easeOut, allowsImplicitAnimation: true, animations: {
                 scrollView.animator().setMagnification(clamped, centeredAt: center)
-            }, completionHandler: { [weak self] in
+            }, completion: { [weak self] in
                 self?.recenterImageIfNeeded()
                 self?.updateStatusLabel()
             })
@@ -1199,9 +1301,14 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, Editor
         let scaleX = fullPoint.width > 0 ? fullPixel.width / fullPoint.width : 1
         let scaleY = fullPoint.height > 0 ? fullPixel.height / fullPoint.height : 1
         let pixelSize = NSSize(width: pointSize.width * scaleX, height: pointSize.height * scaleY)
-        // Only export pixels matter to the user; pt/px double-display was an
-        // engineer's view.
-        statusLabel.stringValue = "\(Int(pixelSize.width))×\(Int(pixelSize.height)) px  ·  \(editorView.annotations.count) \(L10n.text(.annotations))"
+        clearButton?.isEnabled = editorView.hasClearableContent
+        window?.toolbar?.validateVisibleItems()
+        if editorView.isEditingText {
+            statusLabel.stringValue = L10n.text(.textEditingHint)
+        } else {
+            let base = "\(Int(pixelSize.width))×\(Int(pixelSize.height)) px  ·  \(editorView.annotations.count) \(L10n.text(.annotations))"
+            statusLabel.stringValue = editorView.selectedIsText ? "\(base)  ·  \(L10n.text(.textSelectedHint))" : base
+        }
         zoomLabel.stringValue = "\(Int((scrollView.magnification * 100).rounded()))%"
     }
 

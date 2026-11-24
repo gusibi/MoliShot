@@ -278,6 +278,7 @@ private struct HotkeysPane: View {
 // MARK: - Storage Pane
 
 private struct StoragePane: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var saveDirectoryPath = AppSettings.saveDirectoryURL.path
     @State private var historyLimit = AppSettings.historyLimit
     @State private var saveFormat = AppSettings.saveFormat
@@ -362,8 +363,8 @@ private struct StoragePane: View {
         } header: {
             Text(L10n.text(.history))
         }
-        // Reveal/hide the JPEG quality row without an instant jump.
-        .animation(.default, value: saveFormat)
+        // Reveal/hide the JPEG quality row with the unified motion rhythm.
+        .animation(reduceMotion ? nil : .snappy(duration: 0.2), value: saveFormat)
     }
 
     /// Clamp, persist, and apply the history retention limit. Shared by the

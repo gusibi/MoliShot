@@ -303,7 +303,7 @@ final class ScrollingToolbar: NSObject {
         )
 
         label.textColor = MoliDesign.primaryText
-        label.font = NSFont.systemFont(ofSize: 12, weight: .medium)
+        label.font = NSFont.monospacedDigitSystemFont(ofSize: 12, weight: .medium)
         label.lineBreakMode = .byTruncatingTail
         label.translatesAutoresizingMaskIntoConstraints = false
         label.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
@@ -336,7 +336,16 @@ final class ScrollingToolbar: NSObject {
         ])
 
         win.contentView = container
+        win.alphaValue = MoliDesign.reduceMotion ? 1 : 0
         win.makeKeyAndOrderFront(nil)
+        if !MoliDesign.reduceMotion {
+            let finalFrame = win.frame
+            win.setFrame(finalFrame.offsetBy(dx: 0, dy: 6), display: false)
+            MoliMotion.run(duration: MoliMotion.quick, curve: MoliMotion.easeOut) {
+                win.animator().alphaValue = 1
+                win.animator().setFrame(finalFrame, display: true)
+            }
+        }
         self.window = win
 
         // Retain self via window controller alternative: associated object
@@ -348,13 +357,20 @@ final class ScrollingToolbar: NSObject {
     }
 
     func close() {
-        if let window {
-            window.removeObserver(self, forKeyPath: "effectiveAppearance")
-        }
-        window?.orderOut(nil)
+        guard let win = window else { return }
+        win.removeObserver(self, forKeyPath: "effectiveAppearance")
         window = nil
         doneButton = nil
         cancelButton = nil
+        if MoliDesign.reduceMotion {
+            win.orderOut(nil)
+            return
+        }
+        MoliMotion.run(duration: MoliMotion.micro, curve: MoliMotion.easeIn, animations: {
+            win.animator().alphaValue = 0
+        }, completion: {
+            win.orderOut(nil)
+        })
     }
 
     override func observeValue(forKeyPath keyPath: String?, of object: Any?, change: [NSKeyValueChangeKey : Any]?, context: UnsafeMutableRawPointer?) {
