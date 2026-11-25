@@ -24,6 +24,7 @@ final class TextEditingTests: XCTestCase {
             backing: .buffered,
             defer: false
         )
+        window.isReleasedWhenClosed = false
         window.contentView = editorView
         window.makeKeyAndOrderFront(nil)
         return (window, editorView)
