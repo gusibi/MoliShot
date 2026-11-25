@@ -27,12 +27,18 @@ def sign_app(app, signing_dir):
     with tempfile.TemporaryDirectory(prefix='molishot-signing-') as directory:
         keychain = str(Path(directory) / 'release.keychain-db')
         password = secrets.token_urlsafe(32)
+        existing_keychains = [
+            line.strip().strip('"')
+            for line in run('security', 'list-keychains', '-d', 'user', capture_output=True, text=True).stdout.splitlines()
+            if line.strip()
+        ]
         run('security', 'create-keychain', '-p', password, keychain, stdout=subprocess.DEVNULL)
         try:
+            run('security', 'list-keychains', '-d', 'user', '-s', keychain, *existing_keychains)
             run('security', 'unlock-keychain', '-p', password, keychain)
             run('security', 'import', str(signing_dir / 'code-signing.p12'), '-k', keychain,
                 '-P', (signing_dir / 'p12-password.txt').read_text().strip(),
-                '-T', '/usr/bin/codesign', stdout=subprocess.DEVNULL)
+                '-A', '-T', '/usr/bin/codesign', '-T', '/usr/bin/security', stdout=subprocess.DEVNULL)
             run('security', 'set-key-partition-list', '-S', 'apple-tool:,apple:,codesign:',
                 '-s', '-k', password, keychain, stdout=subprocess.DEVNULL)
             identities = run('security', 'find-identity', '-p', 'codesigning', keychain,
@@ -69,6 +75,9 @@ def sign_app(app, signing_dir):
             run('codesign', '--verify', '--deep', '--strict', str(app))
             run('codesign', '--verify', '-R', '=' + requirement.removeprefix('designated => '), str(app))
         finally:
+            if existing_keychains:
+                subprocess.run(['security', 'list-keychains', '-d', 'user', '-s', *existing_keychains],
+                               stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             run('security', 'delete-keychain', keychain, stdout=subprocess.DEVNULL)
 
 
